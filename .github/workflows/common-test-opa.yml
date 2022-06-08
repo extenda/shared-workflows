@@ -1,0 +1,38 @@
+name: OPA rego unit tests
+on: 
+  workflow_call:
+    secrets:
+      service-name:
+        description: 'A name of the service in styra.'
+        required: true
+
+jobs: 
+  opa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - uses: extenda/actions/gcp-secret-manager@v0
+        with:
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+          secrets: |
+            STYRA_TOKEN: styra-das-token
+      
+      - name: OPA/Rego unit tests
+        uses: extenda/actions/styra-das-test@v0
+        with:
+          styra-das-token: ${{ env.STYRA_TOKEN }}
+          permission-prefix: pnp
+          service-name: ${{ secrets.service-name }}
+                
+      - name: Notify Slack if failed
+        if: failure() && github.ref == 'refs/heads/master'
+        uses: extenda/actions/slack-notify@v0
+        with:
+          text: |
+            *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+          channel: enterprise-pnp-failed-builds
+          service-account-key: ${{ secrets.SECRET_AUTH }}
