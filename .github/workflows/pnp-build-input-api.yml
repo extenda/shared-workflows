@@ -11,6 +11,10 @@ on:
       path-to-unit-tests:
         description: 'Path to sln or unit tests csproj file.'
         required: true
+      SECRET_AUTH:
+        required: true
+      GCLOUD_AUTH_STAGING:
+        required: true
     inputs:
       acceptance-dockerfile-path:
         description: 'Path to acceptance tests dockerfile.'
@@ -291,7 +295,7 @@ jobs:
 
       - uses: extenda/actions/setup-gcloud@v0
         with:
-          service-account-key: ${{ secrets.GCLOUD_AUTH_PROD }}
+          service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
 
       - name: Add tag in GCR
         run: |
