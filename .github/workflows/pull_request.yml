@@ -16,4 +16,4 @@ jobs:
           fetch-depth: 0
 
       - name: Lint pull request
-        uses: ./.github/workflows/common-commitlint.yml
+        uses: extenda/shared-workflows/.github/workflows/common-commitlint.yml
