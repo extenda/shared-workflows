@@ -8,6 +8,8 @@ on:
       permissions-prefix:
         description: 'Permissions prefix in styra'
         required: true
+      SECRET_AUTH:
+        required: true
 
 jobs: 
   opa:
