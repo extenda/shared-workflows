@@ -9,4 +9,4 @@ on:
 
 jobs:
   commitlint:
-    uses: extenda/shared-workflows/.github/workflows/common-commitlint.yml@feature/introduce_reusable_workflow
+    uses: extenda/shared-workflows/.github/workflows/common-commitlint.yml@master
