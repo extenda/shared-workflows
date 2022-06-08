@@ -23,7 +23,7 @@ on:
         description: 'Path to acceptance tests dockerfile.'
         default: 'Acceptance.Dockerfile'
         type: string
-        required: true
+        required: false
 
 jobs:
   build:
