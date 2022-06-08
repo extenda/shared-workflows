@@ -11,4 +11,4 @@ jobs:
   commitlint:
     runs-on: ubuntu-latest
     steps:
-      - uses: ./.github/workflows/my-action
+      - uses: ./.github/workflows/common-commitlint.yml
