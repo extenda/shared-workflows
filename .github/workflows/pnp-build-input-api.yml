@@ -2,9 +2,6 @@ name: PNP Input API build workflow
 on:
   workflow_call:
     secrets:
-      service-name:
-        description: 'A name of the service that will be deployed.'
-        required: true
       GCR_image_name:
         description: 'A name of the image to be created in GCR'
         required: true
@@ -12,7 +9,7 @@ on:
         description: 'Path to the sln file'
         required: true
       path-to-unit-tests:
-        description: 'Path to unit tests csproj file. If testing using the sln file - put path to it.'
+        description: 'Path to sln or unit tests csproj file.'
         required: true
     inputs:
       acceptance-dockerfile-path:

@@ -5,6 +5,9 @@ on:
       service-name:
         description: 'A name of the service in styra.'
         required: true
+      permissions-prefix:
+        description: 'Permissions prefix in styra'
+        required: true
 
 jobs: 
   opa:
@@ -24,7 +27,7 @@ jobs:
         uses: extenda/actions/styra-das-test@v0
         with:
           styra-das-token: ${{ env.STYRA_TOKEN }}
-          permission-prefix: pnp
+          permission-prefix: ${{ secrets.permissions-prefix }}
           service-name: ${{ secrets.service-name }}
                 
       - name: Notify Slack if failed
