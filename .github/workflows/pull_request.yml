@@ -11,4 +11,9 @@ jobs:
   commitlint:
     runs-on: ubuntu-latest
     steps:
-      - uses: ./.github/workflows/common-commitlint.yml
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Lint pull request
+        uses: ./.github/workflows/common-commitlint.yml
