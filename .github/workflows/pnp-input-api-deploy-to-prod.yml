@@ -1,0 +1,75 @@
+name: Deploy to Prod with manual trigger
+on:
+  workflow_call:
+    secrets:
+      GCR_image_name:
+        description: 'A name of the image to be created in GCR'
+        required: true
+      service-name:
+        description: 'A name of the service in styra.'
+        required: true
+      permissions-prefix:
+        description: 'Permissions prefix in styra'
+        required: true
+      slack-channel:
+        description: 'A slack channel which needs to be notified in case of failure'
+        required: true
+      dora-component:
+        description: 'Dora component name'
+        required: true
+      SECRET_AUTH:
+        required: true
+      GCLOUD_AUTH_PROD:
+        required: true
+
+jobs:
+  prod:
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - uses: extenda/actions/gcp-secret-manager@v0
+        with:
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+          secrets: |
+            STYRA_TOKEN: styra-das-token
+            JIRA_USERNAME: jira-username
+            JIRA_PASSWORD: jira-password
+
+      - name: Determine version
+        uses: extenda/actions/conventional-version@v0
+        id: semver
+
+      - name: DAS production deploy
+        uses: extenda/actions/styra-das-deploy@v0
+        with:
+          permission-prefix: ${{ secrets.permissions-prefix }}
+          service-name: ${{ secrets.service-name }}
+          styra-das-token: ${{ env.STYRA_TOKEN }}
+       
+      - name: Deploy to production latest
+        uses: extenda/actions/cloud-run@v0
+        with:
+          service-account-key: ${{ secrets.GCLOUD_AUTH_PROD }}
+          image: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.semver.outputs.release-tag }}
+      
+      - uses: extenda/actions/dora-metrics@v0
+        with:
+          product-name: Product And Price
+          product-component: ${{ secrets.dora-component }}
+          jira-username: ${{ env.JIRA_USERNAME }}
+          jira-password: ${{ env.JIRA_PASSWORD }}
+          jira-project-key: EA
+      
+      - name: Notify Slack if failed
+        if: failure()
+        uses: extenda/actions/slack-notify@v0
+        with:
+          text: |
+            *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+          channel: ${{ secrets.slack-channel }}
+          service-account-key: ${{ secrets.SECRET_AUTH }}

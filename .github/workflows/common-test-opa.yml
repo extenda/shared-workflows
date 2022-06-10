@@ -1,0 +1,52 @@
+name: OPA rego unit tests
+on: 
+  workflow_call:
+    secrets:
+      service-name:
+        description: 'A name of the service in styra.'
+        required: true
+      permissions-prefix:
+        description: 'Permissions prefix in styra'
+        required: true
+      slack-channel:
+        description: 'A slack channel which needs to be notified in case of failure'
+        required: false
+      SECRET_AUTH:
+        required: true
+    inputs:
+      notify-slack-on-fail:
+        description: 'If true notifies slack channel specified in secrets in case this workflow fails'
+        default: false
+        type: boolean
+        required: false
+
+jobs: 
+  opa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - uses: extenda/actions/gcp-secret-manager@v0
+        with:
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+          secrets: |
+            STYRA_TOKEN: styra-das-token
+      
+      - name: OPA/Rego unit tests
+        uses: extenda/actions/styra-das-test@v0
+        with:
+          styra-das-token: ${{ env.STYRA_TOKEN }}
+          permission-prefix: ${{ secrets.permissions-prefix }}
+          service-name: ${{ secrets.service-name }}
+                
+      - name: Notify Slack if failed
+        if: failure() && ${{ inputs.notify-slack-on-fail == 'true' }} && github.ref == 'refs/heads/master'
+        uses: extenda/actions/slack-notify@v0
+        with:
+          text: |
+            *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+          channel: ${{ secrets.slack-channel }}
+          service-account-key: ${{ secrets.SECRET_AUTH }}
