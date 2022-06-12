@@ -1,15 +1,13 @@
-name: Pull request to master
-on: 
+name: Merge to master 
+
+on:
   workflow_call:
     secrets:
       GCR_image_name:
         description: 'A name of the image to be created in GCR'
         required: true
-      path-to-sln:
-        description: 'Path to the sln file'
-        required: true
-      path-to-unit-tests:
-        description: 'Path to sln or unit tests csproj file.'
+      path-to-pom:
+        description: 'Path to the pom file'
         required: true
       slack-channel:
         description: 'A slack channel which needs to be notified in case of failure'
@@ -31,72 +29,42 @@ jobs:
       - uses: actions/checkout@v2
         with:
           fetch-depth: 0
-
+      
       - uses: extenda/actions/gcp-secret-manager@v0
         with:
           service-account-key: ${{ secrets.SECRET_AUTH }}
           secrets: |
             NEXUS_PASSWORD: nexus-password
             NEXUS_USERNAME: nexus-username
-            NUGET_API_KEY: nuget-api-key  
-        
+      
+      - name: Set up JDK
+        uses: actions/setup-java@v2
+        with:
+          distribution: 'temurin'
+          java-version: 17
+          cache: maven
+
       - name: Determine version
         uses: extenda/actions/conventional-version@v0
         id: semver
-        with:
-          build-number: ${{ github.run_number }}
-      
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v1
-        with:
-          dotnet-version: '6.0.x'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Setup NuGet
-        uses: NuGet/setup-nuget@v1
+      - name: Verify with Maven
+        uses: extenda/actions/maven@v0
         with:
-          nuget-version: 'latest'
+          args: verify -s settings.xml
+          version: ${{ steps.semver.outputs.release-version }}-SNAPSHOT
+          service-account-key: ${{ secrets.SECRET_AUTH }}
 
-      - name: Setup NuGet sources
-        uses: extenda/actions/setup-nuget-sources@v0
-        with:
-          config-file: src/nuget.config # check this in all of the sinks
-          sources: |
-            [{
-              "name": "nuget.org",
-              "source": "https://api.nuget.org/v3/index.json"
-            },
-            {
-              "name": "Extenda",
-              "source": "https://repo.extendaretail.com/repository/nuget-hosted/index.json",
-              "username": "${{ env.NEXUS_USERNAME }}",
-              "password": "${{ env.NEXUS_PASSWORD }}",
-              "apikey": "${{ env.NUGET_API_KEY }}"
-            }]
-
-      - name: Start Sonar Scanner
+      - name: Analyze with Sonar
         uses: extenda/actions/sonar-scanner@v0
         with:
           sonar-host: https://sonarcloud.io
-          sonar-scanner: dotnet
-          main-branch: ${{ steps.semver.outputs.branch-name-short }}
+          main-branch: master
+          maven-args: --file ${{ secrets.path-to-pom }} --settings settings.xml org.sonarsource.scanner.maven:sonar-maven-plugin:3.7.0.1746:sonar
           service-account-key: ${{ secrets.SECRET_AUTH }}
-
-      - name: Build dotnet solution
-        run: |
-          dotnet build ${{ secrets.path-to-sln }} --configuration Release /p:Version=${{ steps.semver.outputs.version }}
-                
-      - name: Test dotnet solution
-        run: |
-          dotnet test ${{ secrets.path-to-unit-tests }} /p:CollectCoverage=true /p:CoverletOutputFormat=opencover
-
-      - name: Analyze with Sonar  
-        uses: extenda/actions/sonar-scanner@v0
-        with:
-          sonar-host: https://sonarcloud.io
-          sonar-scanner: dotnet
-          main-branch: ${{ steps.semver.outputs.branch-name-short }}
-          service-account-key: ${{ secrets.SECRET_AUTH }}
-
+            
       - name: Notify Slack if failed
         if: failure() && github.ref == 'refs/heads/master'
         uses: extenda/actions/slack-notify@v0
@@ -106,57 +74,43 @@ jobs:
             Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
           channel: ${{ secrets.slack-channel }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
-
-  staging:
+  
+  stage:
     if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
-    needs: build
+    needs:
+      - build
     steps:
       - uses: actions/checkout@v2
         with:
           fetch-depth: 0
-
+      
       - uses: extenda/actions/gcp-secret-manager@v0
         with:
           service-account-key: ${{ secrets.SECRET_AUTH }}
           secrets: |
-            NEXUS_PASSWORD: nexus-password
-            NEXUS_USERNAME: nexus-username
-            NUGET_API_KEY: nuget-api-key  
-
-      - name: Setup NuGet
-        uses: NuGet/setup-nuget@v1
-        with:
-          nuget-version: 'latest'
-
-      - name: Setup NuGet sources
-        uses: extenda/actions/setup-nuget-sources@v0
-        with:
-          config-file: src/nuget.config # Again, is this correct?
-          sources: |
-            [{
-              "name": "nuget.org",
-              "source": "https://api.nuget.org/v3/index.json"
-            },
-            {
-              "name": "Extenda",
-              "source": "https://repo.extendaretail.com/repository/nuget-hosted/index.json",
-              "username": "${{ env.NEXUS_USERNAME }}",
-              "password": "${{ env.NEXUS_PASSWORD }}",
-              "apikey": "${{ env.NUGET_API_KEY }}"
-            }]
-
+            GITHUB-TOKEN: github-token
+      
+      - name: Determine version
+        uses: extenda/actions/conventional-version@v0
+        id: semver
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
       - name: Setup gcloud
         uses: extenda/actions/setup-gcloud@v0
         id: gcloud
         with:
           service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
-
-      - name: Build and push Docker
+      
+      - name: Authenticate docker
         run: |
           gcloud --quiet auth configure-docker
+      
+      - name: Docker build and push
+        run: |
           IMAGE=eu.gcr.io/extenda/${{ secrets.GCR_image_name }}
-          docker build -t $IMAGE:${{ github.sha }} -t $IMAGE:latest . -f Dockerfile
+          docker build . -f staging.Dockerfile --build-arg jar_version=${{ steps.semver.outputs.release-version }} -t $IMAGE:${{ steps.semver.outputs.release-version }} -t $IMAGE:${{ github.sha }} -t $IMAGE:latest
           docker push --all-tags $IMAGE
 
       - name: Attest image
@@ -164,14 +118,14 @@ jobs:
         with:
           image-path: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}
           service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
-
-      - name: Deploy to staging
+      
+      - name: Deploy to Kubernetes (staging)
         uses: extenda/actions/kubernetes@v0
         with:
           service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
           service-definition: ${{ inputs.path-to-kubernetes-config }}
-          image: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ github.sha }}
-
+          image: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.semver.outputs.release-version }} # Check release-version vs version everywhere
+            
       - name: Notify Slack if failed
         if: failure()
         uses: extenda/actions/slack-notify@v0
@@ -185,7 +139,7 @@ jobs:
   release:
     if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
-    needs: staging
+    needs: stage
     steps:
       - uses: actions/checkout@v2
         with:
@@ -206,7 +160,7 @@ jobs:
           gcloud container images add-tag \
             eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ github.sha }} \
             eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.release.outputs.version }}
-
+            
       - name: Notify Slack if failed
         if: failure()
         uses: extenda/actions/slack-notify@v0
