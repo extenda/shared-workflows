@@ -18,7 +18,6 @@ on:
     inputs:
       path-to-kubernetes-config:
         description: 'Path to kubernetes config file.'
-        default: 'kubernetes.yml'
         type: string
         required: true
 
