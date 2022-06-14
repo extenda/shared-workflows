@@ -1,4 +1,4 @@
-name: Pull Request
+name: Lint pull request title
 on:
   workflow_call:
 

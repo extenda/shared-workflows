@@ -46,7 +46,7 @@ jobs:
 
       - name: Authenticate to gcp
         run: |
-          gcloud container clusters get-credentials k8s-cluster --zone europe-west1 --project ${{ inputs.gcp-project }}
+          gcloud container clusters get-credentials k8s-cluster --zone europe-west1 --project ${{ secrets.gcp-project }}
 
       - name: Scale deployment service to 0
         if: ${{ inputs.is-statefulset == 'false' }}
