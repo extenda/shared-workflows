@@ -25,8 +25,8 @@ on:
       number_of_replicas:
         description: 'Number of replicas to scale to.'     
         required: true
-        type: number
-        default: 3
+        type: string
+        default: '3'
       is-statefulset:
         description: 'If true assumes the service is of type statefulset. If false assumes the service is of type deployment. Defaults to false.'
         required: false
