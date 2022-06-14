@@ -26,7 +26,7 @@ on:
         required: true
     inputs:
       has-k6-tests:
-        description: 'If true runs k6 tests for this API'     
+        description: 'If true runs k6 tests for this API. Requires "path-to-k6" and "k6-node-version" set up to run k6 tests'     
         required: true
         type: boolean
       path-to-k6:
@@ -34,6 +34,11 @@ on:
         default: 'test/k6'
         type: string
         required: false
+      k6-node-version:
+        description: 'Node version needed for k6'
+        type: number
+        required: false
+        default: 14
 
 jobs:
   build:
@@ -211,7 +216,7 @@ jobs:
 
       - uses: actions/setup-node@v1
         with:
-          node-version: 14
+          node-version: ${{ inputs.k6-node-version }}
 
       - name: yarn webpack
         run: |

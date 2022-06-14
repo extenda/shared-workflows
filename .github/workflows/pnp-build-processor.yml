@@ -21,6 +21,16 @@ on:
         description: 'Path to kubernetes config file.'
         type: string
         required: true
+      jdk-distribution:
+        description: 'JDK Distribution name'
+        type: string
+        required: false
+        default: 'temurin'
+      java-version:
+        description: 'Java version used in the project'
+        type: number
+        required: false
+        default: 17
 
 jobs:
   build:
@@ -40,8 +50,8 @@ jobs:
       - name: Set up JDK
         uses: actions/setup-java@v2
         with:
-          distribution: 'temurin'
-          java-version: 17
+          distribution: ${{ inputs.jdk-distribution }}
+          java-version: ${{ inputs.java-version }}
           cache: maven
 
       - name: Determine version
@@ -75,7 +85,7 @@ jobs:
           channel: ${{ secrets.slack-channel }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
   
-  stage:
+  staging:
     if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     needs:
@@ -139,7 +149,7 @@ jobs:
   release:
     if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
-    needs: stage
+    needs: staging
     steps:
       - uses: actions/checkout@v2
         with:
