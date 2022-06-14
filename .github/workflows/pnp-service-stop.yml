@@ -1,0 +1,71 @@
+name: Stop the service
+on:
+  workflow_call:
+    secrets:
+      service-namespace:
+        description: 'A namespace of the service in styra'
+        required: true
+      gcp-project:
+        description: 'A project name in gcp'
+        required: true
+      slack-channel:
+        description: 'A slack channel which needs to be notified in case of failure'
+        required: false
+      SECRET_AUTH:
+        required: true
+      GCLOUD_AUTH_STAGING:
+        required: false
+      GCLOUD_AUTH_PROD:
+        required: false
+    inputs:
+      prod:
+        description: 'If true restarts the service in prod'     
+        required: true
+        type: boolean
+      is-statefulset:
+        description: 'If true assumes the service is of type statefulset. If false assumes the service is of type deployment. Defaults to false.'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  stop-service:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: extenda/actions/setup-gcloud@v0
+        if: ${{ inputs.prod == 'false' }}
+        with:
+          service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
+
+      - uses: extenda/actions/setup-gcloud@v0
+        if: ${{ inputs.prod == 'true' }}
+        with:
+          service-account-key: ${{ secrets.GCLOUD_AUTH_PROD }}
+
+      - name: Authenticate to gcp
+        run: |
+          gcloud container clusters get-credentials k8s-cluster --zone europe-west1 --project ${{ inputs.gcp-project }}
+
+      - name: Scale deployment service to 0
+        if: ${{ inputs.is-statefulset == 'false' }}
+        run: |
+          kubectl config set-context --current --namespace=${{ secrets.service-namespace }}
+          kubectl scale --replicas=0 deployment/${{ secrets.service-namespace }}
+
+      - name: Scale statefulset service to 0
+        if: ${{ inputs.is-statefulset == 'true' }}
+        run: |
+          kubectl config set-context --current --namespace=${{ secrets.service-namespace }}
+          kubectl scale --replicas=0 statefulset/${{ secrets.service-namespace }}
+
+      - name: Notify Slack if failed
+        if: failure()
+        uses: extenda/actions/slack-notify@v0
+        with:
+          text: |
+            *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+          channel: ${{ secrets.slack-channel }}
+          service-account-key: ${{ secrets.SECRET_AUTH }}

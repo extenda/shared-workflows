@@ -1,0 +1,202 @@
+name: Merge to master 
+
+on:
+  workflow_call:
+    secrets:
+      GCR_image_name:
+        description: 'A name of the image to be created in GCR'
+        required: true
+      path-to-pom:
+        description: 'Path to the pom file'
+        required: true
+      slack-channel:
+        description: 'A slack channel which needs to be notified in case of failure'
+        required: false
+      SECRET_AUTH:
+        required: true
+      GCLOUD_AUTH_STAGING:
+        required: true
+    inputs:
+      path-to-kubernetes-config:
+        description: 'Path to kubernetes config file.'
+        type: string
+        required: true
+      jdk-distribution:
+        description: 'JDK Distribution name'
+        type: string
+        required: false
+        default: 'temurin'
+      java-version:
+        description: 'Java version used in the project'
+        type: number
+        required: false
+        default: 17
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      
+      - uses: extenda/actions/gcp-secret-manager@v0
+        with:
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+          secrets: |
+            NEXUS_PASSWORD: nexus-password
+            NEXUS_USERNAME: nexus-username
+      
+      - name: Set up JDK
+        uses: actions/setup-java@v2
+        with:
+          distribution: ${{ inputs.jdk-distribution }}
+          java-version: ${{ inputs.java-version }}
+          cache: maven
+
+      - name: Determine version
+        uses: extenda/actions/conventional-version@v0
+        id: semver
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify with Maven
+        uses: extenda/actions/maven@v0
+        with:
+          args: verify -s settings.xml
+          version: ${{ steps.semver.outputs.release-version }}-SNAPSHOT
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+
+      - name: Analyze with Sonar
+        uses: extenda/actions/sonar-scanner@v0
+        with:
+          sonar-host: https://sonarcloud.io
+          main-branch: master
+          maven-args: --file ${{ secrets.path-to-pom }} --settings settings.xml org.sonarsource.scanner.maven:sonar-maven-plugin:3.7.0.1746:sonar
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+            
+      - name: Notify Slack if failed
+        if: failure() && github.ref == 'refs/heads/master'
+        uses: extenda/actions/slack-notify@v0
+        with:
+          text: |
+            *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+          channel: ${{ secrets.slack-channel }}
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+  
+  staging:
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    needs:
+      - build
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      
+      - uses: extenda/actions/gcp-secret-manager@v0
+        with:
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+          secrets: |
+            GITHUB-TOKEN: github-token
+      
+      - name: Determine version
+        uses: extenda/actions/conventional-version@v0
+        id: semver
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Setup gcloud
+        uses: extenda/actions/setup-gcloud@v0
+        id: gcloud
+        with:
+          service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
+      
+      - name: Authenticate docker
+        run: |
+          gcloud --quiet auth configure-docker
+      
+      - name: Docker build and push
+        run: |
+          IMAGE=eu.gcr.io/extenda/${{ secrets.GCR_image_name }}
+          docker build . -f staging.Dockerfile --build-arg jar_version=${{ steps.semver.outputs.release-version }} -t $IMAGE:${{ steps.semver.outputs.release-version }} -t $IMAGE:${{ github.sha }} -t $IMAGE:latest
+          docker push --all-tags $IMAGE
+
+      - name: Attest image
+        uses: extenda/actions/binary-auth-attestation@v0
+        with:
+          image-path: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}
+          service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
+      
+      - name: Deploy to Kubernetes (staging)
+        uses: extenda/actions/kubernetes@v0
+        with:
+          service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
+          service-definition: ${{ inputs.path-to-kubernetes-config }}
+          image: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.semver.outputs.release-version }} # Check release-version vs version everywhere
+            
+      - name: Notify Slack if failed
+        if: failure()
+        uses: extenda/actions/slack-notify@v0
+        with:
+          text: |
+            *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+          channel: ${{ secrets.slack-channel }}
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+      
+  release:
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    needs: staging
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Create release
+        uses: extenda/actions/conventional-release@v0
+        id: release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: extenda/actions/setup-gcloud@v0
+        with:
+          service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
+
+      - name: Add tag in GCR
+        run: |
+          gcloud container images add-tag \
+            eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ github.sha }} \
+            eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.release.outputs.version }}
+            
+      - name: Notify Slack if failed
+        if: failure()
+        uses: extenda/actions/slack-notify@v0
+        with:
+          text: |
+            *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+          channel: ${{ secrets.slack-channel }}
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+
+  jira-release-notes:
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    needs:
+      - release
+    steps:
+      - uses: actions/checkout@v1
+
+      - uses: extenda/actions/gcp-secret-manager@v0
+        with:
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+          secrets: |
+            JIRA_USERNAME: jira-username
+            JIRA_PASSWORD: jira-password
+      
+      - name: Update JIRA release notes
+        uses: extenda/actions/jira-releasenotes@v0
+        with:
+          jira-project: EA

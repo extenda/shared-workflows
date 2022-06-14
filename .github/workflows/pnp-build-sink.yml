@@ -1,5 +1,5 @@
-name: PNP Input API build workflow
-on:
+name: Pull request to master
+on: 
   workflow_call:
     secrets:
       GCR_image_name:
@@ -11,9 +11,6 @@ on:
       path-to-unit-tests:
         description: 'Path to sln or unit tests csproj file.'
         required: true
-      path-to-dockerfile:
-        description: 'Path to dockerfile which builds the API.'
-        required: true
       slack-channel:
         description: 'A slack channel which needs to be notified in case of failure'
         required: false
@@ -22,11 +19,10 @@ on:
       GCLOUD_AUTH_STAGING:
         required: true
     inputs:
-      acceptance-dockerfile-path:
-        description: 'Path to acceptance tests dockerfile.'
-        default: 'Acceptance.Dockerfile'
+      path-to-kubernetes-config:
+        description: 'Path to kubernetes config file.'
         type: string
-        required: false
+        required: true
 
 jobs:
   build:
@@ -42,14 +38,14 @@ jobs:
           secrets: |
             NEXUS_PASSWORD: nexus-password
             NEXUS_USERNAME: nexus-username
-            NUGET_API_KEY: nuget-api-key
-
+            NUGET_API_KEY: nuget-api-key  
+        
       - name: Determine version
         uses: extenda/actions/conventional-version@v0
         id: semver
         with:
           build-number: ${{ github.run_number }}
-
+      
       - name: Setup .NET
         uses: actions/setup-dotnet@v1
         with:
@@ -59,11 +55,11 @@ jobs:
         uses: NuGet/setup-nuget@v1
         with:
           nuget-version: 'latest'
-      
+
       - name: Setup NuGet sources
         uses: extenda/actions/setup-nuget-sources@v0
         with:
-          config-file: src/nuget.config #check this in all of the APIs
+          config-file: src/nuget.config # check this in all of the sinks
           sources: |
             [{
               "name": "nuget.org",
@@ -87,11 +83,11 @@ jobs:
 
       - name: Build dotnet solution
         run: |
-          dotnet build ${{ secrets.path-to-sln }} --configuration Release /p:Version=${{ steps.semver.outputs.semver }} /p:FileVersion=${{ steps.semver.outputs.version }}
-      
-      - name: Run Unit Tests
+          dotnet build ${{ secrets.path-to-sln }} --configuration Release /p:Version=${{ steps.semver.outputs.version }}
+                
+      - name: Test dotnet solution
         run: |
-          dotnet test ${{ secrets.path-to-unit-tests }} /p:CollectCoverage=true /p:CoverletOutputFormat=opencover --configuration Release --no-restore
+          dotnet test ${{ secrets.path-to-unit-tests }} /p:CollectCoverage=true /p:CoverletOutputFormat=opencover
 
       - name: Analyze with Sonar  
         uses: extenda/actions/sonar-scanner@v0
@@ -126,7 +122,7 @@ jobs:
           secrets: |
             NEXUS_PASSWORD: nexus-password
             NEXUS_USERNAME: nexus-username
-            NUGET_API_KEY: nuget-api-key
+            NUGET_API_KEY: nuget-api-key  
 
       - name: Setup NuGet
         uses: NuGet/setup-nuget@v1
@@ -136,7 +132,7 @@ jobs:
       - name: Setup NuGet sources
         uses: extenda/actions/setup-nuget-sources@v0
         with:
-          config-file: src/nuget.config
+          config-file: src/nuget.config # Again, is this correct?
           sources: |
             [{
               "name": "nuget.org",
@@ -150,7 +146,9 @@ jobs:
               "apikey": "${{ env.NUGET_API_KEY }}"
             }]
 
-      - uses: extenda/actions/setup-gcloud@v0
+      - name: Setup gcloud
+        uses: extenda/actions/setup-gcloud@v0
+        id: gcloud
         with:
           service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
 
@@ -158,7 +156,7 @@ jobs:
         run: |
           gcloud --quiet auth configure-docker
           IMAGE=eu.gcr.io/extenda/${{ secrets.GCR_image_name }}
-          docker build -t $IMAGE:${{ github.sha }} -t $IMAGE:latest . -f ${{ secrets.path-to-dockerfile }}
+          docker build -t $IMAGE:${{ github.sha }} -t $IMAGE:latest . -f Dockerfile
           docker push --all-tags $IMAGE
 
       - name: Attest image
@@ -168,92 +166,12 @@ jobs:
           service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
 
       - name: Deploy to staging
-        uses: extenda/actions/cloud-run@v0
+        uses: extenda/actions/kubernetes@v0
         with:
           service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
+          service-definition: ${{ inputs.path-to-kubernetes-config }}
           image: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ github.sha }}
-      
-      - name: Notify Slack if failed
-        if: failure()
-        uses: extenda/actions/slack-notify@v0
-        with:
-          text: |
-            *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
-            Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
-          channel: ${{ secrets.slack-channel }}
-          service-account-key: ${{ secrets.SECRET_AUTH }}
 
-  acceptance:
-    if: github.ref == 'refs/heads/master'
-    runs-on: ubuntu-latest
-    needs: staging
-    steps:
-      - uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
-
-      - uses: extenda/actions/gcp-secret-manager@v0
-        with:
-          service-account-key: ${{ secrets.SECRET_AUTH }}
-          secrets: |
-            NEXUS_PASSWORD: nexus-password
-            NEXUS_USERNAME: nexus-username
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v1
-        with:
-          dotnet-version: '6.0.x'
-
-      - name: Setup NuGet
-        uses: NuGet/setup-nuget@v1
-        with:
-          nuget-version: 'latest'
-
-      - name: Setup NuGet sources
-        uses: extenda/actions/setup-nuget-sources@v0
-        with:
-          config-file: src/nuget.config # check this everywhere
-          sources: |
-            [{
-              "name": "nuget.org",
-              "source": "https://api.nuget.org/v3/index.json"
-            },
-            {
-              "name": "Extenda",
-              "source": "https://repo.extendaretail.com/repository/nuget-hosted/index.json",
-              "username": "${{ env.NEXUS_USERNAME }}",
-              "password": "${{ env.NEXUS_PASSWORD }}",
-              "apikey": "${{ env.NUGET_API_KEY }}"
-            }]
-
-      - uses: extenda/actions/setup-gcloud@v0
-        id: gcloud
-        with:
-          service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
-
-      - name: Build test image
-        run: |
-          gcloud --quiet auth configure-docker
-          IMAGE=eu.gcr.io/extenda/${{ secrets.GCR_image_name }}-acceptance:${{ github.sha }}
-          docker build . -f ${{ inputs.acceptance-dockerfile-path }} -t $IMAGE
-          docker push $IMAGE
-
-      - name: Attest image
-        uses: extenda/actions/binary-auth-attestation@v0
-        with:
-          image-path: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}-acceptance
-          service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
-
-      - name: Acceptance tests
-        uses: extenda/actions/test-pod@v0
-        with:
-          service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
-          image: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}-acceptance:${{ github.sha }}
-        env:
-          TESTPOD_ACCEPTANCE_TESTS_API_KEY: sm://${{ steps.gcloud.outputs.project-id }}/ACCEPTANCE_TESTS_API_KEY
-          TESTPOD_ACCEPTANCE_TESTS_USER_EMAIL: sm://${{ steps.gcloud.outputs.project-id }}/ACCEPTANCE_TESTS_USER_EMAIL
-          TESTPOD_TESTUSER_PASSWORD: sm://${{ steps.gcloud.outputs.project-id }}/TESTUSER_PASSWORD
-            
       - name: Notify Slack if failed
         if: failure()
         uses: extenda/actions/slack-notify@v0
@@ -267,7 +185,7 @@ jobs:
   release:
     if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
-    needs: acceptance
+    needs: staging
     steps:
       - uses: actions/checkout@v2
         with:

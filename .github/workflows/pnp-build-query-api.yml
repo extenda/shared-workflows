@@ -1,4 +1,4 @@
-name: PNP Input API build workflow
+name: Build and Deploy
 on:
   workflow_call:
     secrets:
@@ -14,6 +14,9 @@ on:
       path-to-dockerfile:
         description: 'Path to dockerfile which builds the API.'
         required: true
+      staging-service-base-url:
+        description: 'A url of the service in staging'
+        required: false
       slack-channel:
         description: 'A slack channel which needs to be notified in case of failure'
         required: false
@@ -22,19 +25,26 @@ on:
       GCLOUD_AUTH_STAGING:
         required: true
     inputs:
-      acceptance-dockerfile-path:
-        description: 'Path to acceptance tests dockerfile.'
-        default: 'Acceptance.Dockerfile'
+      has-k6-tests:
+        description: 'If true runs k6 tests for this API. Requires "path-to-k6" and "k6-node-version" set up to run k6 tests'     
+        required: true
+        type: boolean
+      path-to-k6:
+        description: 'Path to k6 tests. Please specify the top folder for tests'
+        default: 'test/k6'
         type: string
         required: false
+      k6-node-version:
+        description: 'Node version needed for k6'
+        type: number
+        required: false
+        default: 14
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
 
       - uses: extenda/actions/gcp-secret-manager@v0
         with:
@@ -42,14 +52,15 @@ jobs:
           secrets: |
             NEXUS_PASSWORD: nexus-password
             NEXUS_USERNAME: nexus-username
-            NUGET_API_KEY: nuget-api-key
-
+            NUGET_API_KEY: nuget-api-key  
+            STYRA_TOKEN: styra-das-token                            
+        
       - name: Determine version
         uses: extenda/actions/conventional-version@v0
         id: semver
         with:
           build-number: ${{ github.run_number }}
-
+      
       - name: Setup .NET
         uses: actions/setup-dotnet@v1
         with:
@@ -59,11 +70,11 @@ jobs:
         uses: NuGet/setup-nuget@v1
         with:
           nuget-version: 'latest'
-      
+
       - name: Setup NuGet sources
         uses: extenda/actions/setup-nuget-sources@v0
         with:
-          config-file: src/nuget.config #check this in all of the APIs
+          config-file: src/nuget.config # Check this in all the build files
           sources: |
             [{
               "name": "nuget.org",
@@ -87,11 +98,11 @@ jobs:
 
       - name: Build dotnet solution
         run: |
-          dotnet build ${{ secrets.path-to-sln }} --configuration Release /p:Version=${{ steps.semver.outputs.semver }} /p:FileVersion=${{ steps.semver.outputs.version }}
+          dotnet build ${{ secrets.path-to-sln }} --configuration Release /p:Version=${{ steps.semver.outputs.semver }}
       
-      - name: Run Unit Tests
+      - name: Test dotnet solution
         run: |
-          dotnet test ${{ secrets.path-to-unit-tests }} /p:CollectCoverage=true /p:CoverletOutputFormat=opencover --configuration Release --no-restore
+          dotnet test ${{ secrets.path-to-unit-tests }} /p:CollectCoverage=true /p:CoverletOutputFormat=opencover
 
       - name: Analyze with Sonar  
         uses: extenda/actions/sonar-scanner@v0
@@ -100,7 +111,7 @@ jobs:
           sonar-scanner: dotnet
           main-branch: ${{ steps.semver.outputs.branch-name-short }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
-
+      
       - name: Notify Slack if failed
         if: failure() && github.ref == 'refs/heads/master'
         uses: extenda/actions/slack-notify@v0
@@ -116,9 +127,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     steps:
-      - uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
+      - uses: actions/checkout@v2 
 
       - uses: extenda/actions/gcp-secret-manager@v0
         with:
@@ -136,7 +145,7 @@ jobs:
       - name: Setup NuGet sources
         uses: extenda/actions/setup-nuget-sources@v0
         with:
-          config-file: src/nuget.config
+          config-file: src/nuget.config # Check this in all the APIs
           sources: |
             [{
               "name": "nuget.org",
@@ -183,77 +192,50 @@ jobs:
           channel: ${{ secrets.slack-channel }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
-  acceptance:
-    if: github.ref == 'refs/heads/master'
+  k6:
+    if: github.ref == 'refs/heads/master' && inputs.has-k6-tests == 'true'
     runs-on: ubuntu-latest
-    needs: staging
+    needs:
+      - staging
+
     steps:
       - uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
-
+      
       - uses: extenda/actions/gcp-secret-manager@v0
         with:
           service-account-key: ${{ secrets.SECRET_AUTH }}
           secrets: |
-            NEXUS_PASSWORD: nexus-password
-            NEXUS_USERNAME: nexus-username
+            API_KEY: api-key-hiidentity-staff
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v1
-        with:
-          dotnet-version: '6.0.x'
-
-      - name: Setup NuGet
-        uses: NuGet/setup-nuget@v1
-        with:
-          nuget-version: 'latest'
-
-      - name: Setup NuGet sources
-        uses: extenda/actions/setup-nuget-sources@v0
-        with:
-          config-file: src/nuget.config # check this everywhere
-          sources: |
-            [{
-              "name": "nuget.org",
-              "source": "https://api.nuget.org/v3/index.json"
-            },
-            {
-              "name": "Extenda",
-              "source": "https://repo.extendaretail.com/repository/nuget-hosted/index.json",
-              "username": "${{ env.NEXUS_USERNAME }}",
-              "password": "${{ env.NEXUS_PASSWORD }}",
-              "apikey": "${{ env.NUGET_API_KEY }}"
-            }]
-
-      - uses: extenda/actions/setup-gcloud@v0
-        id: gcloud
+      - name: IAM token
+        id: testtoken
+        uses: extenda/actions/iam-test-token@v0
         with:
           service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
+          api-key: ${{ env.API_KEY }}
 
-      - name: Build test image
+      - uses: actions/setup-node@v1
+        with:
+          node-version: ${{ inputs.k6-node-version }}
+
+      - name: yarn webpack
         run: |
-          gcloud --quiet auth configure-docker
-          IMAGE=eu.gcr.io/extenda/${{ secrets.GCR_image_name }}-acceptance:${{ github.sha }}
-          docker build . -f ${{ inputs.acceptance-dockerfile-path }} -t $IMAGE
-          docker push $IMAGE
-
-      - name: Attest image
-        uses: extenda/actions/binary-auth-attestation@v0
+         cd ${{ inputs.path-to-k6 }}
+         yarn install
+         yarn webpack
+    
+      - name: Run API tests for v1 queries
+        uses: k6io/action@v0.2.0
         with:
-          image-path: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}-acceptance
-          service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
-
-      - name: Acceptance tests
-        uses: extenda/actions/test-pod@v0
+          filename: ${{ inputs.path-to-k6 }}/dist/api-tests-v1.js
+          flags: --env IAM_TOKEN=${{ steps.testtoken.outputs.iam-token }} --env SERVICE_BASE_URL=${{ secrets.staging-service-base-url }}
+      
+      - name: Run API tests for v2 queries  
+        uses: k6io/action@v0.2.0
         with:
-          service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
-          image: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}-acceptance:${{ github.sha }}
-        env:
-          TESTPOD_ACCEPTANCE_TESTS_API_KEY: sm://${{ steps.gcloud.outputs.project-id }}/ACCEPTANCE_TESTS_API_KEY
-          TESTPOD_ACCEPTANCE_TESTS_USER_EMAIL: sm://${{ steps.gcloud.outputs.project-id }}/ACCEPTANCE_TESTS_USER_EMAIL
-          TESTPOD_TESTUSER_PASSWORD: sm://${{ steps.gcloud.outputs.project-id }}/TESTUSER_PASSWORD
-            
+          filename: ${{ inputs.path-to-k6 }}/dist/api-tests-v2.js
+          flags: --env IAM_TOKEN=${{ steps.testtoken.outputs.iam-token }} --env SERVICE_BASE_URL=${{ secrets.staging-service-base-url }}
+
       - name: Notify Slack if failed
         if: failure()
         uses: extenda/actions/slack-notify@v0
@@ -263,11 +245,13 @@ jobs:
             Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
           channel: ${{ secrets.slack-channel }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
-      
-  release:
-    if: github.ref == 'refs/heads/master'
+
+  release-after-k6:
+    if: github.ref == 'refs/heads/master' && inputs.has-k6-tests == 'true'
     runs-on: ubuntu-latest
-    needs: acceptance
+    needs: k6
+    outputs:
+      release-tag: ${{ steps.release.outputs.release-tag }}
     steps:
       - uses: actions/checkout@v2
         with:
@@ -281,14 +265,51 @@ jobs:
 
       - uses: extenda/actions/setup-gcloud@v0
         with:
-          service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
+          service-account-key: ${{ secrets.GCLOUD_AUTH_PROD }}
 
       - name: Add tag in GCR
         run: |
           gcloud container images add-tag \
             eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ github.sha }} \
-            eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.release.outputs.version }}
+            eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.release.outputs.release-tag }}
+      
+      - name: Notify Slack if failed
+        if: failure()
+        uses: extenda/actions/slack-notify@v0
+        with:
+          text: |
+            *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+          channel: ${{ secrets.slack-channel }}
+          service-account-key: ${{ secrets.SECRET_AUTH }}
 
+  release:
+    if: github.ref == 'refs/heads/master' && inputs.has-k6-tests == 'false'
+    runs-on: ubuntu-latest
+    needs: staging
+    outputs:
+      release-tag: ${{ steps.release.outputs.release-tag }}
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Create release
+        uses: extenda/actions/conventional-release@v0
+        id: release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: extenda/actions/setup-gcloud@v0
+        with:
+          service-account-key: ${{ secrets.GCLOUD_AUTH_PROD }}
+
+      - name: Add tag in GCR
+        run: |
+          gcloud container images add-tag \
+            eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ github.sha }} \
+            eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.release.outputs.release-tag }}
+      
       - name: Notify Slack if failed
         if: failure()
         uses: extenda/actions/slack-notify@v0

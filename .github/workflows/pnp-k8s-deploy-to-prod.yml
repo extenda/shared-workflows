@@ -1,0 +1,67 @@
+name: Deploy to Prod with manual trigger
+on:
+  workflow_call:
+    secrets:
+      GCR_image_name:
+        description: 'A name of the image to be created in GCR'
+        required: true
+      slack-channel:
+        description: 'A slack channel which needs to be notified in case of failure'
+        required: true
+      dora-component:
+        description: 'Dora component name'
+        required: true
+      SECRET_AUTH:
+        required: true
+      GCLOUD_AUTH_PROD:
+        required: true
+    inputs:
+      path-to-kubernetes-config:
+        description: 'Path to kubernetes config file.'
+        type: string
+        required: true
+
+jobs:
+  prod:
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - uses: extenda/actions/gcp-secret-manager@v0
+        with:
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+          secrets: |
+            JIRA_USERNAME: jira-username
+            JIRA_PASSWORD: jira-password
+
+      - name: Determine version
+        uses: extenda/actions/conventional-version@v0
+        id: semver
+       
+      - name: Deploy to production
+        uses: extenda/actions/kubernetes@v0
+        with:
+          service-account-key: ${{ secrets.GCLOUD_AUTH_PROD }}
+          service-definition: ${{ inputs.path-to-kubernetes-config }}
+          image: eu.gcr.io/extenda/${{ env.GCR_image_name }}::${{ steps.semver.outputs.release-version }}
+      
+      - uses: extenda/actions/dora-metrics@v0
+        with:
+          product-name: Product And Price
+          product-component: ${{ secrets.dora-component }}
+          jira-username: ${{ env.JIRA_USERNAME }}
+          jira-password: ${{ env.JIRA_PASSWORD }}
+          jira-project-key: EA
+      
+      - name: Notify Slack if failed
+        if: failure()
+        uses: extenda/actions/slack-notify@v0
+        with:
+          text: |
+            *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+          channel: ${{ secrets.slack-channel }}
+          service-account-key: ${{ secrets.SECRET_AUTH }}
