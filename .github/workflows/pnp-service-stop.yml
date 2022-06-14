@@ -35,12 +35,12 @@ jobs:
       - uses: actions/checkout@v2
 
       - uses: extenda/actions/setup-gcloud@v0
-        if: ${{ inputs.prod == 'false' }}
+        if: ${{ inputs.prod == false }}
         with:
           service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
 
       - uses: extenda/actions/setup-gcloud@v0
-        if: ${{ inputs.prod == 'true' }}
+        if: ${{ inputs.prod == true }}
         with:
           service-account-key: ${{ secrets.GCLOUD_AUTH_PROD }}
 
@@ -49,13 +49,13 @@ jobs:
           gcloud container clusters get-credentials k8s-cluster --zone europe-west1 --project ${{ secrets.gcp-project }}
 
       - name: Scale deployment service to 0
-        if: ${{ inputs.is-statefulset == 'false' }}
+        if: ${{ inputs.is-statefulset == false }}
         run: |
           kubectl config set-context --current --namespace=${{ secrets.service-namespace }}
           kubectl scale --replicas=0 deployment/${{ secrets.service-namespace }}
 
       - name: Scale statefulset service to 0
-        if: ${{ inputs.is-statefulset == 'true' }}
+        if: ${{ inputs.is-statefulset == true }}
         run: |
           kubectl config set-context --current --namespace=${{ secrets.service-namespace }}
           kubectl scale --replicas=0 statefulset/${{ secrets.service-namespace }}
