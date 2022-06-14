@@ -113,7 +113,7 @@ jobs:
           service-account-key: ${{ secrets.SECRET_AUTH }}
       
       - name: Notify Slack if failed
-        if: failure() && github.ref == 'refs/heads/master'
+        if: ${{ failure() && github.ref == 'refs/heads/master' }}
         uses: extenda/actions/slack-notify@v0
         with:
           text: |
@@ -193,7 +193,7 @@ jobs:
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
   k6:
-    if: github.ref == 'refs/heads/master' && ${{ inputs.has-k6-tests == 'true' }}
+    if: ${{ github.ref == 'refs/heads/master' && inputs.has-k6-tests == 'true' }}
     runs-on: ubuntu-latest
     needs:
       - staging
@@ -247,7 +247,7 @@ jobs:
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
   release-after-k6:
-    if: github.ref == 'refs/heads/master' && ${{ inputs.has-k6-tests == 'true' }}
+    if: ${{ github.ref == 'refs/heads/master' && inputs.has-k6-tests == 'true' }}
     runs-on: ubuntu-latest
     needs: k6
     outputs:
@@ -284,7 +284,7 @@ jobs:
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
   release:
-    if: github.ref == 'refs/heads/master' && ${{ inputs.has-k6-tests == 'false' }}
+    if: ${{ github.ref == 'refs/heads/master' && inputs.has-k6-tests == 'false' }}
     runs-on: ubuntu-latest
     needs: staging
     outputs:
@@ -321,7 +321,7 @@ jobs:
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
   jira-release-notes:
-    if: github.ref == 'refs/heads/master' && ${{ inputs.has-k6-tests == 'false' }}
+    if: ${{ github.ref == 'refs/heads/master' && inputs.has-k6-tests == 'false' }}
     runs-on: ubuntu-latest
     needs:
       - release
@@ -341,7 +341,7 @@ jobs:
           jira-project: EA
 
   jira-release-notes-after-k6:
-    if: github.ref == 'refs/heads/master' && ${{ inputs.has-k6-tests == 'true' }}
+    if: ${{ github.ref == 'refs/heads/master' && inputs.has-k6-tests == 'true' }}
     runs-on: ubuntu-latest
     needs:
       - release-after-k6

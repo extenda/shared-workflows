@@ -42,7 +42,7 @@ jobs:
           service-name: ${{ secrets.service-name }}
                 
       - name: Notify Slack if failed
-        if: failure() && ${{ inputs.notify-slack-on-fail == 'true' }} && github.ref == 'refs/heads/master'
+        if: ${{ failure() && github.ref == 'refs/heads/master' && inputs.notify-slack-on-fail == 'true' }}
         uses: extenda/actions/slack-notify@v0
         with:
           text: |

@@ -98,7 +98,7 @@ jobs:
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
       - name: Notify Slack if failed
-        if: failure() && github.ref == 'refs/heads/master'
+        if: ${{ failure() && github.ref == 'refs/heads/master' }}
         uses: extenda/actions/slack-notify@v0
         with:
           text: |
