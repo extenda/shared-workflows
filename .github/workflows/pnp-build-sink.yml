@@ -1,4 +1,4 @@
-name: Pull request to master
+name: Build and push sink to staging
 on: 
   workflow_call:
     secrets:

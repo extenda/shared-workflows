@@ -46,7 +46,7 @@ jobs:
         with:
           service-account-key: ${{ secrets.GCLOUD_AUTH_PROD }}
           service-definition: ${{ inputs.path-to-kubernetes-config }}
-          image: eu.gcr.io/extenda/${{ env.GCR_image_name }}::${{ steps.semver.outputs.release-version }}
+          image: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.semver.outputs.release-version }}
       
       - uses: extenda/actions/dora-metrics@v0
         with:
