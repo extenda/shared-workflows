@@ -250,8 +250,6 @@ jobs:
     if: ${{ github.ref == 'refs/heads/master' && inputs.has-k6-tests == true }}
     runs-on: ubuntu-latest
     needs: k6
-    outputs:
-      release-tag: ${{ steps.release.outputs.release-tag }}
     steps:
       - uses: actions/checkout@v2
         with:
@@ -271,7 +269,7 @@ jobs:
         run: |
           gcloud container images add-tag \
             eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ github.sha }} \
-            eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.release.outputs.release-tag }}
+            eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.release.outputs.version }}
       
       - name: Notify Slack if failed
         if: failure()
@@ -308,7 +306,7 @@ jobs:
         run: |
           gcloud container images add-tag \
             eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ github.sha }} \
-            eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.release.outputs.release-tag }}
+            eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.release.outputs.version }}
       
       - name: Notify Slack if failed
         if: failure()

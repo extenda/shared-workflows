@@ -54,7 +54,7 @@ jobs:
         uses: extenda/actions/cloud-run@v0
         with:
           service-account-key: ${{ secrets.GCLOUD_AUTH_PROD }}
-          image: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.semver.outputs.release-tag }}
+          image: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.semver.outputs.release-version }}
       
       - uses: extenda/actions/dora-metrics@v0
         with:
