@@ -86,7 +86,7 @@ jobs:
           service-account-key: ${{ secrets.SECRET_AUTH }}
   
   staging:
-    #if: github.ref == 'refs/heads/master'
+    if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     needs:
       - build
@@ -135,20 +135,20 @@ jobs:
         run: |
           IMAGE=eu.gcr.io/extenda/${{ secrets.GCR_image_name }}
           docker build . -f staging.Dockerfile --build-arg jar_version=${{ steps.semver.outputs.version }} -t $IMAGE:${{ steps.semver.outputs.version }} -t $IMAGE:${{ github.sha }} -t $IMAGE:latest
-          
+          docker push --all-tags $IMAGE
 
-      # - name: Attest image
-      #   uses: extenda/actions/binary-auth-attestation@v0
-      #   with:
-      #     image-path: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}
-      #     service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
+      - name: Attest image
+        uses: extenda/actions/binary-auth-attestation@v0
+        with:
+          image-path: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}
+          service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
       
-      # - name: Deploy to Kubernetes (staging)
-      #   uses: extenda/actions/kubernetes@v0
-      #   with:
-      #     service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
-      #     service-definition: ${{ inputs.path-to-kubernetes-config }}
-      #     image: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.semver.outputs.version }}
+      - name: Deploy to Kubernetes (staging)
+        uses: extenda/actions/kubernetes@v0
+        with:
+          service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
+          service-definition: ${{ inputs.path-to-kubernetes-config }}
+          image: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.semver.outputs.version }}
             
       - name: Notify Slack if failed
         if: failure()
