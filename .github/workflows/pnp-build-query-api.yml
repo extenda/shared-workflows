@@ -265,7 +265,7 @@ jobs:
 
       - uses: extenda/actions/setup-gcloud@v0
         with:
-          service-account-key: ${{ secrets.GCLOUD_AUTH_PROD }}
+          service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
 
       - name: Add tag in GCR
         run: |
@@ -302,7 +302,7 @@ jobs:
 
       - uses: extenda/actions/setup-gcloud@v0
         with:
-          service-account-key: ${{ secrets.GCLOUD_AUTH_PROD }}
+          service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
 
       - name: Add tag in GCR
         run: |
