@@ -50,7 +50,7 @@ jobs:
           service-name: ${{ secrets.service-name }}
           styra-das-token: ${{ env.STYRA_TOKEN }}
        
-      - name: Deploy to production latest
+      - name: Deploy to production
         uses: extenda/actions/cloud-run@v0
         with:
           service-account-key: ${{ secrets.GCLOUD_AUTH_PROD }}

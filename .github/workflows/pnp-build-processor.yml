@@ -64,7 +64,7 @@ jobs:
         uses: extenda/actions/maven@v0
         with:
           args: verify -s settings.xml
-          version: ${{ steps.semver.outputs.release-version }}-SNAPSHOT
+          version: ${{ steps.semver.outputs.version }}-SNAPSHOT
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
       - name: Analyze with Sonar
@@ -74,7 +74,7 @@ jobs:
           main-branch: master
           maven-args: --file ${{ secrets.path-to-pom }} --settings settings.xml org.sonarsource.scanner.maven:sonar-maven-plugin:3.7.0.1746:sonar
           service-account-key: ${{ secrets.SECRET_AUTH }}
-            
+
       - name: Notify Slack if failed
         if: ${{ failure() && github.ref == 'refs/heads/master' }}
         uses: extenda/actions/slack-notify@v0
@@ -107,6 +107,20 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
+      - name: Set up JDK
+        uses: actions/setup-java@v2
+        with:
+          distribution: ${{ inputs.jdk-distribution }}
+          java-version: ${{ inputs.java-version }}
+          cache: maven
+
+      - name: Build with Maven
+        uses: extenda/actions/maven@v0
+        with:
+          args: install -s settings.xml -DskipTests
+          version: ${{ steps.semver.outputs.version }}-SNAPSHOT
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+      
       - name: Setup gcloud
         uses: extenda/actions/setup-gcloud@v0
         id: gcloud
@@ -120,7 +134,7 @@ jobs:
       - name: Docker build and push
         run: |
           IMAGE=eu.gcr.io/extenda/${{ secrets.GCR_image_name }}
-          docker build . -f staging.Dockerfile --build-arg jar_version=${{ steps.semver.outputs.release-version }} -t $IMAGE:${{ steps.semver.outputs.release-version }} -t $IMAGE:${{ github.sha }} -t $IMAGE:latest
+          docker build . -f staging.Dockerfile --build-arg jar_version=${{ steps.semver.outputs.version }} -t $IMAGE:${{ github.sha }} -t $IMAGE:latest
           docker push --all-tags $IMAGE
 
       - name: Attest image
@@ -134,7 +148,7 @@ jobs:
         with:
           service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
           service-definition: ${{ inputs.path-to-kubernetes-config }}
-          image: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.semver.outputs.release-version }} # Check release-version vs version everywhere
+          image: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.semver.outputs.version }}
             
       - name: Notify Slack if failed
         if: failure()
