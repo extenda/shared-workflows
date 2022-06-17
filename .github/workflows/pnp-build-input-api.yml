@@ -27,6 +27,11 @@ on:
         default: 'Acceptance.Dockerfile'
         type: string
         required: false
+      acceptance-nuget-config-path:
+        description: 'Path to nuget.config for acceptance tests.'
+        default: 'src/nuget.config'
+        type: string
+        required: false
 
 jobs:
   build:
@@ -212,7 +217,7 @@ jobs:
       - name: Setup NuGet sources
         uses: extenda/actions/setup-nuget-sources@v0
         with:
-          config-file: src/nuget.config # check this everywhere
+          config-file: ${{ inputs.acceptance-nuget-config-path }}
           sources: |
             [{
               "name": "nuget.org",
