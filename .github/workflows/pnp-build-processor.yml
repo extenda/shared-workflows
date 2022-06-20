@@ -28,9 +28,9 @@ on:
         default: 'temurin'
       java-version:
         description: 'Java version used in the project'
-        type: number
+        type: string
         required: false
-        default: 17
+        default: '17'
 
 jobs:
   build:
