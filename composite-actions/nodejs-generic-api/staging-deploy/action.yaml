@@ -1,0 +1,76 @@
+name: 'Deploy & run tests in staging'
+description: 'Deploy & run tests in staging
+inputs:
+  SECRET_AUTH:
+    description: 'GCP Auth'
+    required: true 
+  GCLOUD_AUTH:
+    description: 'GCP Auth (staging)'
+    required: true
+  image:
+    description: 'Image name for the service (without tag)'
+    required: true
+  test-user-tenant-id:
+    description: 'Tenant id for user, for component tests (testrunner prod by default)'
+    default: testrunner-2mfuk
+  service-url:
+    description: Public url of a service
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+      - uses: actions/checkout@v3
+
+      - uses: extenda/actions/setup-gcloud@v0
+        id: gcloud
+        with:
+          service-account-key: ${{ inputs.GCLOUD_AUTH }}
+
+      - name: GCloud configure-docker
+        shell: bash
+        run: gcloud --quiet auth configure-docker eu.gcr.io
+
+      - name: Auth to Nexus npm registry
+        uses: extenda/actions/nexus-auth-npm@v0
+        with:
+          service-account-key: ${{ inputs.SECRET_AUTH }}
+
+      - name: Build and push Docker image
+        shell: bash
+        run: |
+          docker build -t ${{ inputs.image }}:${{ github.sha }} .
+          docker push ${{ inputs.image }}:${{ github.sha }}
+     
+      - name: Attest image
+        uses: extenda/actions/binary-auth-attestation@v0
+        with:
+          image-path: ${{ inputs.image }}
+          service-account-key: ${{ inputs.GCLOUD_AUTH }}
+          
+      - name: Deploy to staging
+        uses: extenda/actions/cloud-run@v0
+        with:
+          service-account-key: ${{ inputs.SECRET_AUTH }}
+          image: ${{ inputs.image }}:${{ github.sha }}
+
+      - name: Get API_KEY
+        uses: extenda/actions/gcp-secret-manager@v0
+        with:
+          service-account-key: ${{ inputs.SECRET_AUTH }}
+          secrets: |
+            API_KEY: iam-test-api-key
+
+      - name: Get IAM token
+        uses: extenda/actions/iam-test-token@v0
+        with:
+          service-account-key: ${{ inputs.GCLOUD_AUTH }}
+          api-key: ${{ env.API_KEY }}
+          tenant-id: ${{ inputs.test-user-tenant-id }}
+
+      - name: Component tests
+        uses: extenda/actions/component-tests@v0
+        with:
+          auth-token: ${{ env.IAM_TOKEN }}
+          base-url: ${{ input.service-url }}
+          tests: ./test/component-tests/tests.yml
