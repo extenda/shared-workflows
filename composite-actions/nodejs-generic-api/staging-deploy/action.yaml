@@ -1,5 +1,5 @@
 name: 'Deploy & run tests in staging'
-description: 'Deploy & run tests in staging
+description: 'Deploy & run tests in staging'
 inputs:
   SECRET_AUTH:
     description: 'GCP Auth'
