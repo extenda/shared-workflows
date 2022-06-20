@@ -1,0 +1,29 @@
+name: 'Test OPA Rules'
+description: 'Run tests for opa rules'
+inputs:
+  SECRET_AUTH:
+    description: 'GCP Auth'
+    required: true
+  system:
+    description: '3-letter service name'
+    required: true
+  service-name:
+    description: 'Service name (same as in Styra & GCP)'
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/checkout@v3
+
+    - uses: extenda/actions/gcp-secret-manager@v0
+      with:
+        service-account-key: ${{ inputs.SECRET_AUTH }}
+        secrets: |
+          STYRA_TOKEN: styra-das-token
+
+    - name: OPA/Rego unit tests
+      uses: extenda/actions/styra-das-test@v0
+      with:
+        permission-prefix: ${{ inputs.system }}
+        service-name: ${{ inputs.service-name }}
+        styra-das-token: ${{ env.STYRA_TOKEN }}
