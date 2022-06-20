@@ -31,6 +31,11 @@ on:
         type: string
         required: false
         default: '17'
+      use-old-setup-java:
+        description: 'If true uses the java setup step of version 1'
+        type: boolean
+        required: false
+        default: false
 
 jobs:
   build:
@@ -46,13 +51,29 @@ jobs:
           secrets: |
             NEXUS_PASSWORD: nexus-password
             NEXUS_USERNAME: nexus-username
-      
+
       - name: Set up JDK
-        uses: actions/setup-java@v2
+        if: ${{ inputs.use-old-setup-java == false }}
+        uses: actions/setup-java@v3
         with:
           distribution: ${{ inputs.jdk-distribution }}
           java-version: ${{ inputs.java-version }}
           cache: maven
+
+      - name: Set up JDK
+        if: ${{ inputs.use-old-setup-java == true }}
+        uses: actions/setup-java@v1
+        with:
+          distribution: ${{ inputs.jdk-distribution }}
+          java-version: ${{ inputs.java-version }}
+
+      - uses: actions/cache@v2
+        if: ${{ inputs.use-old-setup-java == true }}
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
 
       - name: Determine version
         uses: extenda/actions/conventional-version@v0
@@ -106,13 +127,29 @@ jobs:
         id: semver
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      
+
       - name: Set up JDK
-        uses: actions/setup-java@v2
+        if: ${{ inputs.use-old-setup-java == false }}
+        uses: actions/setup-java@v3
         with:
           distribution: ${{ inputs.jdk-distribution }}
           java-version: ${{ inputs.java-version }}
           cache: maven
+
+      - name: Set up JDK
+        if: ${{ inputs.use-old-setup-java == true }}
+        uses: actions/setup-java@v1
+        with:
+          distribution: ${{ inputs.jdk-distribution }}
+          java-version: ${{ inputs.java-version }}
+
+      - uses: actions/cache@v2
+        if: ${{ inputs.use-old-setup-java == true }}
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
 
       - name: Build with Maven
         uses: extenda/actions/maven@v0
