@@ -72,5 +72,5 @@ runs:
         uses: extenda/actions/component-tests@v0
         with:
           auth-token: ${{ env.IAM_TOKEN }}
-          base-url: ${{ input.service-url }}
+          base-url: ${{ inputs.service-url }}
           tests: ./test/component-tests/tests.yml
