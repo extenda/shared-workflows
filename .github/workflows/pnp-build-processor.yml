@@ -174,7 +174,7 @@ jobs:
       - name: Docker build and push
         run: |
           IMAGE=eu.gcr.io/extenda/${{ secrets.GCR_image_name }}
-          docker build . -f ${{ inputs.path-to-dockerfile }} --build-arg jar_version=${{ steps.semver.outputs.version }} -t $IMAGE:${{ steps.semver.outputs.version }} -t $IMAGE:${{ github.sha }} -t $IMAGE:latest
+          docker build . -f ${{ secrets.path-to-dockerfile }} --build-arg jar_version=${{ steps.semver.outputs.version }} -t $IMAGE:${{ steps.semver.outputs.version }} -t $IMAGE:${{ github.sha }} -t $IMAGE:latest
           docker push --all-tags $IMAGE
 
       - name: Attest image
