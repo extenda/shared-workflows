@@ -9,6 +9,9 @@ on:
       path-to-pom:
         description: 'Path to the pom file'
         required: true
+      path-to-dockerfile:
+        description: 'Path to dockerfile which builds the service.'
+        required: true
       slack-channel:
         description: 'A slack channel which needs to be notified in case of failure'
         required: false
@@ -171,7 +174,7 @@ jobs:
       - name: Docker build and push
         run: |
           IMAGE=eu.gcr.io/extenda/${{ secrets.GCR_image_name }}
-          docker build . -f ${{ inputs.path-to-kubernetes-config }} --build-arg jar_version=${{ steps.semver.outputs.version }} -t $IMAGE:${{ steps.semver.outputs.version }} -t $IMAGE:${{ github.sha }} -t $IMAGE:latest
+          docker build . -f ${{ inputs.path-to-dockerfile }} --build-arg jar_version=${{ steps.semver.outputs.version }} -t $IMAGE:${{ steps.semver.outputs.version }} -t $IMAGE:${{ github.sha }} -t $IMAGE:latest
           docker push --all-tags $IMAGE
 
       - name: Attest image
