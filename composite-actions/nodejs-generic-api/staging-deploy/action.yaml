@@ -51,13 +51,13 @@ runs:
       - name: Deploy to staging
         uses: extenda/actions/cloud-run@v0
         with:
-          service-account-key: ${{ inputs.SECRET_AUTH }}
+          service-account-key: ${{ inputs.GCLOUD_AUTH }}
           image: ${{ inputs.image }}:${{ github.sha }}
 
       - name: Get API_KEY
         uses: extenda/actions/gcp-secret-manager@v0
         with:
-          service-account-key: ${{ inputs.SECRET_AUTH }}
+          service-account-key: ${{ inputs.GCLOUD_AUTH }}
           secrets: |
             API_KEY: iam-test-api-key
 
