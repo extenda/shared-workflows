@@ -71,7 +71,7 @@ runs:
 
     - name: Run type check
       shell: bash
-      run: npm run ts:check
+      run: npm run ts:check --if-present
 
     - name: Run unit tests with coverage
       shell: bash
