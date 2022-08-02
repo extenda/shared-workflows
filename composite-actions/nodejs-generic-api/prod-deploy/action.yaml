@@ -57,6 +57,13 @@ runs:
             ${{ inputs.image }}:${{ github.sha }} \
             ${{ inputs.image }}:${{ steps.release.outputs.release-tag }}
 
+      - name: Add latest tag to Docker image
+        shell: bash
+        run: |
+          gcloud container images add-tag \
+            ${{ inputs.image }}:${{ github.sha }} \
+            ${{ inputs.image }}:latest
+
       - name: Deploy to Production
         uses: extenda/actions/cloud-run@v0
         with:
