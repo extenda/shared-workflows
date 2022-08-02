@@ -65,6 +65,9 @@ runs:
       shell: bash
       run: npm ci
 
+    - name: Check OpenAPI schema updates
+      run: npm run check-openapi-schema --if-present
+
     - name: Lint
       shell: bash
       run: npm run lint:ci
