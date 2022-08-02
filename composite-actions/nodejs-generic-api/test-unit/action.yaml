@@ -66,6 +66,7 @@ runs:
       run: npm ci
 
     - name: Check OpenAPI schema updates
+      shell: bash
       run: npm run check-openapi-schema --if-present
 
     - name: Lint
