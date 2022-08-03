@@ -1,6 +1,6 @@
 # Deploy prod action
 
-This is tipical action, to deploy nodejs api application to google cloud cloud run.
+This is tipical action, to deploy nodejs api application to google cloud run.
 
 ### Example
 
@@ -15,3 +15,7 @@ This is tipical action, to deploy nodejs api application to google cloud cloud r
     image: ${{ env.IMAGE_NAME }}
 ```
 
+### Requirements
+
+- You have to have valid ```Dockerfile```, in the root of your project.
+- You have to have valid ```cloud-run.yaml``` file in the root of your project.
