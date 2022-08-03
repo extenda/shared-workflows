@@ -1,6 +1,6 @@
 # Run unit tests action
 
-This is tipical action, to run tests in nodejs api application.
+This is typical action, to run tests in nodejs api application.
 
 ### Example
 

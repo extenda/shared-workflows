@@ -1,6 +1,6 @@
 # Deploy prod action
 
-This is tipical action, to deploy nodejs api application to google cloud run.
+This is typical action, to deploy nodejs api application to google cloud run.
 
 ### Example
 

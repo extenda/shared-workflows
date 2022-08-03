@@ -1,6 +1,6 @@
 # Run opa tests action
 
-This is tipical action, to run opa tests in nodejs api application.
+This is typical action, to run opa tests in nodejs api application.
 
 ### Example
 

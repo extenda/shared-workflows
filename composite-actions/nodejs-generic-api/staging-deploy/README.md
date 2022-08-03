@@ -1,6 +1,6 @@
 # Deploy staging action
 
-This is tipical action, to deploy nodejs api application to google cloud run staging.
+This is typical action, to deploy nodejs api application to google cloud run staging.
 
 ### Example
 
