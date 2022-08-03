@@ -10,8 +10,8 @@ This is tipical action, to deploy nodejs api application to google cloud cloud r
     SECRET_AUTH: ${{ secrets.SECRET_AUTH }}
     GCLOUD_AUTH: ${{ secrets.GCLOUD_AUTH_PROD }}
     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    system: <system to deploy to>
-    service-name: <name of the service>
+    system: <system name in styra>
+    service-name: <name of the service in cloud run>
     image: ${{ env.IMAGE_NAME }}
 ```
 
