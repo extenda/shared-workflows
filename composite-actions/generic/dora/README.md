@@ -6,7 +6,7 @@ Original action - https://github.com/extenda/actions/tree/master/dora-metrics.
 ### Example
 
 ```yaml
-- uses: extenda/shared-workflows/composite-actions/nodejs-generic-api/prod-deploy@master
+- uses: extenda/shared-workflows/composite-actions/generic/dora@master
   with: 
     SECRET_AUTH: ${{ secrets.SECRET_AUTH }}
     GCLOUD_AUTH: ${{ secrets.GCLOUD_AUTH_PROD }}
