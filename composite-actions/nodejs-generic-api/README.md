@@ -37,8 +37,8 @@ jobs:
       - uses: extenda/shared-workflows/composite-actions/nodejs-generic-api/test-opa@master
         with:
           SECRET_AUTH: ${{ secrets.SECRET_AUTH }}
-          system: <system name>
-          service-name: <service name>
+          system: <system name> # example - iam
+          service-name: <service name> # example - iam-api
 
   staging:
     if: github.ref == 'refs/heads/master'
@@ -53,7 +53,7 @@ jobs:
           GCLOUD_AUTH: ${{ secrets.GCLOUD_AUTH_STAGING }}
           image: ${{ env.IMAGE_NAME }}
           test-user-tenant-id: testrunner-3z05y # staging testrunner
-          service-url: <url of service, should end with .dev>
+          service-url: <url of service, should end with .dev> # example - https://iam-api.retailsvc.dev
 
   prod:
     if: github.ref == 'refs/heads/master'
@@ -65,8 +65,8 @@ jobs:
           SECRET_AUTH: ${{ secrets.SECRET_AUTH }}
           GCLOUD_AUTH: ${{ secrets.GCLOUD_AUTH_PROD }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          system: <system name>
-          service-name: <service name>
+          system: <system name> # example - iam
+          service-name: <service name> # example - iam-api
           image: ${{ env.IMAGE_NAME }}
 
   dora:
@@ -75,7 +75,7 @@ jobs:
     steps:
       - uses: extenda/shared-workflows/composite-actions/generic/dora@master
         with: 
-          product-name: <Name of the product, that this service belongs to in Jira>
-          product-component: <Name of the product component, that this service belongs to in Jira>
-          jira-project-key: <Key of the product, that this service belongs to in Jira>
+          product-name: <Name of the product, that this service belongs to in Jira> # example - IAM
+          product-component: <Name of the product component, that this service belongs to in Jira> # example - IAM
+          jira-project-key: <Key of the product, that this service belongs to in Jira> # example - HII
 ```
