@@ -1,9 +1,11 @@
 # Dora
 
-This is a generic action, to write metric in jira.
+This is a generic action, to write dora metrics.
+Original action - https://github.com/extenda/actions/tree/master/dora-metrics.
 
 ### Example
 
+```
 - uses: extenda/shared-workflows/composite-actions/nodejs-generic-api/prod-deploy@master
   with: 
     SECRET_AUTH: ${{ secrets.SECRET_AUTH }}
@@ -12,6 +14,7 @@ This is a generic action, to write metric in jira.
     product-component: <name of the service in cloud run>
     jira-project-key: ${{ env.IMAGE_NAME }}
   
-  ### Requirements
+ ```
+### Requirements
   
-  None
+None
