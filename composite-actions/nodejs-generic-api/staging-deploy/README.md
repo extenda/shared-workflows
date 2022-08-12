@@ -10,8 +10,8 @@ This is typical action, to deploy nodejs api application to google cloud run sta
       SECRET_AUTH: ${{ secrets.SECRET_AUTH }}
       GCLOUD_AUTH: ${{ secrets.GCLOUD_AUTH_STAGING }}
       image: ${{ env.IMAGE_NAME }}
-      test-user-tenant-id: <id of staging tenant> 
-      service-url: <url of service in staging>
+      test-user-tenant-id: <id of staging tenant> # example - testrunner-3z05y
+      service-url: <url of service in staging> # example - https://iam-api.retailsvc.dev
 ```
 
 ### Requirements
