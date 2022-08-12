@@ -52,7 +52,7 @@ jobs:
           SECRET_AUTH: ${{ secrets.SECRET_AUTH }}
           GCLOUD_AUTH: ${{ secrets.GCLOUD_AUTH_STAGING }}
           image: ${{ env.IMAGE_NAME }}
-          test-user-tenant-id: extenda-ygt4u # staging extenda
+          test-user-tenant-id: testrunner-3z05y # staging testrunner
           service-url: <url of service, should end with .dev>
 
   prod:
