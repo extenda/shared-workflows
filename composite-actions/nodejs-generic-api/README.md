@@ -65,8 +65,8 @@ jobs:
           SECRET_AUTH: ${{ secrets.SECRET_AUTH }}
           GCLOUD_AUTH: ${{ secrets.GCLOUD_AUTH_PROD }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          system: <system name> # example - iam
-          service-name: <service name> # example - iam-api
+          system: <system name in styra> # example - iam
+          service-name: <name of the service in cloud run> # example - iam-api
           image: ${{ env.IMAGE_NAME }}
 
   dora:
