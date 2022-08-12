@@ -8,8 +8,8 @@ This is typical action, to run opa tests in nodejs api application.
 - uses: extenda/shared-workflows/composite-actions/nodejs-generic-api/test-opa@master
   with:
     SECRET_AUTH: ${{ secrets.SECRET_AUTH }}
-    system: <styra system>
-    service-name: <name of service in Styra>
+    system: <name of styra system> # example - iam
+    service-name: <name of service in styra> # example - iam-api
 ```
 
 ### Requirements
