@@ -52,8 +52,8 @@ jobs:
           SECRET_AUTH: ${{ secrets.SECRET_AUTH }}
           GCLOUD_AUTH: ${{ secrets.GCLOUD_AUTH_STAGING }}
           image: ${{ env.IMAGE_NAME }}
-          test-user-tenant-id: testrunner-3z05y # staging testrunner
-          service-url: <url of service, should end with .dev> # example - https://iam-api.retailsvc.dev
+          test-user-tenant-id: <id of staging tenant> # example - testrunner-3z05y
+          service-url: <url of service in staging> # example - https://iam-api.retailsvc.dev
 
   prod:
     if: github.ref == 'refs/heads/master'
