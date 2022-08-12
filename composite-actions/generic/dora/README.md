@@ -5,7 +5,7 @@ Original action - https://github.com/extenda/actions/tree/master/dora-metrics.
 
 ### Example
 
-```
+```yaml
 - uses: extenda/shared-workflows/composite-actions/nodejs-generic-api/prod-deploy@master
   with: 
     SECRET_AUTH: ${{ secrets.SECRET_AUTH }}
@@ -13,8 +13,7 @@ Original action - https://github.com/extenda/actions/tree/master/dora-metrics.
     product-name: <system name in styra>
     product-component: <name of the service in cloud run>
     jira-project-key: ${{ env.IMAGE_NAME }}
-  
- ```
+```
 ### Requirements
   
 None
