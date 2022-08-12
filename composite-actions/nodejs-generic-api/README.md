@@ -7,3 +7,5 @@ because this two actions, do not depend on any other action.
 should depend on [test-unit](test-unit) and [test-opa](test-opa).
 - After deploy to staging, you should run [prod-deploy](prod-deploy).
 This run should depend on [staging-deploy](staging-deploy).
+- After deploy to prod, you should run [dora](../generic/dora).
+This run should depend on [prod-deploy](prod-deploy).
