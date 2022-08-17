@@ -1,11 +1,11 @@
 name: 'Dora metrics'
-description: 'deploy prod'
+description: 'Write dora mertics'
 inputs:
   SECRET_AUTH:
     description: 'GCP Auth'
     required: true 
   GCLOUD_AUTH:
-    description: 'GCP Auth (staging)'
+    description: 'GCP Auth (prod)'
     required: true
   product-name:
     description: 'Name of the product, that this service belongs to in Jira'
@@ -23,7 +23,7 @@ runs:
     - uses: extenda/actions/setup-gcloud@v0
       id: gcloud
       with:
-        service-account-key: ${{ inputs.GCLOUD_AUTH_PROD }}
+        service-account-key: ${{ inputs.GCLOUD_AUTH }}
     - name: Fetch Jira creds
       uses: extenda/actions/gcp-secret-manager@v0
       with:
