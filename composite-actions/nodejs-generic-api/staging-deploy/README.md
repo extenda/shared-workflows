@@ -12,6 +12,9 @@ This is typical action, to deploy nodejs api application to google cloud run sta
       image: ${{ env.IMAGE_NAME }}
       test-user-tenant-id: <id of staging tenant> # example - testrunner-3z05y
       service-url: <url of service in staging> # example - https://iam-api.retailsvc.dev
+      api-key-name: <name of the google identity api key in secret manager> # default - iam-test-api-key
+      user-email-name: <name of the user email in secret manager> # default - iam-test-token-email
+      user-password-name: <name of the user password in secret manager> # default - iam-test-token-password
 ```
 
 ### Requirements

@@ -16,6 +16,15 @@ inputs:
   service-url:
     description: Public url of a service
     required: true
+  api-key-name:
+    description: Name of the google identity api key in secret manager
+    default: iam-test-api-key
+  user-email-name:
+    description: Name of the user email in secret manager
+    default: iam-test-token-email
+  user-password-name:
+    description: Name of the user password in secret manager
+    default: iam-test-token-password
 
 runs:
   using: "composite"
@@ -59,7 +68,7 @@ runs:
         with:
           service-account-key: ${{ inputs.GCLOUD_AUTH }}
           secrets: |
-            API_KEY: iam-test-api-key
+            API_KEY: ${{ inputs.api-key-name }}
 
       - name: Get IAM token
         uses: extenda/actions/iam-test-token@v0
@@ -67,6 +76,8 @@ runs:
           service-account-key: ${{ inputs.GCLOUD_AUTH }}
           api-key: ${{ env.API_KEY }}
           tenant-id: ${{ inputs.test-user-tenant-id }}
+          user-email: ${{ inputs.user-email-name }}
+          user-password: ${{ inputs.user-password-name }}
 
       - name: Component tests
         uses: extenda/actions/component-tests@v0
