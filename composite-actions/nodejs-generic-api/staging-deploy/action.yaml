@@ -68,7 +68,7 @@ runs:
         with:
           service-account-key: ${{ inputs.GCLOUD_AUTH }}
           secrets: |
-            API_KEY: ${{ inputs.api-key }}
+            API_KEY: ${{ inputs.api-key-name }}
 
       - name: Get IAM token
         uses: extenda/actions/iam-test-token@v0
