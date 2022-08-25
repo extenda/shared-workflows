@@ -76,8 +76,8 @@ runs:
           service-account-key: ${{ inputs.GCLOUD_AUTH }}
           api-key: ${{ env.API_KEY }}
           tenant-id: ${{ inputs.test-user-tenant-id }}
-          user-email: ${{ user-email-name }}
-          user-password: ${{ user-password-name }}
+          user-email: ${{ inputs.user-email-name }}
+          user-password: ${{ inputs.user-password-name }}
 
       - name: Component tests
         uses: extenda/actions/component-tests@v0
