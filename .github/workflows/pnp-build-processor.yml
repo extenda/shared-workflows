@@ -41,7 +41,7 @@ on:
         type: boolean
         required: false
         default: false
-      exec-contract-tests:
+      apply-contract-tests:
         description: 'If true runs test against data contracts'
         type: boolean
         required: false
@@ -106,6 +106,22 @@ jobs:
           maven-args: --file ${{ secrets.path-to-pom }} --settings settings.xml org.sonarsource.scanner.maven:sonar-maven-plugin:3.7.0.1746:sonar
           service-account-key: ${{ secrets.SECRET_AUTH }}
       
+      - name: Publish pacts
+        if: ${{ inputs.apply-contract-tests == true }}
+        uses: extenda/actions/pact-publish@v0
+        with:
+          pacts-directory: target/pacts
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+
+      - name: Can i deploy?
+        if: ${{ inputs.apply-contract-tests == true }}
+        uses: extenda/actions/pact-can-i-deploy@v0
+        with:
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+          application-name: secrets.APPLICATION_NAME
+          retry-while-unknown: 12
+          retry-interval: 10
+
       - name: Notify Slack if failed
         if: ${{ failure() && github.ref == 'refs/heads/master' }}
         uses: extenda/actions/slack-notify@v0
@@ -168,21 +184,7 @@ jobs:
         with:
           args: install -s settings.xml -DskipTests=false
           version: ${{ steps.semver.outputs.version }}-SNAPSHOT
-          service-account-key: ${{ secrets.SECRET_AUTH }}
-      
-      - name: Publish pacts
-        uses: extenda/actions/pact-publish@v0
-        with:
-          pacts-directory: target/pacts
-          service-account-key: ${{ secrets.SECRET_AUTH }}
-
-      - name: Can i deploy?
-        uses: extenda/actions/pact-can-i-deploy@v0
-        with:
-          service-account-key: ${{ secrets.SECRET_AUTH }}
-          application-name: secrets.APPLICATION_NAME
-          retry-while-unknown: 12
-          retry-interval: 10
+          service-account-key: ${{ secrets.SECRET_AUTH }}    
 
       - name: Setup gcloud
         uses: extenda/actions/setup-gcloud@v0
