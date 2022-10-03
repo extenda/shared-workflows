@@ -19,6 +19,8 @@ on:
         required: true
       GCLOUD_AUTH_STAGING:
         required: true
+      APPLICATION_NAME:
+        required: true
     inputs:
       path-to-kubernetes-config:
         description: 'Path to kubernetes config file.'
@@ -36,6 +38,11 @@ on:
         default: '17'
       use-old-setup-java:
         description: 'If true uses the java setup step of version 1'
+        type: boolean
+        required: false
+        default: false
+      exec-contract-tests:
+        description: 'If true runs test against data contracts'
         type: boolean
         required: false
         default: false
@@ -98,7 +105,7 @@ jobs:
           main-branch: master
           maven-args: --file ${{ secrets.path-to-pom }} --settings settings.xml org.sonarsource.scanner.maven:sonar-maven-plugin:3.7.0.1746:sonar
           service-account-key: ${{ secrets.SECRET_AUTH }}
-
+      
       - name: Notify Slack if failed
         if: ${{ failure() && github.ref == 'refs/heads/master' }}
         uses: extenda/actions/slack-notify@v0
@@ -124,6 +131,8 @@ jobs:
           service-account-key: ${{ secrets.SECRET_AUTH }}
           secrets: |
             GITHUB-TOKEN: github-token
+            PACT_BROKER_USERNAME: pact-broker-username
+            PACT_BROKER_PASSWORD: pact-broker-password
       
       - name: Determine version
         uses: extenda/actions/conventional-version@v0
@@ -157,10 +166,24 @@ jobs:
       - name: Build with Maven
         uses: extenda/actions/maven@v0
         with:
-          args: install -s settings.xml -DskipTests
+          args: install -s settings.xml -DskipTests=false
           version: ${{ steps.semver.outputs.version }}-SNAPSHOT
           service-account-key: ${{ secrets.SECRET_AUTH }}
       
+      - name: Publish pacts
+        uses: extenda/actions/pact-publish@v0
+        with:
+          pacts-directory: target/pacts
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+
+      - name: Can i deploy?
+        uses: extenda/actions/pact-can-i-deploy@v0
+        with:
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+          application-name: secrets.APPLICATION_NAME
+          retry-while-unknown: 12
+          retry-interval: 10
+
       - name: Setup gcloud
         uses: extenda/actions/setup-gcloud@v0
         id: gcloud
