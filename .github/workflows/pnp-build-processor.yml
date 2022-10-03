@@ -48,6 +48,7 @@ on:
         default: false
       check-can-i-deploy:
         description: 'Temporary parameter for enabling/disabling can-i-deploy functionality'
+        type: boolean
         required: false
         default: true
 
