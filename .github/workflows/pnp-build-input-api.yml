@@ -21,6 +21,8 @@ on:
         required: true
       GCLOUD_AUTH_STAGING:
         required: true
+      APPLICATION_NAME:
+        required: true
     inputs:
       acceptance-dockerfile-path:
         description: 'Path to acceptance tests dockerfile.'
@@ -32,6 +34,11 @@ on:
         default: 'src/nuget.config'
         type: string
         required: false
+      apply-contract-tests:
+        description: 'If true runs test against data contracts'
+        type: boolean
+        required: false
+        default: false
 
 jobs:
   build:
@@ -105,6 +112,22 @@ jobs:
           sonar-scanner: dotnet
           main-branch: ${{ steps.semver.outputs.branch-name-short }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
+
+      - name: Update pact with current branch
+        if: ${{ inputs.apply-contract-tests == true }}
+        uses: extenda/actions/pact-create-version@v0
+        with:
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+          application-name: ${{ secrets.APPLICATION_NAME }}
+
+      - name: Can I deploy?
+        if: ${{ inputs.apply-contract-tests == true }}
+        uses: extenda/actions/pact-can-i-deploy@v0
+        with:
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+          application-name:  ${{ secrets.APPLICATION_NAME }}
+          retry-while-unknown: 30
+          retry-interval: 10
 
       - name: Notify Slack if failed
         if: ${{ failure() && github.ref == 'refs/heads/master' }}
