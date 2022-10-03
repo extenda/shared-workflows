@@ -46,6 +46,10 @@ on:
         type: boolean
         required: false
         default: false
+      check-can-i-deploy:
+        description: Temporary parameter for enabling/disabling can-i-deploy functionality
+        required: false
+        default: true
 
 jobs:
   build:
@@ -114,11 +118,11 @@ jobs:
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
       - name: Can i deploy?
-        if: ${{ inputs.apply-contract-tests == true }}
+        if: ${{ inputs.check-can-i-deploy == true }}
         uses: extenda/actions/pact-can-i-deploy@v0
         with:
           service-account-key: ${{ secrets.SECRET_AUTH }}
-          application-name: secrets.APPLICATION_NAME
+          application-name: ${{ secrets.APPLICATION_NAME }}
           retry-while-unknown: 12
           retry-interval: 10
 
