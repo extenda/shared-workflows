@@ -21,7 +21,7 @@ on:
         required: true
       GCLOUD_AUTH_STAGING:
         required: true
-      APPLICATION_NAME:
+      application-name:
         required: true
     inputs:
       acceptance-dockerfile-path:
@@ -34,7 +34,12 @@ on:
         default: 'src/nuget.config'
         type: string
         required: false
-      apply-contract-tests:
+      do-contract-consumer-tests:
+        description: 'If true runs test against data contracts'
+        type: boolean
+        required: false
+        default: false
+      do-contract-provider-tests:
         description: 'If true runs test against data contracts'
         type: boolean
         required: false
@@ -101,6 +106,14 @@ jobs:
         run: |
           dotnet build ${{ secrets.path-to-sln }} --configuration Release /p:Version=${{ steps.semver.outputs.semver }} /p:FileVersion=${{ steps.semver.outputs.version }}
       
+      - name: Create/update Pact broker webhook
+        if:  ${{ inputs.do-contract-provider-tests == true }}
+        uses: extenda/actions/pact-create-webhook@v0
+        with:
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+          application-name: ${{ secrets.application-name }}
+          uuid: 366eebd1-bab9-4632-ac06-0145f8cf29e2
+
       - name: Run Unit Tests
         run: |
           dotnet test ${{ secrets.path-to-unit-tests }} /p:CollectCoverage=true /p:CoverletOutputFormat=opencover --configuration Release --no-restore
@@ -113,20 +126,20 @@ jobs:
           main-branch: ${{ steps.semver.outputs.branch-name-short }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
-      - name: Update pact with current branch
-        if: ${{ inputs.apply-contract-tests == true }}
+      - name: Create/update pact version
+        if: ${{ inputs.do-contract-provider-tests == true }}
         uses: extenda/actions/pact-create-version@v0
         with:
           service-account-key: ${{ secrets.SECRET_AUTH }}
-          application-name: ${{ secrets.APPLICATION_NAME }}
+          application-name: ${{ secrets.application-name }}
 
       - name: Can I deploy?
-        if: ${{ inputs.apply-contract-tests == true }}
+        if: ${{ inputs.do-contract-provider-tests == true }}
         uses: extenda/actions/pact-can-i-deploy@v0
         with:
           service-account-key: ${{ secrets.SECRET_AUTH }}
-          application-name:  ${{ secrets.APPLICATION_NAME }}
-          retry-while-unknown: 30
+          application-name:  ${{ secrets.application-name }}
+          retry-while-unknown: 15
           retry-interval: 10
 
       - name: Notify Slack if failed
@@ -316,6 +329,14 @@ jobs:
           gcloud container images add-tag \
             eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ github.sha }} \
             eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.release.outputs.version }}
+
+      - name: Create Pact release
+        if: ${{ inputs.do-contract-consumer-tests == true }}
+        uses: extenda/actions/pact-tag-version@v0
+        with:
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+          application-name: ${{ secrets.application-name }}
+          release-tag: ${{ steps.release.outputs.release-tag }}
 
       - name: Notify Slack if failed
         if: failure()
