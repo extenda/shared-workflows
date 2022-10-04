@@ -19,7 +19,7 @@ on:
         required: true
       GCLOUD_AUTH_STAGING:
         required: true
-      APPLICATION_NAME:
+      application-name:
         required: true
     inputs:
       path-to-kubernetes-config:
@@ -41,16 +41,16 @@ on:
         type: boolean
         required: false
         default: false
-      apply-contract-tests:
+      do-contract-consumer-tests:
         description: 'If true runs test against data contracts'
         type: boolean
         required: false
         default: false
-      check-can-i-deploy:
-        description: 'Temporary parameter for enabling/disabling can-i-deploy functionality'
+      do-contract-provider-tests:
+        description: 'If true runs test against data contracts'
         type: boolean
         required: false
-        default: true
+        default: false
 
 jobs:
   build:
@@ -112,19 +112,19 @@ jobs:
           service-account-key: ${{ secrets.SECRET_AUTH }}
       
       - name: Publish pacts
-        if: ${{ inputs.apply-contract-tests == true }}
+        if: ${{ inputs.do-contract-consumer-tests == true }}
         uses: extenda/actions/pact-publish@v0
         with:
           pacts-directory: target/pacts
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
       - name: Can i deploy?
-        if: ${{ inputs.check-can-i-deploy == true }}
+        if: ${{ inputs.do-contract-consumer-tests == true || do-contract-provider-tests == true }}
         uses: extenda/actions/pact-can-i-deploy@v0
         with:
           service-account-key: ${{ secrets.SECRET_AUTH }}
-          application-name: ${{ secrets.APPLICATION_NAME }}
-          retry-while-unknown: 12
+          application-name: ${{ secrets.application-name }}
+          retry-while-unknown: 15
           retry-interval: 10
 
       - name: Notify Slack if failed
@@ -255,6 +255,13 @@ jobs:
             eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ github.sha }} \
             eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.release.outputs.version }}
             
+      - name: Create Pact release
+        uses: extenda/actions/pact-tag-version@v0
+        with:
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+          application-name: ${{ secrets.application-name }}
+          release-tag: ${{ steps.release.outputs.release-tag }}
+
       - name: Notify Slack if failed
         if: failure()
         uses: extenda/actions/slack-notify@v0
