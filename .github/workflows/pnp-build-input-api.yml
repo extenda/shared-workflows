@@ -337,7 +337,6 @@ jobs:
           service-account-key: ${{ secrets.SECRET_AUTH }}
           application-name: ${{ secrets.application-name }}
           release-tag: ${{ steps.release.outputs.release-tag }}
-          env: "staging"
 
       - name: Notify Slack if failed
         if: failure()
