@@ -213,6 +213,13 @@ jobs:
         with:
           service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
           image: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ github.sha }}
+
+      - name: Deploy pact to Staging
+        uses: extenda/actions/pact-record-deployment@v0
+        with:
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+          application-name: ${{ secrets.application-name }}
+          release-version: ${{ github.sha }}
       
       - name: Notify Slack if failed
         if: failure()
