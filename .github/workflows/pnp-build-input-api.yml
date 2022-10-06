@@ -220,6 +220,11 @@ jobs:
           service-account-key: ${{ secrets.SECRET_AUTH }}
           application-name: ${{ secrets.application-name }}
           release-version: ${{ github.sha }}
+        env:
+          GIT_BRANCH: ${{ github.ref_name }}
+          GIT_COMMIT: ${{ github.sha }}
+          VERIFY_PROFILE: VERIFY
+
       
       - name: Notify Slack if failed
         if: failure()
@@ -246,6 +251,8 @@ jobs:
           secrets: |
             NEXUS_PASSWORD: nexus-password
             NEXUS_USERNAME: nexus-username
+            PACT_BROKER_PASSWORD: pact-broker-password
+            PACT_BROKER_USERNAME: pact-broker-username
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v1
