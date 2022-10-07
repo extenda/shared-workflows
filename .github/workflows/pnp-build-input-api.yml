@@ -60,6 +60,8 @@ jobs:
             NEXUS_PASSWORD: nexus-password
             NEXUS_USERNAME: nexus-username
             NUGET_API_KEY: nuget-api-key
+            PACT_BROKER_PASSWORD: pact-broker-password
+            PACT_BROKER_USERNAME: pact-broker-username
 
       - name: Determine version
         uses: extenda/actions/conventional-version@v0
