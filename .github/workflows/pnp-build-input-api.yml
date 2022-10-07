@@ -226,11 +226,7 @@ jobs:
           service-account-key: ${{ secrets.SECRET_AUTH }}
           application-name: ${{ secrets.application-name }}
           release-version: ${{ github.sha }}
-        env:
-          GIT_BRANCH: ${{ github.ref_name }}
-          GIT_COMMIT: ${{ github.sha }}
-          VERIFY_PROFILE: VERIFY
-
+          env: "staging"
       
       - name: Notify Slack if failed
         if: failure()
