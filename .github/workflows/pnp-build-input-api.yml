@@ -117,6 +117,10 @@ jobs:
       - name: Run Unit Tests
         run: |
           dotnet test ${{ secrets.path-to-unit-tests }} /p:CollectCoverage=true /p:CoverletOutputFormat=opencover --configuration Release --no-restore
+        env:
+          GIT_BRANCH: ${{ github.ref_name }}
+          GIT_COMMIT: ${{ github.sha }}
+          VERIFY_PROFILE: VERIFY
 
       - name: Analyze with Sonar  
         uses: extenda/actions/sonar-scanner@v0
