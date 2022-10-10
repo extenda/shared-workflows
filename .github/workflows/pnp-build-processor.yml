@@ -118,14 +118,14 @@ jobs:
           pacts-directory: target/pacts
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
-      # - name: Can i deploy?
-      #   if: ${{ inputs.do-contract-consumer-tests == true || inputs.do-contract-provider-tests == true }}
-      #   uses: extenda/actions/pact-can-i-deploy@v0
-      #   with:
-      #     service-account-key: ${{ secrets.SECRET_AUTH }}
-      #     application-name: ${{ secrets.application-name }}
-      #     retry-while-unknown: 15
-      #     retry-interval: 10
+      - name: Can i deploy?
+        if: ${{ inputs.do-contract-consumer-tests == true || inputs.do-contract-provider-tests == true }}
+        uses: extenda/actions/pact-can-i-deploy@v0
+        with:
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+          application-name: ${{ secrets.application-name }}
+          retry-while-unknown: 15
+          retry-interval: 10
 
       - name: Notify Slack if failed
         if: ${{ failure() && github.ref == 'refs/heads/master' }}
