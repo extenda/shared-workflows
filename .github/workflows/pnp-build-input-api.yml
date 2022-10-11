@@ -122,7 +122,7 @@ jobs:
         env:
           GIT_BRANCH: ${{ github.ref_name }}
           GIT_COMMIT: ${{ github.sha }}
-          VERIFY_PROFILE: VERIFY
+          VERIFY_PROFILE: VERIFY_ACTUAL
 
       - name: Analyze with Sonar  
         uses: extenda/actions/sonar-scanner@v0
