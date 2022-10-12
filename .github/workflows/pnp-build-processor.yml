@@ -19,8 +19,8 @@ on:
         required: true
       GCLOUD_AUTH_STAGING:
         required: true
-      application-name:
-        required: true
+      pact-application-id:
+        required: false
     inputs:
       path-to-kubernetes-config:
         description: 'Path to kubernetes config file.'
@@ -42,12 +42,12 @@ on:
         required: false
         default: false
       do-contract-consumer-tests:
-        description: 'If true runs test against data contracts'
+        description: 'If true runs tests defining data contracts'
         type: boolean
         required: false
         default: false
       do-contract-provider-tests:
-        description: 'If true runs test against data contracts'
+        description: 'If true runs tests verifying implementation against data-contracts'
         type: boolean
         required: false
         default: false
@@ -123,7 +123,7 @@ jobs:
         uses: extenda/actions/pact-can-i-deploy@v0
         with:
           service-account-key: ${{ secrets.SECRET_AUTH }}
-          application-name: ${{ secrets.application-name }}
+          pact-application-id: ${{ secrets.pact-application-id }}
           retry-while-unknown: 15
           retry-interval: 10
 
@@ -260,7 +260,7 @@ jobs:
         uses: extenda/actions/pact-tag-version@v0
         with:
           service-account-key: ${{ secrets.SECRET_AUTH }}
-          application-name: ${{ secrets.application-name }}
+          pact-application-id: ${{ secrets.pact-application-id }}
           release-tag: ${{ steps.release.outputs.release-tag }}
 
       - name: Notify Slack if failed

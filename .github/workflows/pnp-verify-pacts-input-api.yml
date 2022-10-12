@@ -2,26 +2,16 @@ name: PNP Pact-Verify Input API workflow
 on:
   workflow_call:
     secrets:
-      GCR_image_name:
-        description: 'A name of the image to be created in GCR'
-        required: true
       path-to-sln:
         description: 'Path to the sln file'
         required: true
       path-to-unit-tests:
         description: 'Path to sln or unit tests csproj file.'
         required: true
-      path-to-dockerfile:
-        description: 'Path to dockerfile which builds the API.'
-        required: true
       slack-channel:
         description: 'A slack channel which needs to be notified in case of failure'
         required: false
       SECRET_AUTH:
-        required: true
-      GCLOUD_AUTH_STAGING:
-        required: true
-      application-name:
         required: true
     inputs:
       acceptance-dockerfile-path:
