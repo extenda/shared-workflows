@@ -41,7 +41,7 @@ on:
         type: boolean
         required: false
         default: false
-      do-contract-consumer-tests:
+      do-pact-consumer-tests:
         description: 'If true runs tests defining data contracts'
         type: boolean
         required: false
@@ -112,14 +112,14 @@ jobs:
           service-account-key: ${{ secrets.SECRET_AUTH }}
       
       - name: Publish pacts
-        if: ${{ inputs.do-contract-consumer-tests == true }}
+        if: ${{ inputs.do-pact-consumer-tests == true }}
         uses: extenda/actions/pact-publish@v0
         with:
           pacts-directory: target/pacts
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
       - name: Can i deploy?
-        if: ${{ inputs.do-contract-consumer-tests == true || inputs.do-contract-provider-tests == true }}
+        if: ${{ inputs.do-pact-consumer-tests == true || inputs.do-contract-provider-tests == true }}
         uses: extenda/actions/pact-can-i-deploy@v0
         with:
           service-account-key: ${{ secrets.SECRET_AUTH }}
@@ -256,7 +256,7 @@ jobs:
             eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.release.outputs.version }}
             
       - name: Create Pact release
-        if: ${{ inputs.do-contract-consumer-tests == true }}
+        if: ${{ inputs.do-pact-consumer-tests == true }}
         uses: extenda/actions/pact-tag-version@v0
         with:
           service-account-key: ${{ secrets.SECRET_AUTH }}

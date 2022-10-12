@@ -34,12 +34,12 @@ on:
         default: 'src/nuget.config'
         type: string
         required: false
-      do-contract-consumer-tests:
+      do-pact-consumer-tests:
         description: 'If true runs tests defining data contracts'
         type: boolean
         required: false
         default: false
-      do-contract-provider-tests:
+      do-pact-provider-tests:
         description: 'If true runs tests verifying implementation against data-contracts'
         type: boolean
         required: false
@@ -109,7 +109,7 @@ jobs:
           dotnet build ${{ secrets.path-to-sln }} --configuration Release /p:Version=${{ steps.semver.outputs.semver }} /p:FileVersion=${{ steps.semver.outputs.version }}
       
       - name: Create/update Pact broker webhook
-        if:  ${{ inputs.do-contract-provider-tests == true }}
+        if:  ${{ inputs.do-pact-provider-tests == true }}
         uses: extenda/actions/pact-create-webhook@v0
         with:
           service-account-key: ${{ secrets.SECRET_AUTH }}
@@ -133,14 +133,14 @@ jobs:
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
       - name: Create/update pact version
-        if: ${{ inputs.do-contract-provider-tests == true }}
+        if: ${{ inputs.do-pact-provider-tests == true }}
         uses: extenda/actions/pact-create-version@v0
         with:
           service-account-key: ${{ secrets.SECRET_AUTH }}
           pact-application-id: ${{ secrets.pact-application-id }}
 
       - name: Can I deploy?
-        if: ${{ inputs.do-contract-provider-tests == true }}
+        if: ${{ inputs.do-pact-provider-tests == true }}
         uses: extenda/actions/pact-can-i-deploy@v0
         with:
           service-account-key: ${{ secrets.SECRET_AUTH }}
@@ -347,7 +347,7 @@ jobs:
             eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.release.outputs.version }}
 
       - name: Create Pact release
-        if: ${{ inputs.do-contract-consumer-tests == true || inputs.do-contract-provider-tests == true }}
+        if: ${{ inputs.do-pact-consumer-tests == true || inputs.do-pact-provider-tests == true }}
         uses: extenda/actions/pact-tag-version@v0
         with:
           service-account-key: ${{ secrets.SECRET_AUTH }}
