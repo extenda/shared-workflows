@@ -125,7 +125,7 @@ jobs:
         uses: extenda/actions/pact-can-i-deploy@v0
         with:
           service-account-key: ${{ secrets.SECRET_AUTH }}
-          pact-application-id: ${{ secrets.pact-application-id }}
+          application-name: ${{ secrets.pact-application-id }}
           retry-while-unknown: 15
           retry-interval: 10
 
@@ -262,7 +262,7 @@ jobs:
         uses: extenda/actions/pact-tag-version@v0
         with:
           service-account-key: ${{ secrets.SECRET_AUTH }}
-          pact-application-id: ${{ secrets.pact-application-id }}
+          application-name: ${{ secrets.pact-application-id }}
           release-tag: ${{ steps.release.outputs.release-tag }}
 
       - name: Notify Slack if failed

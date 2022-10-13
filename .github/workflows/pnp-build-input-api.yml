@@ -115,7 +115,7 @@ jobs:
         uses: extenda/actions/pact-create-webhook@v0
         with:
           service-account-key: ${{ secrets.SECRET_AUTH }}
-          pact-application-id: ${{ secrets.pact-application-id }}
+          application-name: ${{ secrets.pact-application-id }}
           uuid: ${{secrets.pact-webhook-id}}
 
       - name: Run Unit Tests
@@ -139,14 +139,14 @@ jobs:
         uses: extenda/actions/pact-create-version@v0
         with:
           service-account-key: ${{ secrets.SECRET_AUTH }}
-          pact-application-id: ${{ secrets.pact-application-id }}
+          application-name: ${{ secrets.pact-application-id }}
 
       - name: Can I deploy?
         if: ${{ inputs.do-pact-provider-tests == true }}
         uses: extenda/actions/pact-can-i-deploy@v0
         with:
           service-account-key: ${{ secrets.SECRET_AUTH }}
-          pact-application-id:  ${{ secrets.pact-application-id }}
+          application-name:  ${{ secrets.pact-application-id }}
           retry-while-unknown: 15
           retry-interval: 10
 
@@ -226,7 +226,7 @@ jobs:
         uses: extenda/actions/pact-record-deployment@v0
         with:
           service-account-key: ${{ secrets.SECRET_AUTH }}
-          pact-application-id: ${{ secrets.pact-application-id }}
+          application-name: ${{ secrets.pact-application-id }}
           release-version: ${{ github.sha }}
           env: "staging"
       
@@ -353,7 +353,7 @@ jobs:
         uses: extenda/actions/pact-tag-version@v0
         with:
           service-account-key: ${{ secrets.SECRET_AUTH }}
-          pact-application-id: ${{ secrets.pact-application-id }}
+          application-name: ${{ secrets.pact-application-id }}
           release-tag: ${{ steps.release.outputs.release-tag }}
 
       - name: Notify Slack if failed
