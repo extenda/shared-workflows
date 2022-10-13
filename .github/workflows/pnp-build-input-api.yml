@@ -23,6 +23,8 @@ on:
         required: true
       pact-application-id:
         required: false
+      pact-webhook-id:
+        required: false
     inputs:
       acceptance-dockerfile-path:
         description: 'Path to acceptance tests dockerfile.'
@@ -114,7 +116,7 @@ jobs:
         with:
           service-account-key: ${{ secrets.SECRET_AUTH }}
           pact-application-id: ${{ secrets.pact-application-id }}
-          uuid: 366eebd1-bab9-4632-ac06-0145f8cf29e2
+          uuid: ${{secrets.pact-webhook-id}}
 
       - name: Run Unit Tests
         run: |

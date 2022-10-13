@@ -21,6 +21,8 @@ on:
         required: true
       pact-application-id:
         required: false
+      pact-webhook-id:
+        required: false
     inputs:
       path-to-kubernetes-config:
         description: 'Path to kubernetes config file.'
