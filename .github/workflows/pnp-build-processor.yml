@@ -46,7 +46,7 @@ on:
         type: boolean
         required: false
         default: false
-      do-contract-provider-tests:
+      do-pact-provider-tests:
         description: 'If true runs tests verifying implementation against data-contracts'
         type: boolean
         required: false
@@ -119,7 +119,7 @@ jobs:
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
       - name: Can i deploy?
-        if: ${{ inputs.do-pact-consumer-tests == true || inputs.do-contract-provider-tests == true }}
+        if: ${{ inputs.do-pact-consumer-tests == true || inputs.do-pact-provider-tests == true }}
         uses: extenda/actions/pact-can-i-deploy@v0
         with:
           service-account-key: ${{ secrets.SECRET_AUTH }}
