@@ -10,6 +10,11 @@ inputs:
   service-name:
     description: 'Service name (same as in Styra & GCP)'
     required: true
+  policy-type:
+    description: |
+      The policy you are testing, ingress or app ( default: ingress )
+    default: ingress
+    required: false
 runs:
   using: "composite"
   steps:
@@ -24,6 +29,7 @@ runs:
     - name: OPA/Rego unit tests
       uses: extenda/actions/styra-das-test@v0
       with:
+        policy-type: ${{ inputs.policy-type }}
         permission-prefix: ${{ inputs.system }}
         service-name: ${{ inputs.service-name }}
         styra-das-token: ${{ env.STYRA_TOKEN }}
