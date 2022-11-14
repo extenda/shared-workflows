@@ -21,6 +21,17 @@ on:
         required: true
       GCLOUD_AUTH_PROD:
         required: true
+    inputs:
+      do-pact-consumer-tests:
+        description: 'If true runs tests defining data contracts'
+        type: boolean
+        required: false
+        default: false
+      do-pact-provider-tests:
+        description: 'If true runs tests verifying implementation against data-contracts'
+        type: boolean
+        required: false
+        default: false
 
 jobs:
   prod:
@@ -64,6 +75,14 @@ jobs:
           jira-password: ${{ env.JIRA_PASSWORD }}
           jira-project-key: EA
       
+      - name: PACT record deploy to PROD
+        if: ${{ inputs.do-pact-provider-tests == true }}
+        uses: extenda/actions/pact-record-deployment@v0
+        with:
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+          application-name: ${{ secrets.pact-application-id }}
+          release-version: ${{ github.sha }}
+
       - name: Notify Slack if failed
         if: failure()
         uses: extenda/actions/slack-notify@v0
