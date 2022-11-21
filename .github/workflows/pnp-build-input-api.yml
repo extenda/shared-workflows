@@ -52,7 +52,7 @@ on:
         required: false
         default: false
       include-asyncapi-schema:
-        description: 'If true restores AsyncAPI schema from cache and includes it to the deployment'
+        description: 'If true restores AsyncAPI schema from cache so you can include it to the deployment'
         type: boolean
         required: false
         default: false
