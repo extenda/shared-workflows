@@ -46,6 +46,11 @@ on:
         type: boolean
         required: false
         default: false
+      include-asyncapi-schema:
+        description: 'If true restores AsyncAPI schema from cache and includes it to the deployment'
+        type: boolean
+        required: false
+        default: false
 
 jobs:
   build:
@@ -202,6 +207,13 @@ jobs:
       - uses: extenda/actions/setup-gcloud@v0
         with:
           service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
+
+      - name: Restore AsyncAPI schema from cache
+        if: ${{ inputs.include-asyncapi-schema == true }}
+        uses: actions/cache@v3
+        with:
+          path: schemas/v1/asyncapi.yaml
+          key: asyncapi-schema-${{ github.run_id }}
 
       - name: Build and push Docker
         run: |
