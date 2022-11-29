@@ -18,6 +18,9 @@ inputs:
   image:
     description: 'Image name for the service (without tag)'
     required: true
+  slack-channel:
+    description: Name of the channel to notify failing action
+    required: true
 
 runs:
   using: "composite"
@@ -69,3 +72,13 @@ runs:
         with:
           service-account-key: ${{ inputs.GCLOUD_AUTH }}
           image: ${{ inputs.image }}:${{ steps.release.outputs.release-tag }}
+
+      - name: Notify Slack if failed
+        if: failure()
+        uses: extenda/actions/slack-notify@v0
+        with:
+          text: |
+            *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+          channel: ${{ inputs.slack-channel }}
+          service-account-key: ${{ inputs.SECRET_AUTH }}

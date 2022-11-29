@@ -4,6 +4,9 @@ inputs:
   SECRET_AUTH:
     description: 'GCP Auth'
     required: true
+  slack-channel:
+    description: Name of the channel to notify failing action
+    required: false
 runs: 
   using: "composite"
   steps:
@@ -87,3 +90,13 @@ runs:
         sonar-host: https://sonarcloud.io
         service-account-key: ${{ inputs.SECRET_AUTH }}
         sonar-scanner: node
+
+    - name: Notify Slack if failed
+      if: failure()
+      uses: extenda/actions/slack-notify@v0
+      with:
+        text: |
+          *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+          Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+        channel: ${{ inputs.slack-channel }}
+        service-account-key: ${{ inputs.SECRET_AUTH }}
