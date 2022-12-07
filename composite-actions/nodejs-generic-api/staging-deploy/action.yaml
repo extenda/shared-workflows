@@ -25,7 +25,7 @@ inputs:
   user-password-name:
     description: Name of the user password in secret manager
     default: iam-test-token-password
- slack-channel:
+  slack-channel:
     description: Name of the channel to notify failing action
     required: true
 
