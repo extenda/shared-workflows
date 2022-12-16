@@ -58,6 +58,11 @@ on:
         type: boolean
         required: false
         default: false
+      is-pact-provider-can-i-deploy-dry-run:
+        description: 'If true, provider can-i-deploy step will be executed in dry-run mode'
+        type: boolean
+        required: false
+        default: false
 
 jobs:
   build:
@@ -125,8 +130,8 @@ jobs:
           pacts-directory: target/pacts
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
-      - name: Can i deploy?
-        if: ${{ inputs.do-pact-consumer-tests == true || inputs.do-pact-provider-tests == true }}
+      - name: Can i deploy - consumer?
+        if: ${{ inputs.do-pact-consumer-tests == true }}
         uses: extenda/actions/pact-can-i-deploy@v0
         with:
           service-account-key: ${{ secrets.SECRET_AUTH }}
@@ -134,6 +139,18 @@ jobs:
           retry-while-unknown: 15
           retry-interval: 10
           dry-run: ${{ inputs.is-pact-consumer-can-i-deploy-dry-run }}
+          env: "staging"
+
+      - name: Can i deploy - provider?
+        if: ${{ inputs.do-pact-provider-tests == true }}
+        uses: extenda/actions/pact-can-i-deploy@v0
+        with:
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+          application-name: ${{ secrets.pact-application-id }}
+          retry-while-unknown: 15
+          retry-interval: 10
+          dry-run: ${{ inputs.is-pact-provider-can-i-deploy-dry-run }}
+          env: "staging"
 
       - name: Notify Slack if failed
         if: ${{ failure() && github.ref == 'refs/heads/master' }}
