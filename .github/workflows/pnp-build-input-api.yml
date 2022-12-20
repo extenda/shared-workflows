@@ -70,6 +70,7 @@ jobs:
             NUGET_API_KEY: nuget-api-key
             PACT_BROKER_PASSWORD: pact-broker-password
             PACT_BROKER_USERNAME: pact-broker-username
+            API_KEY: api-key-hiidentity-staff
 
       - name: Determine version
         uses: extenda/actions/conventional-version@v0
@@ -157,6 +158,20 @@ jobs:
           retry-interval: 10
           dry-run: ${{ inputs.is-pact-provider-can-i-deploy-dry-run }}
           env: "staging"
+
+      - name: Get IAM token
+        id: testtoken
+        uses: extenda/actions/iam-test-token@v0
+        with:
+          service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
+          api-key: ${{ env.API_KEY }}
+
+      - name: Run Acceptance Tests
+        run: |
+          dotnet test ${{ secrets.path-to-acceptance-tests }}
+        env:
+          INPUT_API_URL: ${{ inputs.staging-service-base-url }}
+          BEARER_TOKEN: ${{ steps.testtoken.outputs.iam-token }}
 
       - name: Notify Slack if failed
         if: ${{ failure() && github.ref == 'refs/heads/master' }}
