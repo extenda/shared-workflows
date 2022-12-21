@@ -14,6 +14,12 @@ on:
       path-to-dockerfile:
         description: 'Path to dockerfile which builds the API.'
         required: true
+      path-to-acceptance-tests:
+        description: 'Path to acceptance tests csproj file.'
+        required: true
+      staging-service-base-url:
+        description: 'A url of the service in staging'
+        required: true
       slack-channel:
         description: 'A slack channel which needs to be notified in case of failure'
         required: false
@@ -26,16 +32,6 @@ on:
       pact-webhook-id:
         required: false
     inputs:
-      acceptance-dockerfile-path:
-        description: 'Path to acceptance tests dockerfile.'
-        default: 'Acceptance.Dockerfile'
-        type: string
-        required: false
-      acceptance-nuget-config-path:
-        description: 'Path to nuget.config for acceptance tests.'
-        default: 'src/nuget.config'
-        type: string
-        required: false
       do-pact-consumer-tests:
         description: 'If true runs tests defining data contracts'
         type: boolean
@@ -74,6 +70,8 @@ jobs:
             NUGET_API_KEY: nuget-api-key
             PACT_BROKER_PASSWORD: pact-broker-password
             PACT_BROKER_USERNAME: pact-broker-username
+            API_KEY: api-key-hiidentity-staff
+
       - name: Determine version
         uses: extenda/actions/conventional-version@v0
         id: semver
@@ -106,6 +104,7 @@ jobs:
               "password": "${{ env.NEXUS_PASSWORD }}",
               "apikey": "${{ env.NUGET_API_KEY }}"
             }]
+
       - name: Start Sonar Scanner
         uses: extenda/actions/sonar-scanner@v0
         with:
@@ -160,6 +159,20 @@ jobs:
           dry-run: ${{ inputs.is-pact-provider-can-i-deploy-dry-run }}
           env: "staging"
 
+      - name: Get IAM token
+        id: testtoken
+        uses: extenda/actions/iam-test-token@v0
+        with:
+          service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
+          api-key: ${{ env.API_KEY }}
+
+      - name: Run Acceptance Tests
+        run: |
+          dotnet test ${{ secrets.path-to-acceptance-tests }}
+        env:
+          INPUT_API_URL: ${{ secrets.staging-service-base-url }}
+          BEARER_TOKEN: ${{ steps.testtoken.outputs.iam-token }}
+
       - name: Notify Slack if failed
         if: ${{ failure() && github.ref == 'refs/heads/master' }}
         uses: extenda/actions/slack-notify@v0
@@ -186,6 +199,7 @@ jobs:
             NEXUS_PASSWORD: nexus-password
             NEXUS_USERNAME: nexus-username
             NUGET_API_KEY: nuget-api-key
+
       - name: Setup NuGet
         uses: NuGet/setup-nuget@v1
         with:
@@ -207,6 +221,7 @@ jobs:
               "password": "${{ env.NEXUS_PASSWORD }}",
               "apikey": "${{ env.NUGET_API_KEY }}"
             }]
+
       - uses: extenda/actions/setup-gcloud@v0
         with:
           service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
@@ -217,6 +232,7 @@ jobs:
           IMAGE=eu.gcr.io/extenda/${{ secrets.GCR_image_name }}
           docker build -t $IMAGE:${{ github.sha }} -t $IMAGE:latest . -f ${{ secrets.path-to-dockerfile }}
           docker push --all-tags $IMAGE
+
       - name: Attest image
         uses: extenda/actions/binary-auth-attestation@v0
         with:
@@ -261,63 +277,27 @@ jobs:
         with:
           service-account-key: ${{ secrets.SECRET_AUTH }}
           secrets: |
-            NEXUS_PASSWORD: nexus-password
-            NEXUS_USERNAME: nexus-username
-            PACT_BROKER_PASSWORD: pact-broker-password
-            PACT_BROKER_USERNAME: pact-broker-username
+            API_KEY: api-key-hiidentity-staff
+
+      - name: Get IAM token
+        id: testtoken
+        uses: extenda/actions/iam-test-token@v0
+        with:
+          service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
+          api-key: ${{ env.API_KEY }}
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v1
         with:
           dotnet-version: '6.0.x'
 
-      - name: Setup NuGet
-        uses: NuGet/setup-nuget@v1
-        with:
-          nuget-version: 'latest'
-
-      - name: Setup NuGet sources
-        uses: extenda/actions/setup-nuget-sources@v0
-        with:
-          config-file: ${{ inputs.acceptance-nuget-config-path }}
-          sources: |
-            [{
-              "name": "nuget.org",
-              "source": "https://api.nuget.org/v3/index.json"
-            },
-            {
-              "name": "Extenda",
-              "source": "https://repo.extendaretail.com/repository/nuget-hosted/index.json",
-              "username": "${{ env.NEXUS_USERNAME }}",
-              "password": "${{ env.NEXUS_PASSWORD }}",
-              "apikey": "${{ env.NUGET_API_KEY }}"
-            }]
-      - uses: extenda/actions/setup-gcloud@v0
-        id: gcloud
-        with:
-          service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
-
-      - name: Build test image
+      - name: Run Acceptance Tests
         run: |
-          gcloud --quiet auth configure-docker
-          IMAGE=eu.gcr.io/extenda/${{ secrets.GCR_image_name }}-acceptance:${{ github.sha }}
-          docker build . -f ${{ inputs.acceptance-dockerfile-path }} -t $IMAGE
-          docker push $IMAGE
-      - name: Attest image
-        uses: extenda/actions/binary-auth-attestation@v0
-        with:
-          image-path: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}-acceptance
-          service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
-
-      - name: Acceptance tests
-        uses: extenda/actions/test-pod@v0
-        with:
-          service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
-          image: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}-acceptance:${{ github.sha }}
+          dotnet test ${{ secrets.path-to-acceptance-tests }}
         env:
-          TESTPOD_ACCEPTANCE_TESTS_API_KEY: sm://${{ steps.gcloud.outputs.project-id }}/ACCEPTANCE_TESTS_API_KEY
-          TESTPOD_ACCEPTANCE_TESTS_USER_EMAIL: sm://${{ steps.gcloud.outputs.project-id }}/ACCEPTANCE_TESTS_USER_EMAIL
-          TESTPOD_TESTUSER_PASSWORD: sm://${{ steps.gcloud.outputs.project-id }}/TESTUSER_PASSWORD
-            
+          INPUT_API_URL: ${{ secrets.staging-service-base-url }}
+          BEARER_TOKEN: ${{ steps.testtoken.outputs.iam-token }}
+
       - name: Notify Slack if failed
         if: failure()
         uses: extenda/actions/slack-notify@v0
@@ -352,6 +332,7 @@ jobs:
           gcloud container images add-tag \
             eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ github.sha }} \
             eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.release.outputs.version }}
+
       - name: Create Pact STAGING release
         if: ${{ inputs.do-pact-provider-tests == true }}
         uses: extenda/actions/pact-tag-version@v0
