@@ -168,7 +168,10 @@ jobs:
 
       - name: Run Acceptance Tests
         run: |
-          dotnet test ${{ secrets.path-to-acceptance-tests }} -e INPUT_API_URL=${{ inputs.staging-service-base-url }} -e BEARER_TOKEN=${{ steps.testtoken.outputs.iam-token }}
+          dotnet test ${{ secrets.path-to-acceptance-tests }}
+        env:
+          INPUT_API_URL: ${{ secrets.staging-service-base-url }}
+          BEARER_TOKEN: ${{ steps.testtoken.outputs.iam-token }}
 
       - name: Notify Slack if failed
         if: ${{ failure() && github.ref == 'refs/heads/master' }}
