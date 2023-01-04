@@ -20,7 +20,12 @@ inputs:
     required: true
   slack-channel:
     description: Name of the channel to notify failing action
-    required: true
+    required: false
+  notify-slack-on-fail:
+    description: 'If true notifies slack channel specified in secrets in case this workflow fails'
+    default: false
+    type: boolean
+    required: false
 
 runs:
   using: "composite"
@@ -74,7 +79,7 @@ runs:
           image: ${{ inputs.image }}:${{ steps.release.outputs.release-tag }}
 
       - name: Notify Slack if failed
-        if: failure()
+        if: ${{ failure() && inputs.notify-slack-on-fail == true }}
         uses: extenda/actions/slack-notify@v0
         with:
           text: |
