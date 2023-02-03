@@ -63,6 +63,11 @@ on:
         type: boolean
         required: false
         default: false
+      reuse-release:
+        description: 'If true, instead of creating new release reuses the current one. Intended to be used in config-based multi-service deploy scenarios, when multiple service instances created from the same code base.'
+        type: boolean
+        required: false
+        default: false
 
 jobs:
   build:
@@ -273,8 +278,17 @@ jobs:
         with:
           fetch-depth: 0
 
+
       - name: Create release
+        if: ${{ inputs.reuse-release == false }}
         uses: extenda/actions/conventional-release@v0
+        id: release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create release (reuse current release mode)
+        if: ${{ inputs.reuse-release == true }}
+        uses: extenda/actions/conventional-version@v0
         id: release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -290,7 +304,7 @@ jobs:
             eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.release.outputs.version }}
 
       - name: Create Pact STAGING release
-        if: ${{ inputs.do-pact-consumer-tests == true }}
+        if: ${{ inputs.do-pact-consumer-tests == true && inputs.reuse-release == false }}
         uses: extenda/actions/pact-tag-version@v0
         with:
           service-account-key: ${{ secrets.SECRET_AUTH }}
