@@ -301,7 +301,7 @@ jobs:
         run: |
           gcloud container images add-tag \
             eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ github.sha }} \
-            eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ release_version }}
+            eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ env.release_version }}
         env:
           release_version: ${{ inputs.reuse-release == false && steps.release.outputs.version || steps.release_reuse.outputs.version }}
 
