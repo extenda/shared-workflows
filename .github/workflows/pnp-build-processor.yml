@@ -301,9 +301,9 @@ jobs:
         run: |
           gcloud container images add-tag \
             eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ github.sha }} \
-            eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ $version }}
+            eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ $release_version }}
         env:
-          release-version: ${{ inputs.reuse-release == false && steps.release.outputs.version || steps.release_reuse.outputs.version }}
+          release_version: ${{ inputs.reuse-release == false && steps.release.outputs.version || steps.release_reuse.outputs.version }}
 
       - name: Create Pact STAGING release
         if: ${{ inputs.do-pact-consumer-tests == true && inputs.reuse-release == false }}
