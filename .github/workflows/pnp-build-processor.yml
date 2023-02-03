@@ -324,7 +324,7 @@ jobs:
           channel: ${{ secrets.slack-channel }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
-  jira-release-notes:
+  jira-release-notes:    
     if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     needs:
@@ -341,5 +341,6 @@ jobs:
       
       - name: Update JIRA release notes
         uses: extenda/actions/jira-releasenotes@v0
+        continue-on-error: true
         with:
           jira-project: EA
