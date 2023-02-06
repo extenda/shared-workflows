@@ -382,5 +382,6 @@ jobs:
       
       - name: Update JIRA release notes
         uses: extenda/actions/jira-releasenotes@v0
+        continue-on-error: true
         with:
           jira-project: EA
