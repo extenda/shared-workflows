@@ -95,11 +95,11 @@ runs:
           tests: ./test/component-tests/tests.yml
 
       - name: Notify Slack if failed
-        if: ${{ failure() && inputs.notify-slack-on-fail == true }}
+        if: ${{ failure() && inputs.notify-slack-on-fail }}
         uses: extenda/actions/slack-notify@v0
         with:
           text: |
-            *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
-            Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+            *Deploy to staging failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            Deploy failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
           channel: ${{ inputs.slack-channel }}
-          service-account-key: ${{ inputs.SECRET_AUTH }}
+          service-account-key: ${{ inputs.GCLOUD_AUTH }}
