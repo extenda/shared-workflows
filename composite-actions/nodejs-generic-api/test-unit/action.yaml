@@ -4,6 +4,9 @@ inputs:
   SECRET_AUTH:
     description: 'GCP Auth'
     required: true
+  GCLOUD_AUTH:
+    description: 'GCP Auth (staging)'
+    required: false
   slack-channel:
     description: Name of the channel to notify failing action
     required: false
@@ -97,11 +100,11 @@ runs:
         sonar-scanner: node
 
     - name: Notify Slack if failed
-      if: ${{ failure() && inputs.notify-slack-on-fail == true }}
+      if: ${{ github.ref == 'refs/heads/master' && failure() && inputs.notify-slack-on-fail }}
       uses: extenda/actions/slack-notify@v0
       with:
         text: |
-          *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
-          Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+          *Unit test failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+          Test failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
         channel: ${{ inputs.slack-channel }}
-        service-account-key: ${{ inputs.SECRET_AUTH }}
+        service-account-key: ${{ inputs.GCLOUD_AUTH || inputs.SECRET_AUTH }}
