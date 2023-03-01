@@ -364,24 +364,3 @@ jobs:
             Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
           channel: ${{ secrets.slack-channel }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
-
-  jira-release-notes:
-    if: github.ref == 'refs/heads/master'
-    runs-on: ubuntu-latest
-    needs:
-      - release
-    steps:
-      - uses: actions/checkout@v1
-
-      - uses: extenda/actions/gcp-secret-manager@v0
-        with:
-          service-account-key: ${{ secrets.SECRET_AUTH }}
-          secrets: |
-            JIRA_USERNAME: jira-username
-            JIRA_PASSWORD: jira-password
-      
-      - name: Update JIRA release notes
-        uses: extenda/actions/jira-releasenotes@v0
-        continue-on-error: true
-        with:
-          jira-project: EA
