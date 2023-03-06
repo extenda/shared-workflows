@@ -112,7 +112,6 @@ jobs:
         with:
           sonar-host: https://sonarcloud.io
           sonar-scanner: dotnet
-          main-branch: ${{ steps.semver.outputs.branch-name-short }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
       - name: Build dotnet solution
@@ -140,7 +139,6 @@ jobs:
         with:
           sonar-host: https://sonarcloud.io
           sonar-scanner: dotnet
-          main-branch: ${{ steps.semver.outputs.branch-name-short }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
       - name: Create/update pact version
