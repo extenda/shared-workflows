@@ -68,6 +68,10 @@ on:
         type: boolean
         required: false
         default: false
+      release-version:
+        description: 'Instead of creating new release reuse this on. Intended to be used in config-based multi-service deploy scenarios, when multiple service instances created from the same code base.'
+        type: string
+        required: false
 
 jobs:
   build:
@@ -285,13 +289,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Create release (reuse current release mode)
-        if: ${{ inputs.reuse-release == true }}
-        uses: extenda/actions/conventional-version@v0
-        id: release_reuse
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - uses: extenda/actions/setup-gcloud@v0
         with:
           service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
@@ -302,7 +299,7 @@ jobs:
             eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ github.sha }} \
             eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ env.release_version }}
         env:
-          release_version: ${{ inputs.reuse-release == false && steps.release.outputs.version || steps.release_reuse.outputs.version }}
+          release_version: ${{ inputs.reuse-release == false && steps.release.outputs.version || inputs.release-version }}
 
       - name: Create Pact STAGING release
         if: ${{ inputs.do-pact-consumer-tests == true && inputs.reuse-release == false }}
