@@ -26,6 +26,11 @@ inputs:
     default: false
     type: boolean
     required: false
+  with-opa:
+    description: 'Flag to enable deployment to OPA'
+    required: false
+    type: boolean
+    default: true
 
 runs:
   using: "composite"
@@ -41,6 +46,7 @@ runs:
             STYRA_TOKEN: styra-das-token
 
       - name: DAS production deploy
+        if: ${{ inputs.with-opa == true }}
         uses: extenda/actions/styra-das-deploy@v0
         with:
           permission-prefix: ${{ inputs.system }}
