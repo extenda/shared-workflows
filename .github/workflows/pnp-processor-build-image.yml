@@ -150,22 +150,26 @@ jobs:
           env: "staging"
 
       - name: Setup gcloud
+        if: github.ref == 'refs/heads/master'
         uses: extenda/actions/setup-gcloud@v0
         id: gcloud
         with:
           service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
 
       - name: Authenticate docker
+        if: github.ref == 'refs/heads/master'
         run: |
           gcloud --quiet auth configure-docker
 
       - name: Docker build and push
+        if: github.ref == 'refs/heads/master'
         run: |
           IMAGE=eu.gcr.io/extenda/${{ secrets.GCR_image_name }}
           docker build . -f ${{ secrets.path-to-dockerfile }} --build-arg jar_version=${{ steps.semver.outputs.version }} -t $IMAGE:${{ steps.semver.outputs.version }} -t $IMAGE:${{ github.sha }} -t $IMAGE:latest
           docker push --all-tags $IMAGE
 
       - name: Attest image
+        if: github.ref == 'refs/heads/master'
         uses: extenda/actions/binary-auth-attestation@v0
         with:
           image-path: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}
