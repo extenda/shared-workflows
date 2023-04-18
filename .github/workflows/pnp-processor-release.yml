@@ -1,0 +1,80 @@
+name: Merge to master 
+
+on:
+  workflow_call:
+    secrets:
+      GCR_image_name:
+        description: 'A name of the image to be created in GCR'
+        required: true
+      slack-channel:
+        description: 'A slack channel which needs to be notified in case of failure'
+        required: false
+      SECRET_AUTH:
+        required: true
+      GCLOUD_AUTH_STAGING:
+        required: true
+    inputs:
+      do-pact-consumer-tests:
+        description: 'If true runs tests defining data contracts'
+        type: boolean
+        required: false
+        default: false
+      reuse-release:
+        description: 'If true, instead of creating new release reuses the current one. Intended to be used in config-based multi-service deploy scenarios, when multiple service instances created from the same code base.'
+        type: boolean
+        required: false
+        default: false
+
+jobs:
+  release:
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Create release
+        if: ${{ inputs.reuse-release == false }}
+        uses: extenda/actions/conventional-release@v0
+        id: release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create release (reuse current release mode)
+        if: ${{ inputs.reuse-release == true }}
+        uses: extenda/actions/conventional-version@v0
+        id: release_reuse
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: extenda/actions/setup-gcloud@v0
+        with:
+          service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
+
+      - name: Add tag in GCR
+        run: |
+          gcloud container images add-tag \
+            eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ github.sha }} \
+            eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ env.release_version }}
+        env:
+          release_version: ${{ inputs.reuse-release == false && steps.release.outputs.version || steps.release_reuse.outputs.release-version }}
+
+      - name: Create Pact STAGING release
+        if: ${{ inputs.do-pact-consumer-tests == true && inputs.reuse-release == false }}
+        uses: extenda/actions/pact-tag-version@v0
+        with:
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+          application-name: ${{ secrets.pact-application-id }}
+          release-tag: ${{ steps.release.outputs.release-tag }}
+          env: "staging"
+
+      - name: Notify Slack if failed
+        if: failure()
+        uses: extenda/actions/slack-notify@v0
+        with:
+          text: |
+            *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+          channel: ${{ secrets.slack-channel }}
+          service-account-key: ${{ secrets.SECRET_AUTH }}
