@@ -16,6 +16,10 @@ inputs:
   service-url:
     description: Public url of a service
     required: true
+  service-definition:
+    description: Path to service definition file
+    required: false
+    default: cloud-run.yaml
   api-key-name:
     description: Name of the google identity api key in secret manager
     default: iam-test-api-key
@@ -70,6 +74,7 @@ runs:
         with:
           service-account-key: ${{ inputs.GCLOUD_AUTH }}
           image: ${{ inputs.image }}:${{ github.sha }}
+          service-definition: ${{ inputs.service-definition }}
 
       - name: Get API_KEY
         uses: extenda/actions/gcp-secret-manager@v0
