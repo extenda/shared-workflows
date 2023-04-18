@@ -1,5 +1,5 @@
 name: test and build docker image
-description: 'Build source code, run tests, analyze with Sonar, build and push docker image, attest image'
+
 on:
   workflow_call:
     secrets:
