@@ -203,7 +203,7 @@ jobs:
     #   - staging
     strategy:
       matrix:
-        k6-test: ${{ fromJSON(github.event.inputs.k6-tests-filenames) }}
+        k6-test: ${{ fromJSON(inputs.k6-tests-filenames) }}
 
     steps:
       - uses: actions/checkout@v2
