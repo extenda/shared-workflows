@@ -26,7 +26,7 @@ on:
         required: true
     inputs:
       has-k6-tests:
-        description: 'If true runs k6 tests for this API. Requires "k6-node-version", "k6-tests-root-folder", "k6-tests-filenames" to run k6 tests'     
+        description: 'If true runs k6 tests for this API. Requires "k6-tests-root-folder" and "k6-tests-filenames" to run k6 tests'     
         required: true
         type: boolean
       k6-node-version:
@@ -39,14 +39,15 @@ on:
         default: 'test/k6'
         type: string
         required: false
-      k6-tests-filenames:
+      k6-tests-file-names:
         description: 'k6 tests'
-        default: "['dist/api-tests-v1.js','dist/api-tests-v2.js']"
+        default: '["dist/api-tests-v1.js", "dist/api-tests-v2.js"]'
         type: string
         required: false
 
 jobs:
   build:
+    if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -203,7 +204,7 @@ jobs:
     #   - staging
     strategy:
       matrix:
-        k6-test: ${{ fromJSON(inputs.k6-tests-filenames) }}
+        k6-test-file-name: ${{ fromJSON(inputs.k6-tests-file-names) }}
 
     steps:
       - uses: actions/checkout@v2
@@ -234,7 +235,7 @@ jobs:
       - name: Run API tests
         uses: k6io/action@v0.2.0
         with:
-          filename: ${{ inputs.k6-tests-root-folder }}/${{ matrix.k6-test }}
+          filename: ${{ inputs.k6-tests-root-folder }}/${{ matrix.k6-test-file-name }}
           flags: --env IAM_TOKEN=${{ steps.testtoken.outputs.iam-token }} --env SERVICE_BASE_URL=${{ secrets.staging-service-base-url }}
 
       - name: Notify Slack if failed
