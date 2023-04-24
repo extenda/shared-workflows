@@ -196,10 +196,11 @@ jobs:
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
   k6:
-    if: ${{ github.ref == 'refs/heads/master' && inputs.has-k6-tests == true }}
+    #if: ${{ github.ref == 'refs/heads/master' && inputs.has-k6-tests == true }}
+    if: ${{ inputs.has-k6-tests == true }}
     runs-on: ubuntu-latest
-    needs:
-      - staging
+    # needs:
+    #   - staging
     strategy:
       matrix:
         k6-test: ${{ fromJSON(github.event.inputs.k6-tests-filenames) }}
