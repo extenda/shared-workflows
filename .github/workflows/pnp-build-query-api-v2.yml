@@ -196,8 +196,9 @@ jobs:
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
   k6:
-    needs: staging
-    if: ${{ github.ref == 'refs/heads/master' && inputs.has-k6-tests == true }}
+    if: ${{ inputs.has-k6-tests == true }}
+    needs: build
+    #if: ${{ github.ref == 'refs/heads/master' && inputs.has-k6-tests == true }}
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -246,11 +247,11 @@ jobs:
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
   release:
-    needs: [staging, k6]
+    needs: [build, k6]
     if: |
       always() &&
       github.ref == 'refs/heads/master' &&
-      needs.staging.result == 'success' &&
+      needs.build.result == 'success' &&
       (inputs.has-k6-tests == false || needs.k6.result == 'success')
     runs-on: ubuntu-latest
     steps:
@@ -258,21 +259,21 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Create release
-        uses: extenda/actions/conventional-release@v0
-        id: release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # - name: Create release
+      #   uses: extenda/actions/conventional-release@v0
+      #   id: release
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: extenda/actions/setup-gcloud@v0
-        with:
-          service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
+      # - uses: extenda/actions/setup-gcloud@v0
+      #   with:
+      #     service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
 
-      - name: Add tag in GCR
-        run: |
-          gcloud container images add-tag \
-            eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ github.sha }} \
-            eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.release.outputs.version }}
+      # - name: Add tag in GCR
+      #   run: |
+      #     gcloud container images add-tag \
+      #       eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ github.sha }} \
+      #       eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.release.outputs.version }}
       
       - name: Notify Slack if failed
         if: failure()
