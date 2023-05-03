@@ -25,6 +25,11 @@ on:
         type: boolean
         required: false
         default: false
+      release-version:
+        description: 'deploy release version'
+        type: boolean
+        required: false
+        default: false
 
 jobs:
   deploy:
@@ -49,7 +54,16 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Deploy to Kubernetes release version
+        if: ${{ inputs.release-version == true }}
+        uses: extenda/actions/kubernetes@v0
+        with:
+          service-account-key: ${{ secrets.GCLOUD_AUTH }}
+          service-definition: ${{ inputs.path-to-kubernetes-config }}
+          image: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.semver.outputs.release-version }}
+
       - name: Deploy to Kubernetes
+        if: ${{ inputs.release-version == false }}
         uses: extenda/actions/kubernetes@v0
         with:
           service-account-key: ${{ secrets.GCLOUD_AUTH }}
