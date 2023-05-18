@@ -46,7 +46,7 @@ runs:
             STYRA_TOKEN: styra-das-token
 
       - name: DAS production deploy
-        if: ${{ inputs.with-opa == true }}
+        if: ${{ inputs.with-opa }}
         uses: extenda/actions/styra-das-deploy@v0
         with:
           permission-prefix: ${{ inputs.system }}
