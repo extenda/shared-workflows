@@ -30,7 +30,7 @@ inputs:
     description: 'Flag to enable deployment to OPA'
     required: false
     type: boolean
-    default: true
+    default: false
 
 runs:
   using: "composite"
