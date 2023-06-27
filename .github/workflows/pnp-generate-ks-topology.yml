@@ -18,6 +18,10 @@ jobs:
       - name: Update README
         run:  |
           pwd
+          ls
+          cd ..
+          pwd
+          ls
           extenda/shared-workflows/.github/workflows/script/generate-mermaid/main.mjs@0.19.0
 
       - name: Configure Git
