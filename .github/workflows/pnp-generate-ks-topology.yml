@@ -16,7 +16,7 @@ jobs:
           node-version: '18'
 
       - name: Update README
-        run: .github/workflows/script/generate-mermaid/main.mjs
+        run: extenda/shared-workflows/.github/workflows/script/generate-mermaid/main.mjs
 
       - name: Configure Git
         uses: extenda/actions/setup-git@v0
