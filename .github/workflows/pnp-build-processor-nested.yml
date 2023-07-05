@@ -65,6 +65,11 @@ on:
         type: boolean
         required: false
         default: false
+      path-to-pact-tests:
+        description: 'Path to pact test directory.'
+        type: string
+        required: true
+        default: 'target/pacts'
       reuse-release:
         description: 'If true, instead of creating new release reuses the current one. Intended to be used in config-based multi-service deploy scenarios, when multiple service instances created from the same code base.'
         type: boolean
@@ -135,7 +140,7 @@ jobs:
         if: ${{ inputs.do-pact-consumer-tests == true }}
         uses: extenda/actions/pact-publish@v0
         with:
-          pacts-directory: target/pacts
+          pacts-directory: ${{ inputs.path-to-pact-tests }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
       - name: Can i deploy - consumer?
