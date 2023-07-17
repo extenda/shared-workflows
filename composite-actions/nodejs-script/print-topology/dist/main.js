@@ -15,6 +15,7 @@ function _createClass(Constructor, protoProps, staticProps) { if (protoProps) _d
 function _defineProperty(obj, key, value) { key = _toPropertyKey(key); if (key in obj) { Object.defineProperty(obj, key, { value: value, enumerable: true, configurable: true, writable: true }); } else { obj[key] = value; } return obj; }
 function _toPropertyKey(arg) { var key = _toPrimitive(arg, "string"); return _typeof(key) === "symbol" ? key : String(key); }
 function _toPrimitive(input, hint) { if (_typeof(input) !== "object" || input === null) return input; var prim = input[Symbol.toPrimitive]; if (prim !== undefined) { var res = prim.call(input, hint || "default"); if (_typeof(res) !== "object") return res; throw new TypeError("@@toPrimitive must return a primitive value."); } return (hint === "string" ? String : Number)(input); }
+var core = require('@actions/core');
 var SubTopology = /*#__PURE__*/function () {
   function SubTopology() {
     _classCallCheck(this, SubTopology);
@@ -224,8 +225,9 @@ function _generateTopology() {
       while (1) switch (_context.prev = _context.next) {
         case 0:
           try {
-            topologyFilePath = process.argv[2] || 'docs/topology/stream.txt';
-            readmeFilePath = process.argv[3] || 'README.md'; // Read the contents of topology/stream.txt file
+            // const topologyFilePath = process.argv[2] || 'docs/topology/stream.txt';
+            topologyFilePath = core.getInput('topologyFilePath') || 'docs/topology/stream.txt'; // const readmeFilePath = process.argv[3] || 'README.md';
+            readmeFilePath = core.getInput('readmeFilePath') || 'README.md'; // Read the contents of topology/stream.txt file
             topologyString = _fs["default"].readFileSync(topologyFilePath, 'utf8');
             readmeFileContent = '';
             if (_fs["default"].existsSync(readmeFilePath)) {

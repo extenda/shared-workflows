@@ -1,4 +1,5 @@
 import fs from 'fs';
+const core = require('@actions/core');
 
 class SubTopology {
     static pattern = /Sub-topology: ([0-9]*)/;
@@ -157,10 +158,13 @@ class AsciiToMermaid {
 
 const nameFunction = (value) => value.replaceAll('-', '-<br>');
 
+
 async function generateTopology(){
     try {
-        const topologyFilePath = process.argv[2] || 'docs/topology/stream.txt';
-        const readmeFilePath = process.argv[3] || 'README.md';
+        // const topologyFilePath = process.argv[2] || 'docs/topology/stream.txt';
+        const topologyFilePath = core.getInput('topologyFilePath') || 'docs/topology/stream.txt';
+        // const readmeFilePath = process.argv[3] || 'README.md';
+        const readmeFilePath = core.getInput('readmeFilePath') || 'README.md';
         // Read the contents of topology/stream.txt file
         const topologyString = fs.readFileSync(topologyFilePath,'utf8')
 

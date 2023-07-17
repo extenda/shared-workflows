@@ -1,6 +1,9 @@
 {
   "name": "print-topology",
   "main": "dist/main.mjs",
+  "dependencies": {
+    "@actions/core": "^1.10.0"
+  },
   "devDependencies": {
     "@babel/cli": "^7.22.9",
     "@babel/preset-env": "^7.22.9"
