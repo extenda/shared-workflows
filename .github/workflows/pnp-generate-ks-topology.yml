@@ -5,12 +5,12 @@ on:
       topologyFilePath:
         description: 'Path to the topology file'
         type: string
-        required: true
+        required: false
         default: 'docs/topology/stream.txt'
       readmeFilePath:
         description: 'Path to the README file'
         type: string
-        required: true
+        required: false
         default: 'README.md'
 
 jobs:
