@@ -1,6 +1,17 @@
 name: Print Kafka Stream Topology To Readme
 on:
   workflow_call:
+    inputs:
+      topologyFilePath:
+        description: 'Path to the topology file'
+        type: string
+        required: true
+        default: 'docs/topology/stream.txt'
+      readmeFilePath:
+        description: 'Path to the README file'
+        type: string
+        required: true
+        default: 'README.md'
 
 jobs:
   update-readme-topology:
@@ -16,7 +27,8 @@ jobs:
           node-version: '18'
 
       - name: Update README
-        run: .github/workflow/script/generate-mermaid/main.mjs
+        uses: extenda/shared-workflows/composite-actions/nodejs-script/print-topology@feat/EA-1000_create_topology_generation_github_workflow
+        run: .github/workflow/script/generate-mermaid/main.mjs ${{ inputs.topologyFilePath }} ${{ inputs.readmeFilePath }}
 
       - name: Configure Git
         uses: extenda/actions/setup-git@v0
@@ -35,6 +47,10 @@ jobs:
 
       - name: Commit and Push Changes
         run: |
-          git add .
-          git -c user.name="Extenda-DevOps-Bot" -c user.email="devops_team@extenda.se" commit -S -m "Update README topology"
-          git push origin HEAD:${{ github.ref }}
+          if [[ -n $(git status --porcelain) ]]; then
+            git add .
+            git -c user.name="Extenda-DevOps-Bot" -c user.email="devops_team@extenda.se" commit -S -m "Update README topology"
+            git push origin HEAD:${{ github.ref }}
+          else
+            echo "No changes to commit."
+          fi
