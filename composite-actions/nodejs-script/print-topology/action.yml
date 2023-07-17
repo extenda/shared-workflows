@@ -3,11 +3,11 @@ description: Print Kafka Stream Processor's topology in mermaid format.
 inputs:
   topologyFilePath:
     description: 'Path to the topology file'
-    required: true
+    required: false
     default: 'docs/topology/stream.txt'
   readmeFilePath:
     description: 'Path to the README file'
-    required: true
+    required: false
     default: 'README.md'
 runs:
   using: node18
