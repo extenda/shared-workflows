@@ -28,7 +28,9 @@ jobs:
 
       - name: Update README
         uses: extenda/shared-workflows/composite-actions/nodejs-script/print-topology@feat/EA-1000_create_topology_generation_github_workflow
-        run: .github/workflow/script/generate-mermaid/main.mjs ${{ inputs.topologyFilePath }} ${{ inputs.readmeFilePath }}
+        with:
+          topologyFilePath : ${{ inputs.topologyFilePath }}
+          readmeFilePath : ${{ inputs.readmeFilePath }}
 
       - name: Configure Git
         uses: extenda/actions/setup-git@v0
