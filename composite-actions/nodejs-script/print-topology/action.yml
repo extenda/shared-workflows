@@ -10,5 +10,5 @@ inputs:
     required: false
     default: 'README.md'
 runs:
-  using: node18
-  main: dist/main.mjs ${{ github.event.inputs.topologyFilePath }} ${{ github.event.inputs.readmeFilePath }}
+  using: node16
+  main: dist/main.mjs ${{ inputs.topologyFilePath }} ${{ inputs.readmeFilePath }}
