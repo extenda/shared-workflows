@@ -224,8 +224,8 @@ function _generateTopology() {
       while (1) switch (_context.prev = _context.next) {
         case 0:
           try {
-            topologyFilePath = process.argv[2];
-            readmeFilePath = process.argv[3]; // Read the contents of topology/stream.txt file
+            topologyFilePath = process.argv[2] || 'docs/topology/stream.txt';
+            readmeFilePath = process.argv[3] || 'README.md'; // Read the contents of topology/stream.txt file
             topologyString = _fs["default"].readFileSync(topologyFilePath, 'utf8');
             readmeFileContent = '';
             if (_fs["default"].existsSync(readmeFilePath)) {
