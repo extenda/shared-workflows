@@ -26,9 +26,6 @@ jobs:
         with:
           node-version: '16'
 
-      - name: Install npm dependencies
-        run: npm install
-
       - name: Update README
         uses: extenda/shared-workflows/composite-actions/nodejs-script/print-topology@feat/EA-1000_create_topology_generation_github_workflow
         with:
