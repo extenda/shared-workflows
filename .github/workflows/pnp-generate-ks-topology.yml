@@ -27,7 +27,8 @@ jobs:
           node-version: '16'
 
       - name: Update README
-        uses: extenda/actions/print-ks-topology@feat/EA-1000_create_action_for_kafka_stream_topology_print
+        uses: extenda/shared-workflows/composite-actions/nodejs-script/print-topology@feat/EA-1000_create_topology_generation_github_workflow
+        #        uses: extenda/actions/print-ks-topology@feat/EA-1000_create_action_for_kafka_stream_topology_print
         with:
           topologyFilePath : ${{ inputs.topologyFilePath }}
           readmeFilePath : ${{ inputs.readmeFilePath }}
