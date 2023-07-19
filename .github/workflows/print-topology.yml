@@ -32,7 +32,7 @@ jobs:
           node-version: '16'
 
       - name: Update README
-        uses: extenda/shared-workflows/composite-actions/nodejs-script/print-topology@v0
+        uses: extenda/shared-workflows/composite-actions/nodejs-script/print-topology@master
         with:
           topologyFilePath : ${{ inputs.topologyFilePath }}
           readmeFilePath : ${{ inputs.readmeFilePath }}
