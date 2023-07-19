@@ -68,7 +68,7 @@ on:
       path-to-pact-tests:
         description: 'Path to pact test directory.'
         type: string
-        required: true
+        required: false
         default: 'target/pacts'
       reuse-release:
         description: 'If true, instead of creating new release reuses the current one. Intended to be used in config-based multi-service deploy scenarios, when multiple service instances created from the same code base.'
