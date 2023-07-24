@@ -44,7 +44,7 @@ runs:
       shell: bash
       run: |
         gcloud --quiet auth configure-docker
-        docker build -t ${{ inputs.image }}:${{ github.sha }} .
+        docker build --build-arg LD_CLIENT_ID=${{ env.LD_CLIENT_ID }} -t ${{ inputs.image }}:${{ github.sha }} .
         docker push ${{ inputs.image }}:${{ github.sha }}
 
     - name: Attest image

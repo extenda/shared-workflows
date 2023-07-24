@@ -8,7 +8,8 @@ This is typical action, to deploy a frontend application to google cloud run.
 - uses: extenda/shared-workflows/composite-actions/frontend-generic/prod-deploy@master
   with:
     SECRET_AUTH: ${{ secrets.SECRET_AUTH }}
-    GCLOUD_AUTH: ${{ secrets.GCLOUD_AUTH_PROD }}
+    GCLOUD_AUTH_PROD: ${{ secrets.GCLOUD_AUTH_PROD }}
+    GCLOUD_AUTH_STAGING: ${{ secrets.GCLOUD_AUTH_STAGING }}
     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     IMAGE: ${{ env.IMAGE_NAME }}
     LD_CLIENT_ID: 'in-store-launchdarkly-client-id'
