@@ -17,6 +17,12 @@ runs:
       with:
         message: ${{ github.event.pull_request.title }}
 
+    - name: Determine version
+      uses: extenda/actions/conventional-version@v0
+      id: semver
+      with:
+        build-number: ${{ github.run_number }}
+
     - name: Cache node_modules
       uses: actions/cache@v3
       id: cache-node-modules
