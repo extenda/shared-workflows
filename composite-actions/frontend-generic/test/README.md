@@ -2,7 +2,7 @@
 
 This is a generic action to run common checks on pull requests.
 
-This actions will:
+This action will:
 
 - Check your PR title.
 - Run linting, testing and build.
