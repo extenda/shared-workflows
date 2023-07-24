@@ -1,11 +1,11 @@
 # Instructions
 
 This is recommended step-by-step instruction, to use this composite action.
+
 - First you should run [test](./test/) for pull requests only.
 - In deployment you should only run [deploy](./prod-deploy/).
 - After deploy to prod, you should run [dora](../generic/dora).
   This run should depend on [prod-deploy](prod-deploy).
-
 
 ### Example
 
@@ -28,7 +28,6 @@ jobs:
   prod:
     if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
-    needs: staging
     steps:
       - uses: extenda/shared-workflows/composite-actions/frontend-generic/prod-deploy@master
         with:
