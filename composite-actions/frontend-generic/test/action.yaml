@@ -1,0 +1,101 @@
+name: 'Run test & build'
+description: 'Run test & build for frontend service on pull request'
+inputs:
+  SECRET_AUTH:
+    description: 'GCP Auth'
+    required: true
+  BUILD_TOOL:
+    description: 'Build tool to use'
+    required: true
+runs: 
+  using: "composite"
+  steps:
+    - uses: actions/checkout@v3
+
+    - name: Lint pull request title
+      uses: extenda/actions/commitlint@v0
+      with:
+        message: ${{ github.event.pull_request.title }}
+
+    - name: Cache node_modules
+      uses: actions/cache@v3
+      id: cache-node-modules
+      env:
+        cache-name: cache-node-modules
+      with:
+        path: node_modules
+        key: ${{ runner.os }}-node-modules-${{ hashFiles('**/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-node-modules
+
+    - name: Copy .env file
+      shell: bash
+      run: cp test/example.env .env
+
+    - name: Cache Sonar binary
+      uses: actions/cache@v3
+      env:
+        cache-name: cache-sonar-binary
+      with:
+        path: /home/runner/.sonar/native-sonar-scanner
+        key: ${{ runner.os }}-cache-sonar-binary
+        restore-keys: |
+          ${{ runner.os }}-build-${{ env.cache-name }}
+
+    - name: Install Node
+      uses: actions/setup-node@v3
+      with:
+        node-version: 16
+
+    - name: Auth to Nexus npm registry
+      uses: extenda/actions/nexus-auth-npm@v0
+      with:
+        service-account-key: ${{ inputs.SECRET_AUTH }}
+
+    - name: Install dependencies
+      shell: bash
+      if: steps.cache-node-modules.outputs.cache-hit != 'true' && inputs.BUILD_TOOL == 'npm' 
+      run: npm ci
+
+    - name: Lint
+      shell: bash
+      if: inputs.BUILD_TOOL == 'npm'
+      run: npm run lint:ci
+
+    - name: Run unit tests with coverage
+      shell: bash
+      if: inputs.BUILD_TOOL == 'npm'
+      run: npm run test:cov
+
+    - name: Build
+      shell: bash
+      if: inputs.BUILD_TOOL == 'npm'
+      run: npm run build
+
+    - name: Install dependencies
+      shell: bash
+      if: steps.cache-node-modules.outputs.cache-hit != 'true' && inputs.BUILD_TOOL == 'yarn' 
+      run: yarn install --frozen-lockfile
+
+    - name: Lint
+      shell: bash
+      if: inputs.BUILD_TOOL == 'yarn'
+      run: yarn run lint:ci
+
+    - name: Run unit tests with coverage
+      shell: bash
+      if: inputs.BUILD_TOOL == 'yarn'
+      run: yarn run test:cov
+
+    - name: Build
+      shell: bash
+      if: inputs.BUILD_TOOL == 'yarn'
+      run: yarn run build
+
+    - name: Analyze with SonarCloud
+      uses: extenda/actions/sonar-scanner@v0
+      shell: bash
+      with:
+        sonar-host: https://sonarcloud.io
+        service-account-key: ${{ inputs.SECRET_AUTH }}
+        sonar-scanner: node
