@@ -83,7 +83,7 @@ runs:
       id: semver
 
     - uses: extenda/actions/setup-gcloud@v0
-      id: gcloud
+      id: gcloud-prod
       with:
         service-account-key: ${{ inputs.GCLOUD_AUTH_PROD }}
 
