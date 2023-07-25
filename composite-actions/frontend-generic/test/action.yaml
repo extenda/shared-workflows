@@ -99,4 +99,4 @@ runs:
       with:
         sonar-host: https://sonarcloud.io
         service-account-key: ${{ inputs.SECRET_AUTH }}
-        sonar-scanner: node
+        main-branch: master
