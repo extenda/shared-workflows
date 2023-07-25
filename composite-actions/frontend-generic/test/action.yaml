@@ -100,7 +100,6 @@ runs:
 
     - name: Analyze with SonarCloud
       uses: extenda/actions/sonar-scanner@v0
-      shell: bash
       with:
         sonar-host: https://sonarcloud.io
         service-account-key: ${{ inputs.SECRET_AUTH }}
