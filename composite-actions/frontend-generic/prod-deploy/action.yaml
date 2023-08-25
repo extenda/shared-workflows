@@ -14,7 +14,8 @@ inputs:
     description: 'GH token to create a release'
   LD_CLIENT_ID:
     description: 'LaunchDarkly client ID in Secret Manager'
-    required: true
+    required: false
+    default: ''
   IMAGE:
     description: 'Image name for the service (without tag)'
     required: true
@@ -35,6 +36,7 @@ runs:
         service-account-key: ${{ inputs.GCLOUD_AUTH_STAGING }}
 
     - uses: extenda/actions/gcp-secret-manager@v0
+      if: inputs.LD_CLIENT_ID != ''
       with:
         service-account-key: ${{ inputs.GCLOUD_AUTH_PROD }}
         secrets: |
