@@ -75,6 +75,11 @@ on:
         type: boolean
         required: false
         default: false
+      tag-prefix:
+        description: 'Release tag prefix. Must be provided in case of multiple projects in same repository. Each project need to has it's own prefix. Use {service-prefix}-v- format.'
+        type: string
+        required: true
+        default: 'v'
 
 jobs:
   build:
@@ -119,6 +124,9 @@ jobs:
         id: semver
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag-prefix: ${{ inputs.path-to-pact-tests }}
+        
 
       - name: Verify with Maven
         uses: extenda/actions/maven@v0
@@ -198,6 +206,8 @@ jobs:
         id: semver
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag-prefix: ${{ inputs.path-to-pact-tests }}
 
       - name: Set up JDK
         if: ${{ inputs.use-old-setup-java == false }}
@@ -294,6 +304,8 @@ jobs:
         id: release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag-prefix: ${{ inputs.path-to-pact-tests }}
 
       - name: Create release (reuse current release mode)
         if: ${{ inputs.reuse-release == true }}
@@ -301,6 +313,8 @@ jobs:
         id: release_reuse
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag-prefix: ${{ inputs.path-to-pact-tests }}
 
       - uses: extenda/actions/setup-gcloud@v0
         with:
