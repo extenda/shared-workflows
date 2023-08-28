@@ -125,7 +125,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag-prefix: ${{ inputs.path-to-pact-tests }}
+          tag-prefix: ${{ inputs.tag-prefix }}
         
 
       - name: Verify with Maven
@@ -207,7 +207,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag-prefix: ${{ inputs.path-to-pact-tests }}
+          tag-prefix: ${{ inputs.tag-prefix }}
 
       - name: Set up JDK
         if: ${{ inputs.use-old-setup-java == false }}
@@ -305,7 +305,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag-prefix: ${{ inputs.path-to-pact-tests }}
+          tag-prefix: ${{ inputs.tag-prefix }}
 
       - name: Create release (reuse current release mode)
         if: ${{ inputs.reuse-release == true }}
@@ -314,7 +314,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag-prefix: ${{ inputs.path-to-pact-tests }}
+          tag-prefix: ${{ inputs.tag-prefix }}
 
       - uses: extenda/actions/setup-gcloud@v0
         with:
