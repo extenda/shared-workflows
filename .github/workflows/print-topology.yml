@@ -12,11 +12,11 @@ on:
         type: string
         required: false
         default: 'docs/topology/stream.txt'
-      allTopicsFilePath:
-        description: 'Path to the file with all topics'
+      processorTopicsOutputFilePath:
+        description: 'Path to the file to save extracted list of topics used in the processor.'
         type: string
         required: false
-        default: 'docs/topics/all-topics.txt'
+        default: 'docs/topics/processor-topics.txt'
       readmeFilePath:
         description: 'Path to the README file'
         type: string
@@ -40,7 +40,7 @@ jobs:
         uses: extenda/shared-workflows/composite-actions/nodejs-script/print-topology@master
         with:
           topologyFilePath : ${{ inputs.topologyFilePath }}
-          allTopicsFilePath : ${{ inputs.allTopicsFilePath }}
+          processorTopicsOutputFilePath : ${{ inputs.processorTopicsOutputFilePath }}
           readmeFilePath : ${{ inputs.readmeFilePath }}
 
       - name: Configure Git
