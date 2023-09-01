@@ -5,6 +5,10 @@ inputs:
     description: 'Path to the topology file'
     required: false
     default: 'docs/topology/stream.txt'
+  allTopicsFilePath:
+    description: 'Path to the file with all topics'
+    required: false
+    default: 'docs/topics/all-topics.txt'
   readmeFilePath:
     description: 'Path to the README file'
     required: false

@@ -1,5 +1,5 @@
-const fs = require('fs');
-const core = require('@actions/core');
+import { readFileSync, existsSync, writeFileSync } from 'fs';
+import { getInput } from '@actions/core';
 
 class SubTopology {
     static pattern = /Sub-topology: ([0-9]*)/;
@@ -160,16 +160,19 @@ const nameFunction = (value) => value.replace(/-/g, '-<br>');
 
 async function generateTopology() {
     try {
-        const topologyFilePath = core.getInput('topologyFilePath') || 'docs/topology/stream.txt';
-        const readmeFilePath = core.getInput('readmeFilePath') || 'README.md';
+        const topologyFilePath = getInput('topologyFilePath') || 'docs/topology/stream.txt';
+        const allTopicsFilePath = getInput('allTopicsFilePath') || 'docs/topics/all-topics.txt';
+        const readmeFilePath = getInput('readmeFilePath') || 'README.md';
         // Read the contents of topology/stream.txt file
-        const topologyString = fs.readFileSync(topologyFilePath, 'utf8');
+        const topologyString = readFileSync(topologyFilePath, 'utf8');
+
+        collectAllTopicNames(topologyString, allTopicsFilePath);
 
         let readmeFileContent = '';
 
-        if (fs.existsSync(readmeFilePath)) {
+        if (existsSync(readmeFilePath)) {
             // Read the contents of README.md file
-            readmeFileContent = fs.readFileSync(readmeFilePath, 'utf8');
+            readmeFileContent = readFileSync(readmeFilePath, 'utf8');
         }
 
         // Generate mermaid graph
@@ -188,13 +191,41 @@ async function generateTopology() {
         }
 
         // Write the updated content back to the README.md file
-        fs.writeFileSync(readmeFilePath, readmeFileContent, 'utf-8');
+        writeFileSync(readmeFilePath, readmeFileContent, 'utf-8');
 
         console.log('README.md updated successfully.');
     } catch (error) {
         console.error('An error occurred while updating the README.md:', error);
         process.exit(1);
     }
+}
+
+async function collectAllTopicNames(topologyString, outputFilePath) {
+    try {
+        const regex = /\(\s*topic:\s*([^\)]+)\)|\btopics:\s*\[([^\]]+)\]/g;
+    
+        const matches = topologyString.match(regex);
+    
+        if (matches) {
+          const topics = matches.map((match) => {
+            const [, topicMatch, topicsMatch] = match.match(
+              /\(\s*topic:\s*([^\)]+)\)|\btopics:\s*\[([^\]]+)\]/
+            );
+            return (topicMatch || 
+                (topicsMatch && 
+                    topicsMatch
+                    .split(",")
+                    .map((t) => t.trim())
+                    .join("\n"))
+            );
+          });
+    
+          topics.sort();
+          writeFileSync(outputFilePath, topics.join("\n"), 'utf-8');
+        }
+      } catch (error) {
+        console.error("An error occurred:", error.message);
+      }
 }
 
 generateTopology();
