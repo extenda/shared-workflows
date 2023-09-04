@@ -1,5 +1,5 @@
-import { readFileSync, existsSync, writeFileSync } from 'fs';
-import { getInput } from '@actions/core';
+const fs = require('fs');
+const core = require('@actions/core');
 
 class SubTopology {
     static pattern = /Sub-topology: ([0-9]*)/;
@@ -160,19 +160,19 @@ const nameFunction = (value) => value.replace(/-/g, '-<br>');
 
 async function generateTopology() {
     try {
-        const topologyFilePath = getInput('topologyFilePath') || 'docs/topology/stream.txt';
-        const processorTopicsFilePath = getInput('processorTopicsOutputFilePath') || 'docs/topics/all-topics.txt';
-        const readmeFilePath = getInput('readmeFilePath') || 'README.md';
+        const topologyFilePath = core.getInput('topologyFilePath') || 'docs/topology/stream.txt';
+        const processorTopicsFilePath = core.getInput('processorTopicsOutputFilePath') || 'docs/topics/all-topics.txt';
+        const readmeFilePath = core.getInput('readmeFilePath') || 'README.md';
         // Read the contents of topology/stream.txt file
-        const topologyString = readFileSync(topologyFilePath, 'utf8');
+        const topologyString = fs.readFileSync(topologyFilePath, 'utf8');
 
         collectAllTopicNames(topologyString, processorTopicsFilePath);
 
         let readmeFileContent = '';
 
-        if (existsSync(readmeFilePath)) {
+        if (fs.existsSync(readmeFilePath)) {
             // Read the contents of README.md file
-            readmeFileContent = readFileSync(readmeFilePath, 'utf8');
+            readmeFileContent = fs.readFileSync(readmeFilePath, 'utf8');
         }
 
         // Generate mermaid graph
@@ -191,7 +191,7 @@ async function generateTopology() {
         }
 
         // Write the updated content back to the README.md file
-        writeFileSync(readmeFilePath, readmeFileContent, 'utf-8');
+        fs.writeFileSync(readmeFilePath, readmeFileContent, 'utf-8');
 
         console.log('README.md updated successfully.');
     } catch (error) {
@@ -221,7 +221,7 @@ async function collectAllTopicNames(topologyString, outputFilePath) {
           });
     
           topics.sort();
-          writeFileSync(outputFilePath, topics.join("\n"), 'utf-8');
+          fs.writeFileSync(outputFilePath, topics.join("\n"), 'utf-8');
         }
       } catch (error) {
         console.error("An error occurred:", error.message);
