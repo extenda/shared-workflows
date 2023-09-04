@@ -208,7 +208,7 @@ async function collectAllTopicNames(topologyString, outputFilePath) {
         const matches = topologyString.match(regex);
     
         if (matches) {
-          const topics = matches.map((match) => {
+          const extractedTopics = matches.map((match) => {
             const [, topicMatch, topicsMatch] = match.match(
               /\(\s*topic:\s*([^\)]+)\)|\btopics:\s*\[([^\]]+)\]/
             );
@@ -220,12 +220,13 @@ async function collectAllTopicNames(topologyString, outputFilePath) {
                     .join("\n"))
             );
           });
-    
-          topics.sort();
+
+          const uniqueTopicNames = new Set(extractedTopics);
+          const topicNamesString = Array.from(uniqueTopicNames).sort().join('\n');
 
           const directoryPath = path.dirname(outputFilePath);
           fs.mkdirSync(directoryPath, { recursive: true });
-          fs.writeFileSync(outputFilePath, topics.join("\n"), 'utf-8');
+          fs.writeFileSync(outputFilePath, topicNamesString, 'utf-8');
         }
       } catch (error) {
         console.error("An error occurred:", error.message);
