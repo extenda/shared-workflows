@@ -1,5 +1,6 @@
 const fs = require('fs');
 const core = require('@actions/core');
+const path = require('path');
 
 class SubTopology {
     static pattern = /Sub-topology: ([0-9]*)/;
@@ -161,9 +162,12 @@ const nameFunction = (value) => value.replace(/-/g, '-<br>');
 async function generateTopology() {
     try {
         const topologyFilePath = core.getInput('topologyFilePath') || 'docs/topology/stream.txt';
+        const processorTopicsFilePath = core.getInput('processorTopicsOutputFilePath') || 'docs/topics/processor-topics.txt';
         const readmeFilePath = core.getInput('readmeFilePath') || 'README.md';
         // Read the contents of topology/stream.txt file
         const topologyString = fs.readFileSync(topologyFilePath, 'utf8');
+
+        collectAllTopicNames(topologyString, processorTopicsFilePath);
 
         let readmeFileContent = '';
 
@@ -195,6 +199,38 @@ async function generateTopology() {
         console.error('An error occurred while updating the README.md:', error);
         process.exit(1);
     }
+}
+
+async function collectAllTopicNames(topologyString, outputFilePath) {
+    try {
+        const regex = /\(\s*topic:\s*([^\)]+)\)|\btopics:\s*\[([^\]]+)\]/g;
+    
+        const matches = topologyString.match(regex);
+    
+        if (matches) {
+          const extractedTopics = matches.map((match) => {
+            const [, topicMatch, topicsMatch] = match.match(
+              /\(\s*topic:\s*([^\)]+)\)|\btopics:\s*\[([^\]]+)\]/
+            );
+            return (topicMatch || 
+                (topicsMatch && 
+                    topicsMatch
+                    .split(",")
+                    .map((t) => t.trim())
+                    .join("\n"))
+            );
+          });
+
+          const uniqueTopicNames = new Set(extractedTopics);
+          const topicNamesString = Array.from(uniqueTopicNames).sort().join('\n');
+
+          const directoryPath = path.dirname(outputFilePath);
+          fs.mkdirSync(directoryPath, { recursive: true });
+          fs.writeFileSync(outputFilePath, topicNamesString, 'utf-8');
+        }
+      } catch (error) {
+        console.error("An error occurred:", error.message);
+      }
 }
 
 generateTopology();

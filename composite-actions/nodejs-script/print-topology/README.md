@@ -28,3 +28,10 @@ jobs:
           topologyFilePath : ${{ inputs.topologyFilePath }}
           readmeFilePath : ${{ inputs.readmeFilePath }}
 ```
+
+## Bundling source files
+
+To bundle the source files follow these steps:
+1. Open a terminal in the root directory
+2. If you don't have webpack-cli already installed, run `npm install -D webpack-cli`
+3. Run `npx webpack` command

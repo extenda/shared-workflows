@@ -5,6 +5,10 @@ inputs:
     description: 'Path to the topology file'
     required: false
     default: 'docs/topology/stream.txt'
+  processorTopicsOutputFilePath:
+    description: 'Path to the file to save extracted list of topics used in the processor.'
+    required: false
+    default: 'docs/topics/processor-topics.txt'
   readmeFilePath:
     description: 'Path to the README file'
     required: false
