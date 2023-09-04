@@ -201,8 +201,6 @@ async function generateTopology() {
 }
 
 async function collectAllTopicNames(topologyString, outputFilePath) {
-    console.log("Entered collect all topics method");
-
     try {
         const regex = /\(\s*topic:\s*([^\)]+)\)|\btopics:\s*\[([^\]]+)\]/g;
     
@@ -223,7 +221,6 @@ async function collectAllTopicNames(topologyString, outputFilePath) {
           });
     
           topics.sort();
-          console.log(topics);
           writeFileSync(outputFilePath, topics.join("\n"), 'utf-8');
         }
       } catch (error) {
