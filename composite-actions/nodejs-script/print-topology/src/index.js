@@ -1,5 +1,6 @@
 const fs = require('fs');
 const core = require('@actions/core');
+const path = require('path');
 
 class SubTopology {
     static pattern = /Sub-topology: ([0-9]*)/;
@@ -221,6 +222,9 @@ async function collectAllTopicNames(topologyString, outputFilePath) {
           });
     
           topics.sort();
+
+          const directoryPath = path.dirname(outputFilePath);
+          fs.mkdirSync(directoryPath, { recursive: true });
           fs.writeFileSync(outputFilePath, topics.join("\n"), 'utf-8');
         }
       } catch (error) {
