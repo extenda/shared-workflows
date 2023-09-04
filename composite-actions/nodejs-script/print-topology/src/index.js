@@ -162,7 +162,7 @@ const nameFunction = (value) => value.replace(/-/g, '-<br>');
 async function generateTopology() {
     try {
         const topologyFilePath = core.getInput('topologyFilePath') || 'docs/topology/stream.txt';
-        const processorTopicsFilePath = core.getInput('processorTopicsOutputFilePath') || 'docs/topics/all-topics.txt';
+        const processorTopicsFilePath = core.getInput('processorTopicsOutputFilePath') || 'docs/topics/processor-topics.txt';
         const readmeFilePath = core.getInput('readmeFilePath') || 'README.md';
         // Read the contents of topology/stream.txt file
         const topologyString = fs.readFileSync(topologyFilePath, 'utf8');
