@@ -76,9 +76,9 @@ on:
         required: false
         default: false
       tag-prefix:
-        description: 'Release tag prefix. Must be provided in case of multiple projects in same repository. Each project need to has it's own prefix. Use {service-prefix}-v- format.'
+        description: 'Release tag prefix. Must be provided in case of multiple projects in same repository. Each project need to has its own prefix. Use {service-prefix}-v- format.'
         type: string
-        required: true
+        required: false
         default: 'v'
 
 jobs:
