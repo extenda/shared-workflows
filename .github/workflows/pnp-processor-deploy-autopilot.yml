@@ -1,0 +1,95 @@
+name: deploy-k8s-service
+
+on:
+  workflow_call:
+    secrets:
+      GCR_image_name:
+        description: 'A name of the image to be created in GCR'
+        required: true
+      slack-channel:
+        description: 'A slack channel which needs to be notified in case of failure'
+        required: false
+      SECRET_AUTH:
+        required: true
+      GCLOUD_AUTH:
+        required: true
+      pact-application-id:
+        required: false
+    inputs:
+      service-definition:
+        description: 'Path to kubernetes config file.'
+        type: string
+        required: true
+      do-pact-consumer-tests:
+        description: 'If true runs tests defining data contracts'
+        type: boolean
+        required: false
+        default: false
+      release-version:
+        description: 'deploy release version'
+        type: boolean
+        required: false
+        default: false
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      
+      - uses: extenda/actions/gcp-secret-manager@v0
+        with:
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+          secrets: |
+            GITHUB-TOKEN: github-token
+            PACT_BROKER_USERNAME: pact-broker-username
+            PACT_BROKER_PASSWORD: pact-broker-password
+      
+      - name: Determine version
+        uses: extenda/actions/conventional-version@v0
+        id: semver
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Deploy to Autopilot prod
+        if: ${{ inputs.release-version == true }}
+        uses: extenda/actions/cloud-deploy@v0
+        with:
+          secrets-account-key: ${{ secrets.SECRET_AUTH }}
+          service-account-key: ${{ secrets.GCLOUD_AUTH_PROD }}
+          service-definition: ${{ inputs.service-definition }}
+          image: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.semver.outputs.release-version }}
+          update-dns: always
+
+      - name: Deploy to Autopilot staging
+        if: ${{ inputs.release-version == false }}
+        uses: extenda/actions/cloud-deploy@v0
+        with:
+          secrets-account-key: ${{ secrets.SECRET_AUTH }}
+          service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
+          service-definition: ${{ inputs.service-definition }}
+          image: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.semver.outputs.version }}
+          update-dns: always
+
+      - name: PACT record deployment 
+        if: ${{ inputs.do-pact-consumer-tests == true }}
+        uses: extenda/actions/pact-record-deployment@v0
+        with:
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+          application-name: ${{ secrets.pact-application-id }}
+          release-version: ${{ github.sha }}
+
+      - name: Notify Slack if failed
+        if: failure()
+        uses: extenda/actions/slack-notify@v0
+        with:
+          text: |
+            *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+          channel: ${{ secrets.slack-channel }}
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+      
+ 
