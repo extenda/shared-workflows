@@ -25,11 +25,6 @@ on:
         type: boolean
         required: false
         default: false
-      release-version:
-        description: 'deploy release version'
-        type: boolean
-        required: false
-        default: false
 
 jobs:
   deploy:
@@ -54,25 +49,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Deploy to Autopilot prod
-        if: ${{ inputs.release-version == true }}
+      - name: Deploy to Autopilot
         uses: extenda/actions/cloud-deploy@v0
         with:
           secrets-account-key: ${{ secrets.SECRET_AUTH }}
-          service-account-key: ${{ secrets.GCLOUD_AUTH_PROD }}
+          service-account-key: ${{ secrets.GCLOUD_AUTH }}
           service-definition: ${{ inputs.service-definition }}
           image: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.semver.outputs.release-version }}
-          update-dns: always
-
-      - name: Deploy to Autopilot staging
-        if: ${{ inputs.release-version == false }}
-        uses: extenda/actions/cloud-deploy@v0
-        with:
-          secrets-account-key: ${{ secrets.SECRET_AUTH }}
-          service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
-          service-definition: ${{ inputs.service-definition }}
-          image: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.semver.outputs.version }}
-          update-dns: always
 
       - name: PACT record deployment 
         if: ${{ inputs.do-pact-consumer-tests == true }}
