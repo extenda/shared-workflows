@@ -59,7 +59,7 @@ jobs:
         uses: extenda/actions/cloud-deploy@v0
         with:
           secrets-account-key: ${{ secrets.SECRET_AUTH }}
-          service-account-key: ${{ secrets.GCLOUD_AUTH_PROD }}
+          service-account-key: ${{ secrets.GCLOUD_AUTH }}
           service-definition: ${{ inputs.service-definition }}
           image: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.semver.outputs.release-version }}
           update-dns: always
@@ -69,7 +69,7 @@ jobs:
         uses: extenda/actions/cloud-deploy@v0
         with:
           secrets-account-key: ${{ secrets.SECRET_AUTH }}
-          service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
+          service-account-key: ${{ secrets.GCLOUD_AUTH }}
           service-definition: ${{ inputs.service-definition }}
           image: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.semver.outputs.version }}
           update-dns: always
