@@ -23,8 +23,6 @@ on:
         required: false
       pact-webhook-id:
         required: false
-      working-directory:
-        required: false
     inputs:
       jdk-distribution:
         description: 'JDK Distribution name'
