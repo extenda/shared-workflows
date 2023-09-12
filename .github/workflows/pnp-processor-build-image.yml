@@ -114,7 +114,7 @@ jobs:
           args: verify -s settings.xml
           version: ${{ steps.semver.outputs.version }}-SNAPSHOT
           service-account-key: ${{ secrets.SECRET_AUTH }}
-          working-directory: ${{ secrets.working-directory }}
+          working-directory: ${{ secrets.working-directory || '.' }}
 
       - name: Analyze with Sonar
         uses: extenda/actions/sonar-scanner@v0
@@ -122,7 +122,7 @@ jobs:
           sonar-host: https://sonarcloud.io
           maven-args: --file ${{ secrets.path-to-pom }} --settings settings.xml org.sonarsource.scanner.maven:sonar-maven-plugin:3.7.0.1746:sonar
           service-account-key: ${{ secrets.SECRET_AUTH }}
-          report-path: ${{ secrets.working-directory }}/target/sonar/report-task.txt
+          report-path: ${{ secrets.working-directory && secrets.working-directory + '/target/sonar/report-task.txt' || '' }}
       
       - name: Publish pacts
         if: ${{ inputs.do-pact-consumer-tests == true }}
@@ -169,7 +169,8 @@ jobs:
         if: github.ref == 'refs/heads/master'
         run: |
           IMAGE=eu.gcr.io/extenda/${{ secrets.GCR_image_name }}
-          docker build . -f ${{ secrets.path-to-dockerfile }} --build-arg jar_version=${{ steps.semver.outputs.version }} -t $IMAGE:${{ steps.semver.outputs.version }} -t $IMAGE:${{ github.sha }} -t $IMAGE:latest
+          WORKING_DIR=${{ secrets.working-directory || '.' }}
+          docker build ./${WORKING_DIR} -f ${{ secrets.path-to-dockerfile }} --build-arg jar_version=${{ steps.semver.outputs.version }} -t $IMAGE:${{ steps.semver.outputs.version }} -t $IMAGE:${{ github.sha }} -t $IMAGE:latest
           docker push --all-tags $IMAGE
 
       - name: Attest image
