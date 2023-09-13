@@ -1,0 +1,98 @@
+name: PNP Input API verify pacts workflow
+on:
+  workflow_call:
+    secrets:
+      path-to-sln:
+        description: 'Path to the sln file'
+        required: true
+      path-to-unit-tests:
+        description: 'Path to sln or unit tests csproj file.'
+        required: true
+      slack-channel:
+        description: 'A slack channel which needs to be notified in case of failure'
+        required: false
+      SECRET_AUTH:
+        required: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      PACT_CONSUMER: ${{ github.event.client_payload.pact-consumer }}
+      PACT_CONSUMER_BRANCH: ${{ github.event.client_payload.pact-consumer-branch }}
+      PACT_CONSUMER_VERSION: ${{ github.event.client_payload.pact-consumer-version }}
+      PACT_PROVIDER: ${{ github.event.client_payload.pact-provider }}
+      PACT_PROVIDER_BRANCH: ${{ github.event.client_payload.pact-provider-branch }}
+      PACT_PROVIDER_VERSION: ${{ github.event.client_payload.pact-provider-version }}
+      PACT_URL: ${{ github.event.client_payload.pact-url }}
+      PACT_VERIFICATION_RESULT_URL: ${{ github.event.client_payload.pact-verification-result-url }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - uses: extenda/actions/gcp-secret-manager@v0
+        with:
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+          secrets: |
+            NEXUS_PASSWORD: nexus-password
+            NEXUS_USERNAME: nexus-username
+            NUGET_API_KEY: nuget-api-key
+            PACT_BROKER_PASSWORD: pact-broker-password
+            PACT_BROKER_USERNAME: pact-broker-username
+
+      - name: Determine version
+        uses: extenda/actions/conventional-version@v0
+        id: semver
+        with:
+          build-number: ${{ github.run_number }}
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '6.0.x'
+
+      - name: Setup NuGet
+        uses: NuGet/setup-nuget@v1
+        with:
+          nuget-version: 'latest'
+      
+      - name: Setup NuGet sources
+        uses: extenda/actions/setup-nuget-sources@v0
+        with:
+          config-file: src/nuget.config #check this in all of the APIs
+          sources: |
+            [{
+              "name": "nuget.org",
+              "source": "https://api.nuget.org/v3/index.json"
+            },
+            {
+              "name": "Extenda",
+              "source": "https://repo.extendaretail.com/repository/nuget-hosted/index.json",
+              "username": "${{ env.NEXUS_USERNAME }}",
+              "password": "${{ env.NEXUS_PASSWORD }}",
+              "apikey": "${{ env.NUGET_API_KEY }}"
+            }]
+
+      - name: Build dotnet solution
+        run: |
+          dotnet build ${{ secrets.path-to-sln }} --configuration Release /p:Version=${{ steps.semver.outputs.semver }} /p:FileVersion=${{ steps.semver.outputs.version }}    
+
+      - name: Run Unit Tests
+        run: |
+          dotnet test ${{ secrets.path-to-unit-tests }} --configuration Release --no-restore
+        env:
+          GIT_BRANCH: ${{ github.ref_name }}
+          GIT_COMMIT: ${{ github.sha }}
+          VERIFY_PROFILE: WEB_HOOK
+
+      - name: Notify Slack if failed
+        if: ${{ failure() && github.ref == 'refs/heads/master' }}
+        uses: extenda/actions/slack-notify@v0
+        with:
+          text: |
+            *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+          channel: ${{ secrets.slack-channel }}
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+ 
