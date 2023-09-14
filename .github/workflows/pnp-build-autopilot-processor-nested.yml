@@ -132,6 +132,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag-prefix: ${{ inputs.tag-prefix }}
+          build-number: ${{ github.run_number }}
 
       - name: Verify with Maven
         uses: extenda/actions/maven@v0
@@ -241,6 +242,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag-prefix: ${{ inputs.tag-prefix }}
+          build-number: ${{ github.run_number }}
 
       - uses: extenda/actions/setup-gcloud@v0
         with:
@@ -297,6 +299,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag-prefix: ${{ inputs.tag-prefix }}
+          build-number: ${{ github.run_number }}
 
       - name: Deploy to Autopilot staging
         if: ${{ inputs.release-version == false }}
