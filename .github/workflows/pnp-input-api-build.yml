@@ -84,16 +84,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Test update-dns flag - false
-        if: ${{ inputs.update-dns == false }}
-        run: |
-            echo "update-dns flag value is false"
-
-      - name: Test update-dns flag - true
-        if: ${{ inputs.update-dns == true }}
-        run: |
-            echo "update-dns flag value is true"
-
       - uses: extenda/actions/gcp-secret-manager@v0
         with:
           service-account-key: ${{ secrets.SECRET_AUTH }}
