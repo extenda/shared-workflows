@@ -89,7 +89,7 @@ jobs:
         run: |
             echo "update-dns flag value is false"
 
-      - name: Test update-dns flag - false
+      - name: Test update-dns flag - true
         if: ${{ inputs.update-dns == true }}
         run: |
             echo "update-dns flag value is true"
