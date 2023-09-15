@@ -25,12 +25,26 @@ runs:
 
     - name: Cache node_modules
       uses: actions/cache@v3
-      id: cache-node-modules
+      if: inputs.BUILD_TOOL == 'npm'
+      id: cache-npm-node-modules
       env:
         cache-name: cache-node-modules
       with:
         path: node_modules
         key: ${{ runner.os }}-node-modules-${{ hashFiles('**/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-node-modules
+
+    
+    - name: Cache node_modules
+      uses: actions/cache@v3
+      if: inputs.BUILD_TOOL == 'yarn'
+      id: cache-yarn-node-modules
+      env:
+        cache-name: cache-node-modules
+      with:
+        path: node_modules
+        key: ${{ runner.os }}-node-modules-${{ hashFiles('**/yarn.lock') }}
         restore-keys: |
           ${{ runner.os }}-node-modules
 
@@ -56,7 +70,7 @@ runs:
 
     - name: Install dependencies
       shell: bash
-      if: steps.cache-node-modules.outputs.cache-hit != 'true' && inputs.BUILD_TOOL == 'npm' 
+      if: steps.cache-npm-node-modules.outputs.cache-hit != 'true' && inputs.BUILD_TOOL == 'npm' 
       run: npm ci
 
     - name: Lint
@@ -76,7 +90,7 @@ runs:
 
     - name: Install dependencies
       shell: bash
-      if: steps.cache-node-modules.outputs.cache-hit != 'true' && inputs.BUILD_TOOL == 'yarn' 
+      if: steps.cache-yarn-node-modules.outputs.cache-hit != 'true' && inputs.BUILD_TOOL == 'yarn' 
       run: yarn install --frozen-lockfile
 
     - name: Lint
