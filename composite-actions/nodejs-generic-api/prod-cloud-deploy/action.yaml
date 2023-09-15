@@ -1,0 +1,97 @@
+name: "Deploy prod"
+description: "deploy prod"
+inputs:
+  SECRET_AUTH:
+    description: "GCP Auth"
+    required: true
+  GCLOUD_AUTH:
+    description: "GCP Auth (staging)"
+    required: true
+  GITHUB_TOKEN:
+    description: "GH token to create a release"
+  system:
+    description: "3-letter service name"
+    required: true
+  service-name:
+    description: "Service name (same as in Styra & GCP)"
+    required: true
+  image:
+    description: "Image name for the service (without tag)"
+    required: true
+  slack-channel:
+    description: Name of the channel to notify failing action
+    required: false
+  notify-slack-on-fail:
+    description: "If true notifies slack channel specified in secrets in case this workflow fails"
+    default: false
+    type: boolean
+    required: false
+  with-opa:
+    description: "Flag to enable deployment to OPA"
+    required: false
+    type: boolean
+    default: true
+
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+
+    - uses: extenda/actions/gcp-secret-manager@v0
+      with:
+        service-account-key: ${{ inputs.SECRET_AUTH }}
+        secrets: |
+          STYRA_TOKEN: styra-das-token
+
+    - name: DAS production deploy
+      if: ${{ inputs.with-opa == 'true' }}
+      uses: extenda/actions/styra-das-deploy@v0
+      with:
+        permission-prefix: ${{ inputs.system }}
+        service-name: ${{ inputs.service-name }}
+        styra-das-token: ${{ env.STYRA_TOKEN }}
+
+    - name: Create release
+      uses: extenda/actions/conventional-release@v0
+      id: release
+      env:
+        GITHUB_TOKEN: ${{ inputs.GITHUB_TOKEN }}
+
+    - uses: extenda/actions/setup-gcloud@v0
+      id: gcloud
+      with:
+        service-account-key: ${{ inputs.GCLOUD_AUTH }}
+
+    - name: Add release tag to Docker image
+      shell: bash
+      run: |
+        gcloud container images add-tag \
+          ${{ inputs.image }}:${{ github.sha }} \
+          ${{ inputs.image }}:${{ steps.release.outputs.release-tag }}
+
+    - name: Add latest tag to Docker image
+      shell: bash
+      run: |
+        gcloud container images add-tag \
+          ${{ inputs.image }}:${{ github.sha }} \
+          ${{ inputs.image }}:latest
+
+    - name: Deploy to production
+      uses: extenda/actions/cloud-deploy@v0
+      with:
+        secrets-account-key: ${{ inputs.SECRET_AUTH }}
+        service-account-key: ${{ inputs.GCLOUD_AUTH }}
+        image: ${{ inputs.image }}:${{ github.sha }}
+        update-dns: always
+
+    - name: Notify Slack if failed
+      if: ${{ failure() && inputs.notify-slack-on-fail }}
+      uses: extenda/actions/slack-notify@v0
+      with:
+        text: |
+          *Deploy to prod failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+          Deploy failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+        channel: ${{ inputs.slack-channel }}
+        service-account-key: ${{ inputs.GCLOUD_AUTH }}
