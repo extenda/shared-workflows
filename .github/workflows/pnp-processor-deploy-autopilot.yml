@@ -53,6 +53,8 @@ jobs:
         id: semver
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          build-number: ${{ github.run_number }}
 
       - name: Deploy to Autopilot prod
         if: ${{ inputs.release-version == true }}
