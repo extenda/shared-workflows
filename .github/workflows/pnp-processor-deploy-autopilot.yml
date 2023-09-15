@@ -63,7 +63,7 @@ jobs:
           secrets-account-key: ${{ secrets.SECRET_AUTH }}
           service-account-key: ${{ secrets.GCLOUD_AUTH }}
           service-definition: ${{ inputs.service-definition }}
-          image: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.semver.outputs.release-version }}:${{ github.run_number }}
+          image: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.semver.outputs.release-version }}
           update-dns: always
 
       - name: Deploy to Autopilot staging
@@ -73,7 +73,7 @@ jobs:
           secrets-account-key: ${{ secrets.SECRET_AUTH }}
           service-account-key: ${{ secrets.GCLOUD_AUTH }}
           service-definition: ${{ inputs.service-definition }}
-          image: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.semver.outputs.version }}:${{ github.run_number }}
+          image: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.semver.outputs.version }}
           update-dns: always
 
       - name: PACT record deployment 
