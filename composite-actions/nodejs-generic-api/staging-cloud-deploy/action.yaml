@@ -1,0 +1,107 @@
+name: "Deploy & run tests in staging"
+description: "Deploy & run tests in staging"
+inputs:
+  SECRET_AUTH:
+    description: "GCP Auth"
+    required: true
+  GCLOUD_AUTH:
+    description: "GCP Auth (staging)"
+    required: true
+  image:
+    description: "Image name for the service (without tag)"
+    required: true
+  test-user-tenant-id:
+    description: "Tenant id for user, for component tests (testrunner prod by default)"
+    default: testrunner-2mfuk
+  service-url:
+    description: Public url of a service
+    required: true
+  api-key-name:
+    description: Name of the google identity api key in secret manager
+    default: iam-test-api-key
+  user-email-name:
+    description: Name of the user email in secret manager
+    default: iam-test-token-email
+  user-password-name:
+    description: Name of the user password in secret manager
+    default: iam-test-token-password
+  slack-channel:
+    description: Name of the channel to notify failing action
+    required: true
+  notify-slack-on-fail:
+    description: "If true notifies slack channel specified in secrets in case this workflow fails"
+    default: false
+    type: boolean
+    required: false
+
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/checkout@v3
+
+    - uses: extenda/actions/setup-gcloud@v0
+      id: gcloud
+      with:
+        service-account-key: ${{ inputs.GCLOUD_AUTH }}
+
+    - name: GCloud configure-docker
+      shell: bash
+      run: gcloud --quiet auth configure-docker eu.gcr.io
+
+    - name: Auth to Nexus npm registry
+      uses: extenda/actions/nexus-auth-npm@v0
+      with:
+        service-account-key: ${{ inputs.SECRET_AUTH }}
+
+    - name: Build and push Docker image
+      shell: bash
+      run: |
+        docker build -t ${{ inputs.image }}:${{ github.sha }} .
+        docker push ${{ inputs.image }}:${{ github.sha }}
+
+    - name: Attest image
+      uses: extenda/actions/binary-auth-attestation@v0
+      with:
+        image-path: ${{ inputs.image }}
+        service-account-key: ${{ inputs.GCLOUD_AUTH }}
+
+    - name: Deploy to staging
+      uses: extenda/actions/cloud-deploy@v0
+      with:
+        secrets-account-key: ${{ inputs.SECRET_AUTH }}
+        service-account-key: ${{ inputs.GCLOUD_AUTH }}
+        image: ${{ inputs.image }}:${{ github.sha }}
+        update-dns: always
+
+    - name: Get API_KEY
+      uses: extenda/actions/gcp-secret-manager@v0
+      with:
+        service-account-key: ${{ inputs.GCLOUD_AUTH }}
+        secrets: |
+          API_KEY: ${{ inputs.api-key-name }}
+
+    - name: Get IAM token
+      uses: extenda/actions/iam-test-token@v0
+      with:
+        service-account-key: ${{ inputs.GCLOUD_AUTH }}
+        api-key: ${{ env.API_KEY }}
+        tenant-id: ${{ inputs.test-user-tenant-id }}
+        user-email: ${{ inputs.user-email-name }}
+        user-password: ${{ inputs.user-password-name }}
+
+    - name: Component tests
+      uses: extenda/actions/component-tests@v0
+      with:
+        auth-token: ${{ env.IAM_TOKEN }}
+        base-url: ${{ inputs.service-url }}
+        tests: ./test/component-tests/tests.yml
+
+    - name: Notify Slack if failed
+      if: ${{ failure() && inputs.notify-slack-on-fail }}
+      uses: extenda/actions/slack-notify@v0
+      with:
+        text: |
+          *Deploy to staging failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+          Deploy failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+        channel: ${{ inputs.slack-channel }}
+        service-account-key: ${{ inputs.GCLOUD_AUTH }}
