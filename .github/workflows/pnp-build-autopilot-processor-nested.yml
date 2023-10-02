@@ -81,7 +81,7 @@ on:
         required: false
         default: false
       tag-prefix:
-        description: 'Release tag prefix. Must be provided in case of multiple projects in the same repository. Each project needs to have its own prefix. Use {service-prefix}-v- format.'
+        description: 'Release tag prefix. Must be provided in case of multiple projects in the same repository. Each project needs to have its own prefix. Use {service-prefix}-v format.'
         type: string
         required: false
         default: 'v'
@@ -90,7 +90,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
@@ -221,7 +221,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
@@ -281,7 +281,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: release
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
