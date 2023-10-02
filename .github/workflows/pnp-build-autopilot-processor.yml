@@ -19,12 +19,6 @@ on:
         required: true
       GCLOUD_AUTH_STAGING:
         required: true
-      pact-application-id:
-        required: false
-      pact-webhook-id:
-        required: false
-      working-directory:
-        required: false
     inputs:
       service-definition:
         description: 'Path to kubernetes config file.'
@@ -50,31 +44,6 @@ on:
         type: boolean
         required: false
         default: false
-      do-pact-consumer-tests:
-        description: 'If true runs tests defining data contracts'
-        type: boolean
-        required: false
-        default: false
-      do-pact-provider-tests:
-        description: 'If true runs tests verifying implementation against data-contracts'
-        type: boolean
-        required: false
-        default: false
-      is-pact-consumer-can-i-deploy-dry-run:
-        description: 'If true, consumer can-i-deploy step will be executed in dry-run mode'
-        type: boolean
-        required: false
-        default: false
-      is-pact-provider-can-i-deploy-dry-run:
-        description: 'If true, provider can-i-deploy step will be executed in dry-run mode'
-        type: boolean
-        required: false
-        default: false
-      path-to-pact-tests:
-        description: 'Path to pact test directory.'
-        type: string
-        required: false
-        default: 'target/pacts'
       reuse-release:
         description: 'If true, instead of creating new release reuses the current one. Intended to be used in config-based multi-service deploy scenarios, when multiple service instances created from the same code base.'
         type: boolean
@@ -140,7 +109,6 @@ jobs:
           args: verify -s settings.xml
           version: ${{ steps.semver.outputs.version }}-SNAPSHOT
           service-account-key: ${{ secrets.SECRET_AUTH }}
-          working-directory: ${{ secrets.working-directory || '.' }}
 
       - name: Analyze with Sonar
         uses: extenda/actions/sonar-scanner@v0
@@ -148,36 +116,6 @@ jobs:
           sonar-host: https://sonarcloud.io
           maven-args: --file ${{ secrets.path-to-pom }} --settings settings.xml org.sonarsource.scanner.maven:sonar-maven-plugin:3.7.0.1746:sonar
           service-account-key: ${{ secrets.SECRET_AUTH }}
-          report-path: ${{ secrets.working-directory }}/target/sonar/report-task.txt
-
-      - name: Publish pacts
-        if: ${{ inputs.do-pact-consumer-tests == true }}
-        uses: extenda/actions/pact-publish@v0
-        with:
-          pacts-directory: target/pacts
-          service-account-key: ${{ secrets.SECRET_AUTH }}
-
-      - name: Can i deploy - consumer?
-        if: ${{ inputs.do-pact-consumer-tests == true }}
-        uses: extenda/actions/pact-can-i-deploy@v0
-        with:
-          service-account-key: ${{ secrets.SECRET_AUTH }}
-          application-name: ${{ secrets.pact-application-id }}
-          retry-while-unknown: 15
-          retry-interval: 10
-          dry-run: ${{ inputs.is-pact-consumer-can-i-deploy-dry-run }}
-          env: "staging"
-
-      - name: Can i deploy - provider?
-        if: ${{ inputs.do-pact-provider-tests == true }}
-        uses: extenda/actions/pact-can-i-deploy@v0
-        with:
-          service-account-key: ${{ secrets.SECRET_AUTH }}
-          application-name: ${{ secrets.pact-application-id }}
-          retry-while-unknown: 15
-          retry-interval: 10
-          dry-run: ${{ inputs.is-pact-provider-can-i-deploy-dry-run }}
-          env: "staging"
 
       - name: Setup gcloud
         if: github.ref == 'refs/heads/master'
@@ -195,8 +133,7 @@ jobs:
         if: github.ref == 'refs/heads/master'
         run: |
           IMAGE=eu.gcr.io/extenda/${{ secrets.GCR_image_name }}
-          WORKING_DIR=${{ secrets.working-directory || '.' }}
-          docker build ./${WORKING_DIR} -f ${{ secrets.path-to-dockerfile }} --build-arg jar_version=${{ steps.semver.outputs.version }} -t $IMAGE:${{ steps.semver.outputs.version }} -t $IMAGE:${{ github.sha }} -t $IMAGE:latest
+          docker build . -f ${{ secrets.path-to-dockerfile }} --build-arg jar_version=${{ steps.semver.outputs.version }} -t $IMAGE:${{ steps.semver.outputs.version }} -t $IMAGE:${{ github.sha }} -t $IMAGE:latest
           docker push --all-tags $IMAGE
 
       - name: Attest image
@@ -257,15 +194,6 @@ jobs:
         env:
           release_version: ${{ inputs.reuse-release == false && steps.release.outputs.version || steps.release_reuse.outputs.release-version }}
 
-      - name: Create Pact STAGING release
-        if: ${{ inputs.do-pact-consumer-tests == true && inputs.reuse-release == false }}
-        uses: extenda/actions/pact-tag-version@v0
-        with:
-          service-account-key: ${{ secrets.SECRET_AUTH }}
-          application-name: ${{ secrets.pact-application-id }}
-          release-tag: ${{ steps.release.outputs.release-tag }}
-          env: "staging"
-
       - name: Notify Slack if failed
         if: failure()
         uses: extenda/actions/slack-notify@v0
@@ -311,14 +239,6 @@ jobs:
           service-definition: ${{ inputs.service-definition }}
           image: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.semver.outputs.release-version }}
           update-dns: always
-
-      - name: PACT record deployment
-        if: ${{ inputs.do-pact-consumer-tests == true }}
-        uses: extenda/actions/pact-record-deployment@v0
-        with:
-          service-account-key: ${{ secrets.SECRET_AUTH }}
-          application-name: ${{ secrets.pact-application-id }}
-          release-version: ${{ github.sha }}
 
       - name: Notify Slack if failed
         if: failure()
