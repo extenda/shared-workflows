@@ -54,6 +54,8 @@ jobs:
             GITHUB-TOKEN: github-token
             PACT_BROKER_USERNAME: pact-broker-username
             PACT_BROKER_PASSWORD: pact-broker-password
+            JIRA_USERNAME: jira-username
+            JIRA_PASSWORD: jira-password
       
       - name: Determine version
         uses: extenda/actions/conventional-version@v0
