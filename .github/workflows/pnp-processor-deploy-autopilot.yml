@@ -13,6 +13,9 @@ on:
         required: true
       GCLOUD_AUTH:
         required: true
+      dora-component:
+        description: 'Dora component name'
+        required: true
       pact-application-id:
         required: false
     inputs:
@@ -56,6 +59,16 @@ jobs:
         with:
           build-number: ${{ github.run_number }}
 
+      - name: Deploy to Autopilot staging
+        if: ${{ inputs.release-version == false }}
+        uses: extenda/actions/cloud-deploy@v0
+        with:
+          secrets-account-key: ${{ secrets.SECRET_AUTH }}
+          service-account-key: ${{ secrets.GCLOUD_AUTH }}
+          service-definition: ${{ inputs.service-definition }}
+          image: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.semver.outputs.release-version }}
+          update-dns: always
+
       - name: Deploy to Autopilot prod
         if: ${{ inputs.release-version == true }}
         uses: extenda/actions/cloud-deploy@v0
@@ -66,15 +79,15 @@ jobs:
           image: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.semver.outputs.release-version }}
           update-dns: always
 
-      - name: Deploy to Autopilot staging
-        if: ${{ inputs.release-version == false }}
-        uses: extenda/actions/cloud-deploy@v0
+      - name: Dora Component
+        if: ${{ inputs.release-version == true }}
+        uses: extenda/actions/dora-metrics@v0
         with:
-          secrets-account-key: ${{ secrets.SECRET_AUTH }}
-          service-account-key: ${{ secrets.GCLOUD_AUTH }}
-          service-definition: ${{ inputs.service-definition }}
-          image: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.semver.outputs.release-version }}
-          update-dns: always
+          product-name: Product And Price
+          product-component: ${{ secrets.dora-component }}
+          jira-username: ${{ env.JIRA_USERNAME }}
+          jira-password: ${{ env.JIRA_PASSWORD }}
+          jira-project-key: EA
 
       - name: PACT record deployment 
         if: ${{ inputs.do-pact-consumer-tests == true }}
