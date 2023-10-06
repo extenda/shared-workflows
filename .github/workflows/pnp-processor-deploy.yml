@@ -13,6 +13,9 @@ on:
         required: true
       GCLOUD_AUTH:
         required: true
+      dora-component:
+        description: 'Dora component name'
+        required: true
       pact-application-id:
         required: false
     inputs:
@@ -62,13 +65,31 @@ jobs:
           service-definition: ${{ inputs.path-to-kubernetes-config }}
           image: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.semver.outputs.release-version }}
 
-      - name: Deploy to Kubernetes
+      - name: Deploy to Kubernetes Staging
         if: ${{ inputs.release-version == false }}
         uses: extenda/actions/kubernetes@v0
         with:
           service-account-key: ${{ secrets.GCLOUD_AUTH }}
           service-definition: ${{ inputs.path-to-kubernetes-config }}
           image: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.semver.outputs.version }}
+
+      - name: Deploy to Kubernetes Prod
+        if: ${{ inputs.release-version == true }}
+        uses: extenda/actions/kubernetes@v0
+        with:
+          service-account-key: ${{ secrets.GCLOUD_AUTH }}
+          service-definition: ${{ inputs.path-to-kubernetes-config }}
+          image: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.semver.outputs.release-version }}
+
+      - name: Dora Component
+        if: ${{ inputs.release-version == true }}
+        uses: extenda/actions/dora-metrics@v0
+        with:
+          product-name: Product And Price
+          product-component: ${{ secrets.dora-component }}
+          jira-username: ${{ env.JIRA_USERNAME }}
+          jira-password: ${{ env.JIRA_PASSWORD }}
+          jira-project-key: EA
 
       - name: PACT record deployment 
         if: ${{ inputs.do-pact-consumer-tests == true }}
