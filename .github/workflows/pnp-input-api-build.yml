@@ -67,14 +67,6 @@ on:
         type: boolean
         required: false
         default: false
-      update-dns:
-        description: |
-          If set to `true`, DNS and traffic will be routed to new service on the clan cluster.
-          If set to `false`, DNS and traffic will be routed to the existing service on the tribe cluster.
-          Default value is `true`.
-        type: boolean
-        required: false
-        default: true
         
 jobs:
   build:
@@ -245,17 +237,7 @@ jobs:
           image-path: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}
           service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
 
-      - name: Deploy temp service to staging
-        if: ${{ inputs.update-dns == false }}
-        uses: extenda/actions/cloud-deploy@v0
-        with:
-          secrets-account-key: ${{ secrets.SECRET_AUTH }}
-          service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
-          image: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ github.sha }}
-          update-dns: if-missing
-
       - name: Deploy to staging
-        if: ${{ inputs.update-dns == true }}
         uses: extenda/actions/cloud-deploy@v0
         with:
           secrets-account-key: ${{ secrets.SECRET_AUTH }}
