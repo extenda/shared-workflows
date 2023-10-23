@@ -90,7 +90,7 @@ runs:
     - name: Deploy to production
       uses: extenda/actions/cloud-deploy@v0
       with:
-        secrets-account-key: ${{ secrets.SECRET_AUTH }}
-        service-account-key: ${{ secrets.GCLOUD_AUTH_PROD }}
+        secrets-account-key: ${{ inputs.SECRET_AUTH }}
+        service-account-key: ${{ inputs.GCLOUD_AUTH_PROD }}
         update-dns: always
         image: ${{ inputs.image }}:${{ steps.semver.outputs.release-tag }}
