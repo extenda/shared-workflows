@@ -146,9 +146,8 @@ jobs:
         uses: extenda/actions/sonar-scanner@v0
         with:
           sonar-host: https://sonarcloud.io
-          maven-args: --file ${{ secrets.path-to-pom }} --settings settings.xml org.sonarsource.scanner.maven:sonar-maven-plugin:3.7.0.1746:sonar
+          maven-args: --file pom.xml --settings settings.xml org.sonarsource.scanner.maven:sonar-maven-plugin:3.7.0.1746:sonar
           service-account-key: ${{ secrets.SECRET_AUTH }}
-          report-path: ${{ secrets.working-directory }}/target/sonar/report-task.txt
 
       - name: Publish pacts
         if: ${{ inputs.do-pact-consumer-tests == true }}
