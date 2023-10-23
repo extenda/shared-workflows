@@ -5,7 +5,7 @@ This is typical action, to deploy a frontend application to google cloud run.
 ### Example
 
 ```yaml
-- uses: extenda/shared-workflows/composite-actions/frontend-generic/prod-deploy@master
+- uses: extenda/shared-workflows/composite-actions/frontend-generic/prod-cloud-deploy@master
   with:
     SECRET_AUTH: ${{ secrets.SECRET_AUTH }}
     GCLOUD_AUTH_PROD: ${{ secrets.GCLOUD_AUTH_PROD }}
