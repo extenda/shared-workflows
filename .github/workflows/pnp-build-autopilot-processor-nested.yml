@@ -140,7 +140,7 @@ jobs:
           args: verify -s settings.xml
           version: ${{ steps.semver.outputs.version }}-SNAPSHOT
           service-account-key: ${{ secrets.SECRET_AUTH }}
-          working-directory: ${{ secrets.working-directory || '.' }}
+#          working-directory: ${{ secrets.working-directory || '.' }}
 
       - name: Analyze with Sonar
         uses: extenda/actions/sonar-scanner@v0
