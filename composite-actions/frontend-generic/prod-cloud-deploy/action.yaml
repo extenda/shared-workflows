@@ -1,0 +1,96 @@
+name: 'Cloud deploy prod'
+description: 'Cloud deploy prod'
+inputs:
+  SECRET_AUTH:
+    description: 'GCP Auth'
+    required: true 
+  GCLOUD_AUTH_STAGING:
+    description: 'GCP Auth (staging)'
+    required: true
+  GCLOUD_AUTH_PROD:
+    description: 'GCP Auth (prod)'
+    required: true
+  GITHUB_TOKEN:
+    description: 'GH token to create a release'
+  LD_CLIENT_ID:
+    description: 'LaunchDarkly client ID in Secret Manager'
+    required: true
+  IMAGE:
+    description: 'Image name for the service (without tag)'
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/checkout@v1
+
+    - name: Auth to Nexus npm registry
+      uses: extenda/actions/nexus-auth-npm@v0
+      with:
+        service-account-key: ${{ inputs.SECRET_AUTH }}
+
+    - uses: extenda/actions/setup-gcloud@v0
+      id: gcloud
+      with:
+        service-account-key: ${{ inputs.GCLOUD_AUTH_STAGING }}
+
+    - uses: extenda/actions/gcp-secret-manager@v0
+      with:
+        service-account-key: ${{ inputs.GCLOUD_AUTH_PROD }}
+        secrets: |
+          LD_CLIENT_ID: ${{ inputs.LD_CLIENT_ID }} 
+
+    - name: Build and push Docker
+      shell: bash
+      run: |
+        gcloud --quiet auth configure-docker
+        docker build --build-arg LD_CLIENT_ID=${{ env.LD_CLIENT_ID }} -t ${{ inputs.image }}:${{ github.sha }} .
+        docker push ${{ inputs.image }}:${{ github.sha }}
+
+    - name: Attest image
+      uses: extenda/actions/binary-auth-attestation@v0
+      with:
+        image-path: ${{ inputs.image }}:${{ github.sha }}
+        service-account-key: ${{ inputs.GCLOUD_AUTH_STAGING }}
+
+    - uses: actions/setup-node@v1
+      with:
+        node-version: 16
+
+    - name: Create release
+      uses: extenda/actions/conventional-release@v0
+      id: release
+      env:
+        GITHUB_TOKEN: ${{ inputs.GITHUB_TOKEN }}
+
+    - uses: extenda/actions/setup-gcloud@v0
+      with:
+        service-account-key: ${{ inputs.GCLOUD_AUTH_PROD }}
+
+    - name: Add tag in GCR
+      shell: bash
+      run: |
+        gcloud container images add-tag \
+            ${{ inputs.image }}:${{ github.sha }} \
+            ${{ inputs.image }}:${{ steps.release.outputs.release-tag }}
+
+    - name: Auth to Nexus npm registry
+      uses: extenda/actions/nexus-auth-npm@v0
+      with:
+        service-account-key: ${{ inputs.SECRET_AUTH }}
+
+    - uses: extenda/actions/conventional-version@v0
+      id: semver
+
+    - uses: extenda/actions/setup-gcloud@v0
+      id: gcloud-prod
+      with:
+        service-account-key: ${{ inputs.GCLOUD_AUTH_PROD }}
+
+    - name: Deploy to production
+      uses: extenda/actions/cloud-deploy@v0
+      with:
+        secrets-account-key: ${{ secrets.SECRET_AUTH }}
+        service-account-key: ${{ secrets.GCLOUD_AUTH_PROD }}
+        update-dns: always
+        image: ${{ inputs.image }}:${{ steps.semver.outputs.release-tag }}
