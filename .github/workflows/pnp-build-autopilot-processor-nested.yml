@@ -142,20 +142,6 @@ jobs:
           service-account-key: ${{ secrets.SECRET_AUTH }}
           working-directory: ${{ secrets.working-directory || '.' }}
 
-      - name: Verify with Maven
-        uses: extenda/actions/maven@v0
-        with:
-          args: jacoco:report-aggregate -Djacoco
-          version: ${{ steps.semver.outputs.version }}-SNAPSHOT
-          service-account-key: ${{ secrets.SECRET_AUTH }}
-
-      - name: Analyze with Sonar
-        uses: extenda/actions/sonar-scanner@v0
-        with:
-          sonar-host: https://sonarcloud.io
-          maven-args: --file pom.xml --settings settings.xml org.sonarsource.scanner.maven:sonar-maven-plugin:3.7.0.1746:sonar
-          service-account-key: ${{ secrets.SECRET_AUTH }}
-
       - name: Publish pacts
         if: ${{ inputs.do-pact-consumer-tests == true }}
         uses: extenda/actions/pact-publish@v0
@@ -222,10 +208,41 @@ jobs:
           channel: ${{ secrets.slack-channel }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
+  analyze-nested-sonar:
+    name: Generate aggregated Sonar Report
+    needs:
+      - build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: maven
+
+      - name: Verify with Maven
+        uses: extenda/actions/maven@v0
+        with:
+          args: verify
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+
+      - name: Analyze with Sonar
+        uses: extenda/actions/sonar-scanner@v0
+        with:
+          sonar-host: https://sonarcloud.io
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+
   release:
     if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
-    needs: build
+    needs:
+      - build
+      - analyze-nested-sonar
     steps:
       - uses: actions/checkout@v3
         with:
