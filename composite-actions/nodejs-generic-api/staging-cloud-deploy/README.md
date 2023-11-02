@@ -15,6 +15,7 @@ This is typical action, to deploy nodejs api application to GKE Autopilot cluste
       api-key-name: <name of the google identity api key in secret manager> # default - iam-test-api-key
       user-email-name: <name of the user email in secret manager> # default - iam-test-token-email
       user-password-name: <name of the user password in secret manager> # default - iam-test-token-password
+      update-dns: always # default - if-missing
 ```
 
 ### Requirements
