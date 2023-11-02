@@ -31,6 +31,13 @@ inputs:
     required: false
     type: boolean
     default: true
+  update-dns:
+    description: |
+      Set how DNS should be updated. Use `if-missing` to only create DNS if an
+      entry does not exist. Use `always` to update the DNS entry if is missing or
+      if the existing entry does not match the load balancer IP for the service.
+    required: false
+    default: if-missing
 
 runs:
   using: "composite"
@@ -84,7 +91,7 @@ runs:
         secrets-account-key: ${{ inputs.SECRET_AUTH }}
         service-account-key: ${{ inputs.GCLOUD_AUTH }}
         image: ${{ inputs.image }}:${{ github.sha }}
-        update-dns: always
+        update-dns: ${{ inputs.update-dns }}
 
     - name: Notify Slack if failed
       if: ${{ failure() && inputs.notify-slack-on-fail }}
