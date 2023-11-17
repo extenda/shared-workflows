@@ -67,7 +67,17 @@ on:
         type: boolean
         required: false
         default: false
-        
+      service-name:
+          description: |
+            The name of the service that will be used for generating WID token.
+          type: string
+          required: true
+      service-account:
+          description: |
+            The service account that will be used for generating WID token.
+          type: string
+          required: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -289,6 +299,14 @@ jobs:
           service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
           api-key: ${{ env.API_KEY }}
 
+      - name: Get Identity token
+        id: identitytoken
+        uses: extenda/actions/identity-token@v0
+        with:
+          service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
+          service-account: ${{ inputs.service-account }}
+          audiences: ${{ inputs.service-name }}
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v3
         with:
@@ -316,21 +334,19 @@ jobs:
               "apikey": "${{ env.NUGET_API_KEY }}"
             }]
 
-      - name: Get Identity token
-        id: identitytoken
-        uses: extenda/actions/identity-token@v0
-        with:
-          service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
-          service-account: braveheart-quotes-webclient@quotes-staging-ccdf.iam.gserviceaccount.com
-          audiences: bhq-braveheart-quotes
-
-      - name: Run Acceptance Tests
+      - name: Run Acceptance Tests with IAM token
         run: |
           dotnet test ${{ secrets.path-to-acceptance-tests }}
         env:
           INPUT_API_URL: ${{ secrets.staging-service-base-url }}
           BEARER_TOKEN: ${{ steps.testtoken.outputs.iam-token }}
-          IDENTITY_TOKEN: ${{ steps.identitytoken.outputs.identity-token }}
+      
+      - name: Run Acceptance Tests with WID token
+        run: |
+          dotnet test ${{ secrets.path-to-acceptance-tests }}
+        env:
+          INPUT_API_URL: ${{ secrets.staging-service-base-url }}
+          BEARER_TOKEN: ${{ steps.identitytoken.outputs.identity-token }}
 
       - name: Notify Slack if failed
         if: failure()
