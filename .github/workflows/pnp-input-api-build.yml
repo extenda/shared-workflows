@@ -190,7 +190,7 @@ jobs:
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
   staging:
-    # if: github.ref == 'refs/heads/master'
+    if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     needs: build
     steps:
@@ -275,7 +275,7 @@ jobs:
   acceptance:
     # if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
-    needs: staging
+    # needs: staging
     steps:
       - uses: actions/checkout@v3
         with:
