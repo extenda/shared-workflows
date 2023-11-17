@@ -20,6 +20,9 @@ on:
       slack-channel:
         description: 'A slack channel which needs to be notified in case of failure'
         required: false
+      service-name:
+        description: 'The name of the service in GCP. Will be used as audience during Workload Identity token generation.'
+        required: false
       SECRET_AUTH:
         required: true
       GCLOUD_AUTH_STAGING:
@@ -44,12 +47,17 @@ on:
         type: string
         required: false
         default: '["dist/api-tests-v1.js", "dist/api-tests-v2.js"]'
+      jwt-token-types:
+        description: 'The JWT token types.'
+        type: string
+        required: false
+        default: '["IAM"]'
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - uses: extenda/actions/gcp-secret-manager@v0
         with:
@@ -130,7 +138,7 @@ jobs:
     if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3 
+      - uses: actions/checkout@v4 
 
       - uses: extenda/actions/gcp-secret-manager@v0
         with:
@@ -197,29 +205,39 @@ jobs:
           channel: ${{ secrets.slack-channel }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
-  k6:
+  acceptance:
     needs: staging
     if: ${{ github.ref == 'refs/heads/master' && inputs.has-k6-tests == true }}
     runs-on: ubuntu-latest
     strategy:
       matrix:
         k6-test-file-name: ${{ fromJSON(inputs.k6-tests-file-names) }}
+        jwt-token-type: ${{ fromJSON(inputs.jwt-token-types) }}
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       
-      - uses: extenda/actions/gcp-secret-manager@v0
+      - name: Get API_KEY
+        uses: extenda/actions/gcp-secret-manager@v0
         with:
           service-account-key: ${{ secrets.SECRET_AUTH }}
           secrets: |
             API_KEY: api-key-hiidentity-staff
 
-      - name: IAM token
-        id: testtoken
+      - name: Generate IAM token
+        if: ${{ matrix.jwt-token-type == 'IAM' }}
         uses: extenda/actions/iam-test-token@v0
         with:
           service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
           api-key: ${{ env.API_KEY }}
+
+      - name: Generate Workload Identity token
+        if: ${{ matrix.jwt-token-type == 'WID' }}
+        uses: extenda/actions/identity-token@v0
+        with:
+          service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
+          service-account: ${{ secrets.service-name }}@pnp-staging-dcfd.iam.gserviceaccount.com
+          audiences: ${{ secrets.service-name }}
 
       - uses: actions/setup-node@v3
         with:
@@ -232,10 +250,13 @@ jobs:
          yarn webpack
     
       - name: Run API tests
-        uses: k6io/action@v0.2.0
+        uses: k6io/action@v0.3.0
         with:
           filename: ${{ inputs.k6-tests-root-folder }}/${{ matrix.k6-test-file-name }}
-          flags: --env IAM_TOKEN=${{ steps.testtoken.outputs.iam-token }} --env SERVICE_BASE_URL=${{ secrets.staging-service-base-url }}
+        env:
+          IAM_TOKEN: ${{ env.IAM_TOKEN }}
+          IDENTITY_TOKEN: ${{ env.IDENTITY_TOKEN }}
+          SERVICE_BASE_URL: ${{ secrets.staging-service-base-url }}
 
       - name: Notify Slack if failed
         if: failure()
@@ -248,7 +269,7 @@ jobs:
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
   release:
-    needs: [staging, k6]
+    needs: [staging, acceptance]
     if: |
       always() &&
       github.ref == 'refs/heads/master' &&
@@ -256,7 +277,7 @@ jobs:
       (inputs.has-k6-tests == false || needs.k6.result == 'success')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
