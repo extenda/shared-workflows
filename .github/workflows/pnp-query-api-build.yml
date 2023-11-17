@@ -247,7 +247,8 @@ jobs:
         with:
           filename: ${{ inputs.k6-tests-root-folder }}/${{ matrix.k6-test-file-name }}
         env:
-          IAM_TOKEN: ${{ env.IAM_TOKEN }}
+          BEARER_TOKEN: ${{ env.IAM_TOKEN }}
+          TOKEN_TYPE: 'IAM'
           SERVICE_BASE_URL: ${{ secrets.staging-service-base-url }}
 
       - name: Generate Workload Identity token
@@ -264,7 +265,8 @@ jobs:
         with:
           filename: ${{ inputs.k6-tests-root-folder }}/${{ matrix.k6-test-file-name }}
         env:
-          IDENTITY_TOKEN: ${{ env.IDENTITY_TOKEN }}
+          BEARER_TOKEN: ${{ env.IDENTITY_TOKEN }}
+          TOKEN_TYPE: 'WID'
           SERVICE_BASE_URL: ${{ secrets.staging-service-base-url }}
 
       # - name: Notify Slack if failed
