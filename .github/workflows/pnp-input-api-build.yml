@@ -301,7 +301,7 @@ jobs:
         id: wid-token-secrets-check
         shell: bash
         run: |
-          if [ "${{ secrets.wid-token-audience }}" != '' && "${{ secrets.wid-token-service-account }}" != '' ]; then
+          if [ "${{ secrets.wid-token-audience }}" != '' ] && [ "${{ secrets.wid-token-service-account }}" != '' ]; then
             echo "secretsProvided=true" >> $GITHUB_OUTPUT;
           else
             echo "secretsProvided=false" >> $GITHUB_OUTPUT;
