@@ -316,12 +316,21 @@ jobs:
               "apikey": "${{ env.NUGET_API_KEY }}"
             }]
 
+      - name: Get Identity token
+        id: identitytoken
+        uses: extenda/actions/identity-token@v0
+        with:
+          service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
+          service-account: braveheart-quotes-webclient@quotes-staging-ccdf.iam.gserviceaccount.com
+          audiences: bhq-braveheart-quotes
+
       - name: Run Acceptance Tests
         run: |
           dotnet test ${{ secrets.path-to-acceptance-tests }}
         env:
           INPUT_API_URL: ${{ secrets.staging-service-base-url }}
           BEARER_TOKEN: ${{ steps.testtoken.outputs.iam-token }}
+          IDENTITY_TOKEN: ${{ steps.identitytoken.outputs.identity-token }}
 
       - name: Notify Slack if failed
         if: failure()
