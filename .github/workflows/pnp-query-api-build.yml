@@ -216,7 +216,17 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version: ${{ inputs.k6-node-version }}
+
+      - name: yarn webpack
+        run: |
+         cd ${{ inputs.k6-tests-root-folder }}
+         yarn install
+         yarn webpack
+    
       - name: Get API_KEY
         uses: extenda/actions/gcp-secret-manager@v0
         with:
@@ -231,6 +241,15 @@ jobs:
           service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
           api-key: ${{ env.API_KEY }}
 
+      - name: Run API tests
+        if: ${{ matrix.jwt-token-type == 'IAM' }}
+        uses: k6io/action@v0.3.0
+        with:
+          filename: ${{ inputs.k6-tests-root-folder }}/${{ matrix.k6-test-file-name }}
+        env:
+          IAM_TOKEN: ${{ env.IAM_TOKEN }}
+          SERVICE_BASE_URL: ${{ secrets.staging-service-base-url }}
+
       - name: Generate Workload Identity token
         if: ${{ matrix.jwt-token-type == 'WID' }}
         uses: extenda/actions/identity-token@v0
@@ -239,22 +258,12 @@ jobs:
           service-account: ${{ secrets.service-name }}@pnp-staging-dcfd.iam.gserviceaccount.com
           audiences: ${{ secrets.service-name }}
 
-      - uses: actions/setup-node@v3
-        with:
-          node-version: ${{ inputs.k6-node-version }}
-
-      - name: yarn webpack
-        run: |
-         cd ${{ inputs.k6-tests-root-folder }}
-         yarn install
-         yarn webpack
-    
       - name: Run API tests
+        if: ${{ matrix.jwt-token-type == 'WID' }}
         uses: k6io/action@v0.3.0
         with:
           filename: ${{ inputs.k6-tests-root-folder }}/${{ matrix.k6-test-file-name }}
         env:
-          IAM_TOKEN: ${{ env.IAM_TOKEN }}
           IDENTITY_TOKEN: ${{ env.IDENTITY_TOKEN }}
           SERVICE_BASE_URL: ${{ secrets.staging-service-base-url }}
 
