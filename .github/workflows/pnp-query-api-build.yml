@@ -54,160 +54,160 @@ on:
         default: '["IAM"]'
 
 jobs:
-  # build:
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v4
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
-  #     - uses: extenda/actions/gcp-secret-manager@v0
-  #       with:
-  #         service-account-key: ${{ secrets.SECRET_AUTH }}
-  #         secrets: |
-  #           NEXUS_PASSWORD: nexus-password
-  #           NEXUS_USERNAME: nexus-username
-  #           NUGET_API_KEY: nuget-api-key  
-  #           STYRA_TOKEN: styra-das-token                            
+      - uses: extenda/actions/gcp-secret-manager@v0
+        with:
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+          secrets: |
+            NEXUS_PASSWORD: nexus-password
+            NEXUS_USERNAME: nexus-username
+            NUGET_API_KEY: nuget-api-key  
+            STYRA_TOKEN: styra-das-token                            
         
-  #     - name: Determine version
-  #       uses: extenda/actions/conventional-version@v0
-  #       id: semver
-  #       with:
-  #         build-number: ${{ github.run_number }}
+      - name: Determine version
+        uses: extenda/actions/conventional-version@v0
+        id: semver
+        with:
+          build-number: ${{ github.run_number }}
       
-  #     - name: Setup .NET
-  #       uses: actions/setup-dotnet@v3
-  #       with:
-  #         dotnet-version: '6.0.x'
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '6.0.x'
 
-  #     - name: Setup NuGet
-  #       uses: NuGet/setup-nuget@v1
-  #       with:
-  #         nuget-version: 'latest'
+      - name: Setup NuGet
+        uses: NuGet/setup-nuget@v1
+        with:
+          nuget-version: 'latest'
 
-  #     - name: Setup NuGet sources
-  #       uses: extenda/actions/setup-nuget-sources@v0
-  #       with:
-  #         config-file: src/nuget.config
-  #         sources: |
-  #           [{
-  #             "name": "nuget.org",
-  #             "source": "https://api.nuget.org/v3/index.json"
-  #           },
-  #           {
-  #             "name": "Extenda",
-  #             "source": "https://repo.extendaretail.com/repository/nuget-hosted/index.json",
-  #             "username": "${{ env.NEXUS_USERNAME }}",
-  #             "password": "${{ env.NEXUS_PASSWORD }}",
-  #             "apikey": "${{ env.NUGET_API_KEY }}"
-  #           }]
+      - name: Setup NuGet sources
+        uses: extenda/actions/setup-nuget-sources@v0
+        with:
+          config-file: src/nuget.config
+          sources: |
+            [{
+              "name": "nuget.org",
+              "source": "https://api.nuget.org/v3/index.json"
+            },
+            {
+              "name": "Extenda",
+              "source": "https://repo.extendaretail.com/repository/nuget-hosted/index.json",
+              "username": "${{ env.NEXUS_USERNAME }}",
+              "password": "${{ env.NEXUS_PASSWORD }}",
+              "apikey": "${{ env.NUGET_API_KEY }}"
+            }]
 
-  #     - name: Start Sonar Scanner
-  #       uses: extenda/actions/sonar-scanner@v0
-  #       with:
-  #         sonar-host: https://sonarcloud.io
-  #         sonar-scanner: dotnet
-  #         service-account-key: ${{ secrets.SECRET_AUTH }}
+      - name: Start Sonar Scanner
+        uses: extenda/actions/sonar-scanner@v0
+        with:
+          sonar-host: https://sonarcloud.io
+          sonar-scanner: dotnet
+          service-account-key: ${{ secrets.SECRET_AUTH }}
 
-  #     - name: Build dotnet solution
-  #       run: |
-  #         dotnet build ${{ secrets.path-to-sln }} --configuration Release /p:Version=${{ steps.semver.outputs.semver }}
+      - name: Build dotnet solution
+        run: |
+          dotnet build ${{ secrets.path-to-sln }} --configuration Release /p:Version=${{ steps.semver.outputs.semver }}
       
-  #     - name: Test dotnet solution
-  #       run: |
-  #         dotnet test ${{ secrets.path-to-unit-tests }} /p:CollectCoverage=true /p:CoverletOutputFormat=opencover
+      - name: Test dotnet solution
+        run: |
+          dotnet test ${{ secrets.path-to-unit-tests }} /p:CollectCoverage=true /p:CoverletOutputFormat=opencover
 
-  #     - name: Analyze with Sonar  
-  #       uses: extenda/actions/sonar-scanner@v0
-  #       with:
-  #         sonar-host: https://sonarcloud.io
-  #         sonar-scanner: dotnet
-  #         service-account-key: ${{ secrets.SECRET_AUTH }}
+      - name: Analyze with Sonar  
+        uses: extenda/actions/sonar-scanner@v0
+        with:
+          sonar-host: https://sonarcloud.io
+          sonar-scanner: dotnet
+          service-account-key: ${{ secrets.SECRET_AUTH }}
       
-  #     - name: Notify Slack if failed
-  #       if: ${{ failure() && github.ref == 'refs/heads/master' }}
-  #       uses: extenda/actions/slack-notify@v0
-  #       with:
-  #         text: |
-  #           *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
-  #           Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
-  #         channel: ${{ secrets.slack-channel }}
-  #         service-account-key: ${{ secrets.SECRET_AUTH }}
+      - name: Notify Slack if failed
+        if: ${{ failure() && github.ref == 'refs/heads/master' }}
+        uses: extenda/actions/slack-notify@v0
+        with:
+          text: |
+            *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+          channel: ${{ secrets.slack-channel }}
+          service-account-key: ${{ secrets.SECRET_AUTH }}
 
-  # staging:
-  #   needs: build
-  #   if: github.ref == 'refs/heads/master'
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v4 
+  staging:
+    needs: build
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4 
 
-  #     - uses: extenda/actions/gcp-secret-manager@v0
-  #       with:
-  #         service-account-key: ${{ secrets.SECRET_AUTH }}
-  #         secrets: |
-  #           NEXUS_PASSWORD: nexus-password
-  #           NEXUS_USERNAME: nexus-username
-  #           NUGET_API_KEY: nuget-api-key
+      - uses: extenda/actions/gcp-secret-manager@v0
+        with:
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+          secrets: |
+            NEXUS_PASSWORD: nexus-password
+            NEXUS_USERNAME: nexus-username
+            NUGET_API_KEY: nuget-api-key
 
-  #     - name: Setup NuGet
-  #       uses: NuGet/setup-nuget@v1
-  #       with:
-  #         nuget-version: 'latest'
+      - name: Setup NuGet
+        uses: NuGet/setup-nuget@v1
+        with:
+          nuget-version: 'latest'
 
-  #     - name: Setup NuGet sources
-  #       uses: extenda/actions/setup-nuget-sources@v0
-  #       with:
-  #         config-file: src/nuget.config
-  #         sources: |
-  #           [{
-  #             "name": "nuget.org",
-  #             "source": "https://api.nuget.org/v3/index.json"
-  #           },
-  #           {
-  #             "name": "Extenda",
-  #             "source": "https://repo.extendaretail.com/repository/nuget-hosted/index.json",
-  #             "username": "${{ env.NEXUS_USERNAME }}",
-  #             "password": "${{ env.NEXUS_PASSWORD }}",
-  #             "apikey": "${{ env.NUGET_API_KEY }}"
-  #           }]
+      - name: Setup NuGet sources
+        uses: extenda/actions/setup-nuget-sources@v0
+        with:
+          config-file: src/nuget.config
+          sources: |
+            [{
+              "name": "nuget.org",
+              "source": "https://api.nuget.org/v3/index.json"
+            },
+            {
+              "name": "Extenda",
+              "source": "https://repo.extendaretail.com/repository/nuget-hosted/index.json",
+              "username": "${{ env.NEXUS_USERNAME }}",
+              "password": "${{ env.NEXUS_PASSWORD }}",
+              "apikey": "${{ env.NUGET_API_KEY }}"
+            }]
 
-  #     - uses: extenda/actions/setup-gcloud@v0
-  #       with:
-  #         service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
+      - uses: extenda/actions/setup-gcloud@v0
+        with:
+          service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
 
-  #     - name: Build and push Docker
-  #       run: |
-  #         gcloud --quiet auth configure-docker
-  #         IMAGE=eu.gcr.io/extenda/${{ secrets.GCR_image_name }}
-  #         docker build -t $IMAGE:${{ github.sha }} -t $IMAGE:latest . -f ${{ secrets.path-to-dockerfile }}
-  #         docker push --all-tags $IMAGE
+      - name: Build and push Docker
+        run: |
+          gcloud --quiet auth configure-docker
+          IMAGE=eu.gcr.io/extenda/${{ secrets.GCR_image_name }}
+          docker build -t $IMAGE:${{ github.sha }} -t $IMAGE:latest . -f ${{ secrets.path-to-dockerfile }}
+          docker push --all-tags $IMAGE
 
-  #     - name: Attest image
-  #       uses: extenda/actions/binary-auth-attestation@v0
-  #       with:
-  #         image-path: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}
-  #         service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
+      - name: Attest image
+        uses: extenda/actions/binary-auth-attestation@v0
+        with:
+          image-path: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}
+          service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
 
-  #     - name: Deploy to staging
-  #       uses: extenda/actions/cloud-deploy@v0
-  #       with:
-  #         secrets-account-key: ${{ secrets.SECRET_AUTH }}
-  #         service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
-  #         image: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ github.sha }}
-  #         update-dns: always
+      - name: Deploy to staging
+        uses: extenda/actions/cloud-deploy@v0
+        with:
+          secrets-account-key: ${{ secrets.SECRET_AUTH }}
+          service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
+          image: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ github.sha }}
+          update-dns: always
       
-  #     - name: Notify Slack if failed
-  #       if: failure()
-  #       uses: extenda/actions/slack-notify@v0
-  #       with:
-  #         text: |
-  #           *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
-  #           Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
-  #         channel: ${{ secrets.slack-channel }}
-  #         service-account-key: ${{ secrets.SECRET_AUTH }}
+      - name: Notify Slack if failed
+        if: failure()
+        uses: extenda/actions/slack-notify@v0
+        with:
+          text: |
+            *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+          channel: ${{ secrets.slack-channel }}
+          service-account-key: ${{ secrets.SECRET_AUTH }}
 
   acceptance:
-    #needs: staging
-    #if: ${{ github.ref == 'refs/heads/master' && inputs.has-k6-tests == true }}
+    needs: staging
+    if: ${{ github.ref == 'refs/heads/master' && inputs.has-k6-tests == true }}
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -269,51 +269,51 @@ jobs:
           TOKEN_TYPE: 'WID'
           SERVICE_BASE_URL: ${{ secrets.staging-service-base-url }}
 
-      # - name: Notify Slack if failed
-      #   if: failure()
-      #   uses: extenda/actions/slack-notify@v0
-      #   with:
-      #     text: |
-      #       *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
-      #       Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
-      #     channel: ${{ secrets.slack-channel }}
-      #     service-account-key: ${{ secrets.SECRET_AUTH }}
+      - name: Notify Slack if failed
+        if: failure()
+        uses: extenda/actions/slack-notify@v0
+        with:
+          text: |
+            *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+          channel: ${{ secrets.slack-channel }}
+          service-account-key: ${{ secrets.SECRET_AUTH }}
 
-  # release:
-  #   needs: [staging, acceptance]
-  #   if: |
-  #     always() &&
-  #     github.ref == 'refs/heads/master' &&
-  #     needs.staging.result == 'success' &&
-  #     (inputs.has-k6-tests == false || needs.k6.result == 'success')
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #       with:
-  #         fetch-depth: 0
+  release:
+    needs: [staging, acceptance]
+    if: |
+      always() &&
+      github.ref == 'refs/heads/master' &&
+      needs.staging.result == 'success' &&
+      (inputs.has-k6-tests == false || needs.k6.result == 'success')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-  #     - name: Create release
-  #       uses: extenda/actions/conventional-release@v0
-  #       id: release
-  #       env:
-  #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create release
+        uses: extenda/actions/conventional-release@v0
+        id: release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  #     - uses: extenda/actions/setup-gcloud@v0
-  #       with:
-  #         service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
+      - uses: extenda/actions/setup-gcloud@v0
+        with:
+          service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
 
-  #     - name: Add tag in GCR
-  #       run: |
-  #         gcloud container images add-tag \
-  #           eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ github.sha }} \
-  #           eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.release.outputs.version }}
+      - name: Add tag in GCR
+        run: |
+          gcloud container images add-tag \
+            eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ github.sha }} \
+            eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.release.outputs.version }}
       
-  #     - name: Notify Slack if failed
-  #       if: failure()
-  #       uses: extenda/actions/slack-notify@v0
-  #       with:
-  #         text: |
-  #           *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
-  #           Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
-  #         channel: ${{ secrets.slack-channel }}
-  #         service-account-key: ${{ secrets.SECRET_AUTH }}
+      - name: Notify Slack if failed
+        if: failure()
+        uses: extenda/actions/slack-notify@v0
+        with:
+          text: |
+            *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+          channel: ${{ secrets.slack-channel }}
+          service-account-key: ${{ secrets.SECRET_AUTH }}
