@@ -289,6 +289,11 @@ jobs:
             NEXUS_USERNAME: nexus-username
             NUGET_API_KEY: nuget-api-key
             API_KEY: api-key-hiidentity-staff
+
+      - uses: extenda/actions/gcp-secret-manager@v0
+        with:
+          service-account-key: ${{ secrets.SECRET_AUTH_STAGING }}
+          secrets: |
             TEST_TENANT_ID: iam-test-tenant-id
 
       - name: Get IAM token
