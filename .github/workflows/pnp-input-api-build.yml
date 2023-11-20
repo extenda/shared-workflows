@@ -42,6 +42,18 @@ on:
         required: false
       pact-webhook-id:
         required: false
+      wid-token-audience:
+        description: |
+          The audience of the generated Workload Identity token. Should be the name of the receiving service.
+        required: false
+      wid-token-service-account:
+        description: |
+          The service account of the requestor service. Will be used during Workload Identity token generation.
+        required: false
+      test-tenantId:
+        description: |
+          The Id of the tenant to be used during acceptance tests for WID token provided.
+        required: false
     inputs:
       do-pact-consumer-tests:
         description: |
@@ -67,7 +79,7 @@ on:
         type: boolean
         required: false
         default: false
-        
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -289,6 +301,25 @@ jobs:
           service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
           api-key: ${{ env.API_KEY }}
 
+      - name: Check if WID token secrets were provided 
+        id: wid-token-secrets-check
+        shell: bash
+        run: |
+          if [ "${{ secrets.wid-token-audience }}" != '' ] && [ "${{ secrets.wid-token-service-account }}" != '' ]; then
+            echo "secretsProvided=true" >> $GITHUB_OUTPUT;
+          else
+            echo "secretsProvided=false" >> $GITHUB_OUTPUT;
+          fi
+
+      - name: Get Identity token
+        if: ${{ steps.wid-token-secrets-check.outputs.secretsProvided == 'true' }}
+        id: identitytoken
+        uses: extenda/actions/identity-token@v0
+        with:
+          service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
+          service-account: ${{ secrets.wid-token-service-account}}
+          audiences: ${{ secrets.wid-token-audience }}
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v3
         with:
@@ -316,12 +347,21 @@ jobs:
               "apikey": "${{ env.NUGET_API_KEY }}"
             }]
 
-      - name: Run Acceptance Tests
+      - name: Run Acceptance Tests with IAM token
         run: |
           dotnet test ${{ secrets.path-to-acceptance-tests }}
         env:
           INPUT_API_URL: ${{ secrets.staging-service-base-url }}
           BEARER_TOKEN: ${{ steps.testtoken.outputs.iam-token }}
+      
+      - name: Run Acceptance Tests with WID token
+        if: ${{ steps.wid-token-secrets-check.outputs.secretsProvided == 'true' }}
+        run: |
+          dotnet test ${{ secrets.path-to-acceptance-tests }}
+        env:
+          INPUT_API_URL: ${{ secrets.staging-service-base-url }}
+          BEARER_TOKEN: ${{ steps.identitytoken.outputs.identity-token }}
+          TENANT_ID: ${{ secrets.test-tenantId }}
 
       - name: Notify Slack if failed
         if: failure()
