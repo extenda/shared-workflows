@@ -50,10 +50,6 @@ on:
         description: |
           The service account of the requestor service. Will be used during Workload Identity token generation.
         required: false
-      test-tenantId:
-        description: |
-          The Id of the tenant to be used during acceptance tests for WID token provided.
-        required: false
     inputs:
       do-pact-consumer-tests:
         description: |
@@ -293,6 +289,7 @@ jobs:
             NEXUS_USERNAME: nexus-username
             NUGET_API_KEY: nuget-api-key
             API_KEY: api-key-hiidentity-staff
+            TEST_TENANT_ID: iam-test-tenant-id
 
       - name: Get IAM token
         id: testtoken
@@ -361,7 +358,7 @@ jobs:
         env:
           INPUT_API_URL: ${{ secrets.staging-service-base-url }}
           BEARER_TOKEN: ${{ steps.identitytoken.outputs.identity-token }}
-          TENANT_ID: ${{ secrets.test-tenantId }}
+          TENANT_ID: ${{ env.TEST_TENANT_ID }}
 
       - name: Notify Slack if failed
         if: failure()
