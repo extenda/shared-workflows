@@ -292,7 +292,7 @@ jobs:
 
       - uses: extenda/actions/gcp-secret-manager@v0
         with:
-          service-account-key: ${{ secrets.SECRET_AUTH_STAGING }}
+          service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
           secrets: |
             TEST_TENANT_ID: iam-test-tenant-id
 
