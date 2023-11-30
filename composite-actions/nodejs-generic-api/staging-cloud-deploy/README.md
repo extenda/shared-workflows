@@ -16,6 +16,7 @@ This is typical action, to deploy nodejs api application to GKE Autopilot cluste
       user-email-name: <name of the user email in secret manager> # default - iam-test-token-email
       user-password-name: <name of the user password in secret manager> # default - iam-test-token-password
       update-dns: always # default - if-missing
+      with-component-tests: false # default - true
 ```
 
 ### Requirements
