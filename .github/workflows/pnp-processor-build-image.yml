@@ -115,9 +115,8 @@ jobs:
       - uses: graalvm/setup-graalvm@v1
         if: ${{ inputs.native-image == true }}
         with:
-          version: 'latest'
+          distribution: 'graalvm'
           java-version: '17'
-          components: 'native-image'
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Verify with Maven
