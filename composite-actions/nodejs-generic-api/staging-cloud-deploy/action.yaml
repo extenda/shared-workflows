@@ -44,6 +44,11 @@ inputs:
     description: "If true runs component tests"
     default: 'true'
     required: false
+  db-migrate:
+    description: "If true, calls `npm run db-migrate`"
+    default: false
+    type: boolean
+    required: false
 
 runs:
   using: "composite"
@@ -75,6 +80,26 @@ runs:
       with:
         image-path: ${{ inputs.image }}
         service-account-key: ${{ inputs.GCLOUD_AUTH }}
+
+    - uses: extenda/actions/gcp-secret-manager@v0
+        with:
+          service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
+          secrets: |
+            DB_HOST: postgresql_address
+            DB_NAME: postgres_ocms_db_name
+            DB_USER: postgres_ocms_role_name
+            DB_PASS: postgres_ocms_role_password
+
+    - name: Migrate DB
+      if: ${{ inputs.db-migrate }}
+      run: |
+        npm run db-migrate
+      env:
+        DB_HOST: ${{ env.DB_HOST }}
+        DB_NAME: ${{ env.DB_NAME }}
+        DB_USER: ${{ env.DB_USER }}
+        DB_PASS: ${{ env.DB_PASS }}
+        DB_PORT: 5432
 
     - name: Deploy to staging
       uses: extenda/actions/cloud-deploy@v0
