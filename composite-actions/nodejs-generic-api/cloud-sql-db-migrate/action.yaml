@@ -49,18 +49,6 @@ runs:
       shell: bash
       run: gcloud --quiet auth configure-docker eu.gcr.io
 
-    - name: Build and push db migration image
-      shell: bash
-      run: |
-        docker build -f migration/Dockerfile -t ${{ inputs.IMAGE_NAME }}:${{ github.sha }} .
-        docker push ${{ inputs.IMAGE_NAME }}:${{ github.sha }}
-
-    - name: Attest image
-      uses: extenda/actions/binary-auth-attestation@v0
-      with:
-        image-path: ${{ inputs.IMAGE_NAME }}:${{ github.sha }}
-        service-account-key: ${{ inputs.GCLOUD_AUTH }}
-
     - uses: extenda/actions/gcp-secret-manager@v0
       with:
         service-account-key: ${{ inputs.GCLOUD_AUTH }}
@@ -70,15 +58,13 @@ runs:
           DB_USER: ${{ inputs.db_user_secret_name }}
           DB_PASS: ${{ inputs.db_pass_secret_name }}
 
-    - name: Run database migration
-      uses: extenda/actions/test-pod@v0
-      with:
-        service-account-key: ${{ inputs.GCLOUD_AUTH }}
-        image: ${{ inputs.IMAGE_NAME }}:${{ github.sha }}
-        trim-prefix: true
+    - name: Migrate DB
+      if: ${{ inputs.db-migrate }}
+      run: |
+        npm run db-migrate
       env:
-        TESTPOD_DB_HOST: ${{ env.DB_HOST }}
-        TESTPOD_DB_NAME: ${{ env.DB_NAME }}
-        TESTPOD_DB_USER: ${{ env.DB_USER }}
-        TESTPOD_DB_PASS: ${{ env.DB_PASS }}
-        TESTPOD_DB_PORT: 5432
+        DB_HOST: ${{ env.DB_HOST }}
+        DB_NAME: ${{ env.DB_NAME }}
+        DB_USER: ${{ env.DB_USER }}
+        DB_PASS: ${{ env.DB_PASS }}
+        DB_PORT: 5432
