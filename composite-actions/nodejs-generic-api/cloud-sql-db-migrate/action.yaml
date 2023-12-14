@@ -68,10 +68,14 @@ runs:
           DB_USER: ${{ inputs.db_user_secret_name }}
           DB_PASS: ${{ inputs.db_pass_secret_name }}
 
-    - uses: mattes/gce-cloudsql-proxy-action@v1
-      with:
-        creds: ${{ inputs.GCLOUD_AUTH }}
-        instance: ${{ inputs.DB_HOST }}
+    - name: Enable cloud SQL proxy to instance
+      shell: bash
+      run: |
+        curl -o cloud-sql-proxy https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.7.0/cloud-sql-proxy.linux.amd64
+        chmod +x cloud-sql-proxy
+        nohup ./cloud-sql-proxy ${{ env.DB_HOST }} > cloud-sql-proxy.out 2> cloud-sql-proxy.err < /dev/null &
+        echo $!
+        echo CLOUD_SQL_PROXY_PID=$(echo $!) >> $GITHUB_ENV
 
     - name: Migrate DB
       shell: bash
@@ -83,3 +87,7 @@ runs:
         DB_USER: ${{ env.DB_USER }}
         DB_PASS: ${{ env.DB_PASS }}
         DB_PORT: 5432
+
+    - name: Kill Cloud SQL Proxy
+      shell: bash
+      run: kill $CLOUD_SQL_PROXY_PID
