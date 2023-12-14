@@ -68,12 +68,17 @@ runs:
           DB_USER: ${{ inputs.db_user_secret_name }}
           DB_PASS: ${{ inputs.db_pass_secret_name }}
 
+    - uses: mattes/gce-cloudsql-proxy-action@v1
+      with:
+        creds: ${{ inputs.GCLOUD_AUTH }}
+        instance: ${{ inputs.DB_HOST }}
+
     - name: Migrate DB
       shell: bash
       run: |
         npm run db-migrate
       env:
-        DB_HOST: ${{ env.DB_HOST }}
+        DB_HOST: 127.0.0.1
         DB_NAME: ${{ env.DB_NAME }}
         DB_USER: ${{ env.DB_USER }}
         DB_PASS: ${{ env.DB_PASS }}
