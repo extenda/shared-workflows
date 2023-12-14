@@ -59,7 +59,11 @@ on:
         type: boolean
         required: false
         default: false
-
+      native-image:
+        description: 'If true uses the GraalVm to compile app'
+        type: boolean
+        required: false
+        default: false
 
 jobs:
   build:
@@ -108,10 +112,25 @@ jobs:
         with:
           build-number: ${{ github.run_number }}
 
+      - uses: graalvm/setup-graalvm@v1
+        if: ${{ inputs.native-image == true }}
+        with:
+          distribution: 'graalvm'
+          java-version: '17'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Verify with Maven
         uses: extenda/actions/maven@v0
         with:
           args: verify -s settings.xml
+          version: ${{ steps.semver.outputs.version }}-SNAPSHOT
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+
+      - name: Package Native Image
+        if: ${{ inputs.native-image == true }}
+        uses: extenda/actions/maven@v0
+        with:
+          args: package -Dpackaging=native-image -s settings.xml
           version: ${{ steps.semver.outputs.version }}-SNAPSHOT
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
