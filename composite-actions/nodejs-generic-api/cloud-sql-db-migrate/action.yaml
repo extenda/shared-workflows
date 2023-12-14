@@ -59,6 +59,7 @@ runs:
           DB_PASS: ${{ inputs.db_pass_secret_name }}
 
     - name: Migrate DB
+      shell: bash
       run: |
         npm run db-migrate
       env:
