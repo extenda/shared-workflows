@@ -265,7 +265,6 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - build
-      - analyze-nested-sonar
     steps:
       - uses: actions/checkout@v3
         with:
