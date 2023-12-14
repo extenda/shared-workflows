@@ -74,7 +74,6 @@ runs:
       run: |
         curl -o cloud-sql-proxy https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.7.0/cloud-sql-proxy.linux.amd64
         chmod +x cloud-sql-proxy
-        ./cloud-sql-proxy --run-connection-test ${{ env.DB_HOST }}
         nohup ./cloud-sql-proxy ${{ env.DB_HOST }} > cloud-sql-proxy.out 2> cloud-sql-proxy.err < /dev/null &
         echo $!
         echo CLOUD_SQL_PROXY_PID=$(echo $!) >> $GITHUB_ENV
