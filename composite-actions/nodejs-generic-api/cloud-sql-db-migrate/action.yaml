@@ -35,10 +35,20 @@ runs:
   steps:
     - uses: actions/checkout@v3
 
+    - name: Install Node
+      uses: actions/setup-node@v2
+      with:
+        node-version: 16
+
     - name: Auth to Nexus npm registry
       uses: extenda/actions/nexus-auth-npm@v0
       with:
         service-account-key: ${{ inputs.SECRET_AUTH }}
+
+    - name: Install dependencies
+      if: steps.cache-node-modules.outputs.cache-hit != 'true'
+      shell: bash
+      run: npm ci
 
     - uses: extenda/actions/setup-gcloud@v0
       id: gcloud
