@@ -17,5 +17,8 @@ This is typical action, to run tests in nodejs api application.
 - You have to have a ```npm run lint:ci``` script.
 - You have to have a ```npm run test:cov``` script.
 - Your application have to be compatible with node 16.
-- You should have a ```npm run check-openapi-schema``` script, to test you openapi schema.
-- You should have a ```npm run ts:check``` script, to check, whether your typescript code is valid.
+
+## Optional
+- ```npm run check-openapi-schema``` script, to test you openapi schema.
+- ```npm run ts:check``` script, to check, whether your typescript code is valid.
+- ```npm run db:migrate``` script, to prepere database before testing
