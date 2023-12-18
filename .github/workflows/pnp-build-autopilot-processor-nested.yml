@@ -90,10 +90,6 @@ on:
         type: boolean
         required: false
         default: false
-      sonar-report-path:
-        description: 'Use a specific path to get the Sonar report for the quality gate'
-        type: string
-        required: true
 
 jobs:
   build:
@@ -159,12 +155,13 @@ jobs:
           service-account-key: ${{ secrets.SECRET_AUTH }}
           working-directory: ${{ secrets.working-directory || '.' }}
 
-      - name: Analyze with Sonar
+      - name: Analyze with Sonar ${{ secrets.working-directory || '.' }}
         uses: extenda/actions/sonar-scanner@v0
         with:
           sonar-host: https://sonarcloud.io
           service-account-key: ${{ secrets.SECRET_AUTH }}
           report-path: ${{ inputs.sonar-report-path }}
+          working-directory: ${{ secrets.working-directory || '.' }}
 
       - name: Verify with Maven Native
         uses: extenda/actions/maven@v0
