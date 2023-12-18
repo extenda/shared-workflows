@@ -161,7 +161,7 @@ jobs:
           sonar-host: https://sonarcloud.io
           service-account-key: ${{ secrets.SECRET_AUTH }}
           report-path: ${{ inputs.sonar-report-path }}
-          working-directory: ./${{ secrets.working-directory || '.' }}
+          working-directory: ./${{ secrets.working-directory }}
 
       - name: Verify with Maven Native
         uses: extenda/actions/maven@v0
