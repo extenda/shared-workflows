@@ -23,8 +23,7 @@ on:
         required: false
       pact-webhook-id:
         required: false
-      working-directory:
-        required: false
+
     inputs:
       service-definition:
         description: 'Path to kubernetes config file.'
@@ -90,11 +89,12 @@ on:
         type: boolean
         required: false
         default: false
-      working-dir:
+      working-directory:
         description: 'working directory'
         type: string
         required: false
         default: ''
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -157,7 +157,7 @@ jobs:
           args: verify -s settings.xml
           version: ${{ steps.semver.outputs.version }}-SNAPSHOT
           service-account-key: ${{ secrets.SECRET_AUTH }}
-          working-directory: ${{ secrets.working-directory || '.' }}
+          working-directory: ${{ inputs.working-directory || '.' }}
 
       - name: Analyze with Sonar
         uses: extenda/actions/sonar-scanner@v0
@@ -165,7 +165,7 @@ jobs:
           sonar-host: https://sonarcloud.io
           service-account-key: ${{ secrets.SECRET_AUTH }}
           report-path: ${{ inputs.sonar-report-path }}
-          working-directory: ${{ inputs.working-dir }}
+          working-directory: ${{ inputs.working-directory }}
 
       - name: Verify with Maven Native
         uses: extenda/actions/maven@v0
@@ -174,7 +174,7 @@ jobs:
           args: verify -Dpackaging=native-image -s settings.xml
           version: ${{ steps.semver.outputs.version }}-SNAPSHOT
           service-account-key: ${{ secrets.SECRET_AUTH }}
-          working-directory: ${{ secrets.working-directory || '.' }}
+          working-directory: ${{ inputs.working-directory || '.' }}
 
       - name: Publish pacts
         if: ${{ inputs.do-pact-consumer-tests == true }}
@@ -221,7 +221,7 @@ jobs:
         if: github.ref == 'refs/heads/master'
         run: |
           IMAGE=eu.gcr.io/extenda/${{ secrets.GCR_image_name }}
-          WORKING_DIR=${{ secrets.working-directory || '.' }}
+          WORKING_DIR=${{ inputs.working-directory || '.' }}
           docker build ./${WORKING_DIR} -f ${{ secrets.path-to-dockerfile }} --build-arg jar_version=${{ steps.semver.outputs.version }} -t $IMAGE:${{ steps.semver.outputs.version }} -t $IMAGE:${{ github.sha }} -t $IMAGE:latest
           docker push --all-tags $IMAGE
 
