@@ -160,7 +160,7 @@ jobs:
         with:
           sonar-host: https://sonarcloud.io
           service-account-key: ${{ secrets.SECRET_AUTH }}
-          working-directory: ${{ inputs.working-directory || '.' }}
+          working-directory: './${{ inputs.working-directory }}'
 
       - uses: graalvm/setup-graalvm@v1
         if: ${{ inputs.native-image == true }}
