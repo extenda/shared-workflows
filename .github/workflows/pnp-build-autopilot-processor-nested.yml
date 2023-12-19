@@ -165,7 +165,7 @@ jobs:
           components: 'native-image'
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Verify with Maven Native
+      - name: Package Native image with maven
         uses: extenda/actions/maven@v0
         if: ${{ inputs.native-image == true }}
         with:
@@ -239,35 +239,6 @@ jobs:
             Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
           channel: ${{ secrets.slack-channel }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
-
-#  analyze-nested-sonar:
-#    name: Generate aggregated Sonar Report
-#    needs:
-#      - build
-#    runs-on: ubuntu-latest
-#    steps:
-#      - uses: actions/checkout@v4
-#        with:
-#          fetch-depth: 0
-#
-#      - name: Set up JDK
-#        uses: actions/setup-java@v3
-#        with:
-#          distribution: 'temurin'
-#          java-version: '17'
-#          cache: maven
-#
-#      - name: Verify with Maven
-#        uses: extenda/actions/maven@v0
-#        with:
-#          args: verify
-#          service-account-key: ${{ secrets.SECRET_AUTH }}
-#
-#      - name: Analyze with Sonar
-#        uses: extenda/actions/sonar-scanner@v0
-#        with:
-#          sonar-host: https://sonarcloud.io
-#          service-account-key: ${{ secrets.SECRET_AUTH }}
 
   release:
     if: github.ref == 'refs/heads/master'
