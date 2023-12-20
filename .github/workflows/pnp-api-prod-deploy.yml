@@ -48,7 +48,7 @@ jobs:
     if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -56,7 +56,6 @@ jobs:
         with:
           service-account-key: ${{ secrets.SECRET_AUTH }}
           secrets: |
-            STYRA_TOKEN: styra-das-token
             JIRA_USERNAME: jira-username
             JIRA_PASSWORD: jira-password
 
@@ -73,13 +72,6 @@ jobs:
           retry-while-unknown: 15
           retry-interval: 10
           dry-run: ${{ inputs.is-pact-provider-can-i-deploy-dry-run }}
-
-      - name: DAS production deploy
-        uses: extenda/actions/styra-das-deploy@v0
-        with:
-          permission-prefix: ${{ secrets.permissions-prefix }}
-          service-name: ${{ secrets.service-name }}
-          styra-das-token: ${{ env.STYRA_TOKEN }}
        
       - name: Deploy to production
         uses: extenda/actions/cloud-deploy@v0

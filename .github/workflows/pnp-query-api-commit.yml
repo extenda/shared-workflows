@@ -1,4 +1,4 @@
-name: Build and Deploy
+name: Commit
 on:
   workflow_call:
     secrets:
@@ -46,7 +46,29 @@ on:
         default: '["dist/api-tests-v1.js", "dist/api-tests-v2.js"]'
 
 jobs:
-  build:
+  test-opa-policies:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Test OPA policies
+        uses: extenda/actions/opa-policy-test@v0
+        with:
+          service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
+
+      - name: Notify Slack if failed
+        if: github.ref == 'refs/heads/master' && failure()
+        uses: extenda/actions/slack-notify@v0
+        with:
+          text: |
+            *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+          channel: enterprise-pnp-failed-builds
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+
+  build-and-test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -59,7 +81,7 @@ jobs:
           secrets: |
             NEXUS_PASSWORD: nexus-password
             NEXUS_USERNAME: nexus-username
-            NUGET_API_KEY: nuget-api-key                          
+            NUGET_API_KEY: nuget-api-key                           
         
       - name: Determine version
         uses: extenda/actions/conventional-version@v0
@@ -70,7 +92,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v3
         with:
-          dotnet-version: '6.0.x'
+          dotnet-version: '8.0.x'
 
       - name: Setup NuGet
         uses: NuGet/setup-nuget@v1
@@ -126,7 +148,7 @@ jobs:
           channel: ${{ secrets.slack-channel }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
-  staging:
+  deploy-to-staging:
     needs: build
     if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
@@ -198,7 +220,7 @@ jobs:
           channel: ${{ secrets.slack-channel }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
-  k6:
+  run-acceptance-tests:
     needs: staging
     if: ${{ github.ref == 'refs/heads/master' && inputs.has-k6-tests == true }}
     runs-on: ubuntu-latest
@@ -248,7 +270,7 @@ jobs:
           channel: ${{ secrets.slack-channel }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
-  release:
+  create-release:
     needs: [staging, k6]
     if: |
       always() &&
