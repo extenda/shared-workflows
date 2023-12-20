@@ -68,7 +68,7 @@ jobs:
           channel: enterprise-pnp-failed-builds
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
-  build-and-test:
+  test-application:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -148,8 +148,8 @@ jobs:
           channel: ${{ secrets.slack-channel }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
-  deploy-to-staging:
-    needs: build
+  staging:
+    needs: test-application
     if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     steps:
@@ -220,7 +220,7 @@ jobs:
           channel: ${{ secrets.slack-channel }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
-  run-acceptance-tests:
+  acceptance:
     needs: staging
     if: ${{ github.ref == 'refs/heads/master' && inputs.has-k6-tests == true }}
     runs-on: ubuntu-latest
@@ -270,13 +270,13 @@ jobs:
           channel: ${{ secrets.slack-channel }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
-  create-release:
-    needs: [staging, k6]
+  release:
+    needs: [staging, acceptance]
     if: |
       always() &&
       github.ref == 'refs/heads/master' &&
       needs.staging.result == 'success' &&
-      (inputs.has-k6-tests == false || needs.k6.result == 'success')
+      (inputs.has-k6-tests == false || needs.acceptance.result == 'success')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
