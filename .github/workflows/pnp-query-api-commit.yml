@@ -59,7 +59,7 @@ jobs:
           service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
 
       - name: Notify Slack if failed
-        if: github.ref == 'refs/heads/master' && failure()
+        if: failure() && github.ref == 'refs/heads/master'
         uses: extenda/actions/slack-notify@v0
         with:
           text: |
@@ -139,7 +139,7 @@ jobs:
           service-account-key: ${{ secrets.SECRET_AUTH }}
       
       - name: Notify Slack if failed
-        if: ${{ failure() && github.ref == 'refs/heads/master' }}
+        if: failure() && github.ref == 'refs/heads/master'
         uses: extenda/actions/slack-notify@v0
         with:
           text: |

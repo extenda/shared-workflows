@@ -5,12 +5,6 @@ on:
       GCR_image_name:
         description: 'A name of the image to be created in GCR'
         required: true
-      service-name:
-        description: 'A name of the service in styra.'
-        required: true
-      permissions-prefix:
-        description: 'Permissions prefix in styra'
-        required: true
       slack-channel:
         description: 'A slack channel which needs to be notified in case of failure'
         required: true
