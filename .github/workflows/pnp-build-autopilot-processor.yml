@@ -3,27 +3,33 @@ name: Merge to master
 on:
   workflow_call:
     secrets:
-      GCR_image_name:
-        description: 'A name of the image to be created in GCR'
-        required: true
-      path-to-pom:
-        description: 'Path to the pom file'
-        required: true
-      path-to-dockerfile:
-        description: 'Path to dockerfile which builds the service.'
-        required: true
-      slack-channel:
-        description: 'A slack channel which needs to be notified in case of failure'
-        required: false
       SECRET_AUTH:
         required: true
       GCLOUD_AUTH_STAGING:
         required: true
+    inputs:
+      GCR_image_name:
+        description: 'A name of the image to be created in GCR'
+        required: true
+        type: string
+      path-to-pom:
+        description: 'Path to the pom file'
+        required: true
+        type: string
+      path-to-dockerfile:
+        description: 'Path to dockerfile which builds the service.'
+        required: true
+        type: string
+      slack-channel:
+        description: 'A slack channel which needs to be notified in case of failure'
+        required: false
+        type: string
       pact-application-id:
         required: false
+        type: string
       pact-webhook-id:
         required: false
-    inputs:
+        type: string
       service-definition:
         description: 'Path to kubernetes config file.'
         type: string
@@ -78,6 +84,11 @@ on:
         type: string
         required: false
         default: 'v'
+      native-image:
+        description: 'If true uses the GraalVm to compile app'
+        type: boolean
+        required: false
+        default: false
 
 jobs:
   build:
@@ -138,8 +149,25 @@ jobs:
         uses: extenda/actions/sonar-scanner@v0
         with:
           sonar-host: https://sonarcloud.io
-          maven-args: --file ${{ secrets.path-to-pom }} --settings settings.xml org.sonarsource.scanner.maven:sonar-maven-plugin:3.7.0.1746:sonar
+          maven-args: --file ${{ inputs.path-to-pom }} --settings settings.xml org.sonarsource.scanner.maven:sonar-maven-plugin:3.7.0.1746:sonar
           service-account-key: ${{ secrets.SECRET_AUTH }}
+
+      - uses: graalvm/setup-graalvm@v1
+        if: ${{ inputs.native-image == true && github.ref == 'refs/heads/master' }}
+        with:
+          version: 'latest'
+          java-version: '17'
+          components: 'native-image'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Package Native image with maven
+        uses: extenda/actions/maven@v0
+        if: ${{ inputs.native-image == true && github.ref == 'refs/heads/master' }}
+        with:
+          args: verify -Dpackaging=native-image -s settings.xml
+          version: ${{ steps.semver.outputs.version }}-SNAPSHOT
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+          working-directory: ${{ inputs.working-directory || '.' }}
 
       - name: Publish pacts
         if: ${{ inputs.do-pact-consumer-tests == true }}
@@ -153,7 +181,7 @@ jobs:
         uses: extenda/actions/pact-can-i-deploy@v0
         with:
           service-account-key: ${{ secrets.SECRET_AUTH }}
-          application-name: ${{ secrets.pact-application-id }}
+          application-name: ${{ inputs.pact-application-id }}
           retry-while-unknown: 15
           retry-interval: 10
           dry-run: ${{ inputs.is-pact-consumer-can-i-deploy-dry-run }}
@@ -164,7 +192,7 @@ jobs:
         uses: extenda/actions/pact-can-i-deploy@v0
         with:
           service-account-key: ${{ secrets.SECRET_AUTH }}
-          application-name: ${{ secrets.pact-application-id }}
+          application-name: ${{ inputs.pact-application-id }}
           retry-while-unknown: 15
           retry-interval: 10
           dry-run: ${{ inputs.is-pact-provider-can-i-deploy-dry-run }}
@@ -185,15 +213,15 @@ jobs:
       - name: Docker build and push
         if: github.ref == 'refs/heads/master'
         run: |
-          IMAGE=eu.gcr.io/extenda/${{ secrets.GCR_image_name }}
-          docker build . -f ${{ secrets.path-to-dockerfile }} --build-arg jar_version=${{ steps.semver.outputs.version }} -t $IMAGE:${{ steps.semver.outputs.version }} -t $IMAGE:${{ github.sha }} -t $IMAGE:latest
+          IMAGE=eu.gcr.io/extenda/${{ inputs.GCR_image_name }}
+          docker build . -f ${{ inputs.path-to-dockerfile }} --build-arg jar_version=${{ steps.semver.outputs.version }} -t $IMAGE:${{ steps.semver.outputs.version }} -t $IMAGE:${{ github.sha }} -t $IMAGE:latest
           docker push --all-tags $IMAGE
 
       - name: Attest image
         if: github.ref == 'refs/heads/master'
         uses: extenda/actions/binary-auth-attestation@v0
         with:
-          image-path: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}
+          image-path: eu.gcr.io/extenda/${{ inputs.GCR_image_name }}
           service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
 
       - name: Notify Slack if failed
@@ -203,7 +231,7 @@ jobs:
           text: |
             *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
             Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
-          channel: ${{ secrets.slack-channel }}
+          channel: ${{ inputs.slack-channel }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
   release:
@@ -242,8 +270,8 @@ jobs:
       - name: Add tag in GCR
         run: |
           gcloud container images add-tag \
-            eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ github.sha }} \
-            eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ env.release_version }}
+            eu.gcr.io/extenda/${{ inputs.GCR_image_name }}:${{ github.sha }} \
+            eu.gcr.io/extenda/${{ inputs.GCR_image_name }}:${{ env.release_version }}
         env:
           release_version: ${{ inputs.reuse-release == false && steps.release.outputs.version || steps.release_reuse.outputs.release-version }}
 
@@ -252,7 +280,7 @@ jobs:
         uses: extenda/actions/pact-tag-version@v0
         with:
           service-account-key: ${{ secrets.SECRET_AUTH }}
-          application-name: ${{ secrets.pact-application-id }}
+          application-name: ${{ inputs.pact-application-id }}
           release-tag: ${{ steps.release.outputs.release-tag }}
           env: "staging"
 
@@ -263,7 +291,7 @@ jobs:
           text: |
             *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
             Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
-          channel: ${{ secrets.slack-channel }}
+          channel: ${{ inputs.slack-channel }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
   staging:
@@ -299,7 +327,7 @@ jobs:
           secrets-account-key: ${{ secrets.SECRET_AUTH }}
           service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
           service-definition: ${{ inputs.service-definition }}
-          image: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.semver.outputs.release-version }}
+          image: eu.gcr.io/extenda/${{ inputs.GCR_image_name }}:${{ steps.semver.outputs.release-version }}
           update-dns: always
 
       - name: PACT record deployment to STAGING
@@ -307,7 +335,7 @@ jobs:
         uses: extenda/actions/pact-record-deployment@v0
         with:
           service-account-key: ${{ secrets.SECRET_AUTH }}
-          application-name: ${{ secrets.pact-application-id }}
+          application-name: ${{ inputs.pact-application-id }}
           release-version: ${{ github.sha }}
           env: "staging"
 
@@ -318,6 +346,6 @@ jobs:
           text: |
             *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
             Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
-          channel: ${{ secrets.slack-channel }}
+          channel: ${{ inputs.slack-channel }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
