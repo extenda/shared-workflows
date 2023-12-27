@@ -2,27 +2,31 @@ name: Build and push sink to staging
 on: 
   workflow_call:
     secrets:
-      GCR_image_name:
-        description: 'A name of the image to be created in GCR'
-        required: true
-      path-to-sln:
-        description: 'Path to the sln file'
-        required: true
-      path-to-unit-tests:
-        description: 'Path to sln or unit tests csproj file.'
-        required: true
-      slack-channel:
-        description: 'A slack channel which needs to be notified in case of failure'
-        required: false
       SECRET_AUTH:
         required: true
       GCLOUD_AUTH_STAGING:
         required: true
     inputs:
-      path-to-kubernetes-config:
-        description: 'Path to kubernetes config file.'
+      GCR_image_name:
+        description: 'A name of the image to be created in GCR'
         type: string
         required: true
+      path-to-sln:
+        description: 'Path to the sln file'
+        type: string
+        required: true
+      path-to-unit-tests:
+        description: 'Path to sln or unit tests csproj file.'
+        type: string
+        required: true
+      slack-channel:
+        description: 'A slack channel which needs to be notified in case of failure'
+        type: string
+        required: false
+      path-to-dockerfile:
+        description: 'Path to dockerfile which builds the service.'
+        required: true
+        type: string
 
 jobs:
   build:
@@ -164,11 +168,12 @@ jobs:
           service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
 
       - name: Deploy to staging
-        uses: extenda/actions/kubernetes@v0
+        uses: extenda/actions/cloud-deploy@v0
         with:
+          secrets-account-key: ${{ secrets.SECRET_AUTH }}
           service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
-          service-definition: ${{ inputs.path-to-kubernetes-config }}
           image: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ github.sha }}
+          update-dns: always
 
       - name: Notify Slack if failed
         if: failure()
