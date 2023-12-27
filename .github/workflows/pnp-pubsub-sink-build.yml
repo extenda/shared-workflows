@@ -23,10 +23,6 @@ on:
         description: 'A slack channel which needs to be notified in case of failure'
         type: string
         required: false
-      service-definition:
-        description: 'Path to kubernetes config file.'
-        type: string
-        required: true
       path-to-dockerfile:
         description: 'Path to dockerfile which builds the service.'
         required: true
@@ -55,7 +51,7 @@ jobs:
           build-number: ${{ github.run_number }}
       
       - name: Setup .NET
-        uses: actions/setup-dotnet@v1
+        uses: actions/setup-dotnet@v3
         with:
           dotnet-version: '6.0.x'
 
@@ -172,11 +168,10 @@ jobs:
           service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
 
       - name: Deploy to staging
-        uses: extenda/actions/kubernetes@v0
+        uses: extenda/actions/cloud-deploy@v0
         with:
           secrets-account-key: ${{ secrets.SECRET_AUTH }}
           service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
-          service-definition: ${{ inputs.service-definition }}
           image: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ github.sha }}
           update-dns: always
 
