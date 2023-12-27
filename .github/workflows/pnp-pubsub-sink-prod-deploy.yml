@@ -11,7 +11,7 @@ on:
         required: false
       SECRET_AUTH:
         required: true
-      GCLOUD_AUTH:
+      GCLOUD_AUTH_PROD:
         required: true
       dora-component:
         description: 'Dora component name'
@@ -42,7 +42,7 @@ jobs:
         uses: extenda/actions/cloud-deploy@v0
         with:
           secrets-account-key: ${{ secrets.SECRET_AUTH }}
-          service-account-key: ${{ secrets.GCLOUD_AUTH }}
+          service-account-key: ${{ secrets.GCLOUD_AUTH_PROD }}
           image: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.semver.outputs.release-version }}
           update-dns: always
 
