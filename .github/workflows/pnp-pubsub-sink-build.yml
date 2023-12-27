@@ -6,27 +6,21 @@ on:
         required: true
       GCLOUD_AUTH_STAGING:
         required: true
-    inputs:
       GCR_image_name:
         description: 'A name of the image to be created in GCR'
-        type: string
         required: true
       path-to-sln:
         description: 'Path to the sln file'
-        type: string
         required: true
       path-to-unit-tests:
         description: 'Path to sln or unit tests csproj file.'
-        type: string
         required: true
       slack-channel:
         description: 'A slack channel which needs to be notified in case of failure'
-        type: string
         required: false
       path-to-dockerfile:
         description: 'Path to dockerfile which builds the service.'
         required: true
-        type: string
 
 jobs:
   build:
@@ -86,11 +80,11 @@ jobs:
 
       - name: Build dotnet solution
         run: |
-          dotnet build ${{ inputs.path-to-sln }} --configuration Release /p:Version=${{ steps.semver.outputs.version }}
+          dotnet build ${{ secrets.path-to-sln }} --configuration Release /p:Version=${{ steps.semver.outputs.version }}
                 
       - name: Test dotnet solution
         run: |
-          dotnet test ${{ inputs.path-to-unit-tests }} /p:CollectCoverage=true /p:CoverletOutputFormat=opencover
+          dotnet test ${{ secrets.path-to-unit-tests }} /p:CollectCoverage=true /p:CoverletOutputFormat=opencover
 
       - name: Analyze with Sonar  
         uses: extenda/actions/sonar-scanner@v0
@@ -106,7 +100,7 @@ jobs:
           text: |
             *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
             Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
-          channel: ${{ inputs.slack-channel }}
+          channel: ${{ secrets.slack-channel }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
   staging:
@@ -157,14 +151,14 @@ jobs:
       - name: Build and push Docker
         run: |
           gcloud --quiet auth configure-docker
-          IMAGE=eu.gcr.io/extenda/${{ inputs.GCR_image_name }}
+          IMAGE=eu.gcr.io/extenda/${{ secrets.GCR_image_name }}
           docker build -t $IMAGE:${{ github.sha }} -t $IMAGE:latest . -f ${{ secrets.path-to-dockerfile }}
           docker push --all-tags $IMAGE
 
       - name: Attest image
         uses: extenda/actions/binary-auth-attestation@v0
         with:
-          image-path: eu.gcr.io/extenda/${{ inputs.GCR_image_name }}
+          image-path: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}
           service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
 
       - name: Deploy to staging
@@ -172,7 +166,7 @@ jobs:
         with:
           secrets-account-key: ${{ secrets.SECRET_AUTH }}
           service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
-          image: eu.gcr.io/extenda/${{ inputs.GCR_image_name }}:${{ github.sha }}
+          image: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ github.sha }}
           update-dns: always
 
       - name: Notify Slack if failed
@@ -182,7 +176,7 @@ jobs:
           text: |
             *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
             Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
-          channel: ${{ inputs.slack-channel }}
+          channel: ${{ secrets.slack-channel }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
       
   release:
@@ -207,8 +201,8 @@ jobs:
       - name: Add tag in GCR
         run: |
           gcloud container images add-tag \
-            eu.gcr.io/extenda/${{ inputs.GCR_image_name }}:${{ github.sha }} \
-            eu.gcr.io/extenda/${{ inputs.GCR_image_name }}:${{ steps.release.outputs.version }}
+            eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ github.sha }} \
+            eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.release.outputs.version }}
 
       - name: Notify Slack if failed
         if: failure()
@@ -217,5 +211,5 @@ jobs:
           text: |
             *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
             Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
-          channel: ${{ inputs.slack-channel }}
+          channel: ${{ secrets.slack-channel }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
