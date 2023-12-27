@@ -1,0 +1,66 @@
+name: PnP PubSub Sink prod deploy workflow with manual trigger
+
+on:
+  workflow_call:
+    secrets:
+      GCR_image_name:
+        description: 'A name of the image to be created in GCR'
+        required: true
+      slack-channel:
+        description: 'A slack channel which needs to be notified in case of failure'
+        required: false
+      SECRET_AUTH:
+        required: true
+      GCLOUD_AUTH:
+        required: true
+      dora-component:
+        description: 'Dora component name'
+        required: true
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - uses: extenda/actions/gcp-secret-manager@v0
+        with:
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+          secrets: |
+            GITHUB-TOKEN: github-token
+            JIRA_USERNAME: jira-username
+            JIRA_PASSWORD: jira-password
+      
+      - name: Determine version
+        uses: extenda/actions/conventional-version@v0
+        id: semver
+
+      - name: Deploy to Autopilot prod
+        uses: extenda/actions/cloud-deploy@v0
+        with:
+          secrets-account-key: ${{ secrets.SECRET_AUTH }}
+          service-account-key: ${{ secrets.GCLOUD_AUTH }}
+          image: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.semver.outputs.release-version }}
+          update-dns: always
+
+      - name: Dora Component
+        uses: extenda/actions/dora-metrics@v0
+        with:
+          product-name: Product And Price
+          product-component: ${{ secrets.dora-component }}
+          jira-username: ${{ env.JIRA_USERNAME }}
+          jira-password: ${{ env.JIRA_PASSWORD }}
+          jira-project-key: EA
+
+      - name: Notify Slack if failed
+        if: failure()
+        uses: extenda/actions/slack-notify@v0
+        with:
+          text: |
+            *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+          channel: ${{ secrets.slack-channel }}
+          service-account-key: ${{ secrets.SECRET_AUTH }}
