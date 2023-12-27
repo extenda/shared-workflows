@@ -49,7 +49,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - uses: extenda/actions/gcp-secret-manager@v0
         with:
@@ -130,7 +130,7 @@ jobs:
     if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3 
+      - uses: actions/checkout@v4 
 
       - uses: extenda/actions/gcp-secret-manager@v0
         with:
@@ -206,7 +206,7 @@ jobs:
         k6-test-file-name: ${{ fromJSON(inputs.k6-tests-file-names) }}
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       
       - uses: extenda/actions/gcp-secret-manager@v0
         with:
@@ -256,7 +256,7 @@ jobs:
       (inputs.has-k6-tests == false || needs.k6.result == 'success')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
