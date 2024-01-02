@@ -27,7 +27,7 @@ jobs:
       PACT_URL: ${{ github.event.client_payload.pact-url }}
       PACT_VERIFICATION_RESULT_URL: ${{ github.event.client_payload.pact-verification-result-url }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 

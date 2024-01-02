@@ -3,27 +3,33 @@ name: test and build docker image
 on:
   workflow_call:
     secrets:
-      GCR_image_name:
-        description: 'A name of the image to be created in GCR'
-        required: true
-      path-to-pom:
-        description: 'Path to the pom file'
-        required: true
-      path-to-dockerfile:
-        description: 'Path to dockerfile which builds the service.'
-        required: true
-      slack-channel:
-        description: 'A slack channel which needs to be notified in case of failure'
-        required: false
       SECRET_AUTH:
         required: true
       GCLOUD_AUTH_STAGING:
+        required: true          
+    inputs:
+      GCR_image_name:
+        description: 'A name of the image to be created in GCR'
         required: true
+        type: string
+      path-to-pom:
+        description: 'Path to the pom file'
+        required: true
+        type: string
+      path-to-dockerfile:
+        description: 'Path to dockerfile which builds the service.'
+        required: true
+        type: string
+      slack-channel:
+        description: 'A slack channel which needs to be notified in case of failure'
+        required: false
+        type: string
       pact-application-id:
         required: false
+        type: string
       pact-webhook-id:
         required: false
-    inputs:
+        type: string        
       jdk-distribution:
         description: 'JDK Distribution name'
         type: string
@@ -59,13 +65,17 @@ on:
         type: boolean
         required: false
         default: false
-
+      native-image:
+        description: 'If true uses the GraalVm to compile app'
+        type: boolean
+        required: false
+        default: false
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       
@@ -108,7 +118,7 @@ jobs:
         with:
           build-number: ${{ github.run_number }}
 
-      - name: Verify with Maven
+      - name: Verify with Maven        
         uses: extenda/actions/maven@v0
         with:
           args: verify -s settings.xml
@@ -119,9 +129,24 @@ jobs:
         uses: extenda/actions/sonar-scanner@v0
         with:
           sonar-host: https://sonarcloud.io
-          maven-args: --file ${{ secrets.path-to-pom }} --settings settings.xml org.sonarsource.scanner.maven:sonar-maven-plugin:3.7.0.1746:sonar
+          maven-args: --file ${{ inputs.path-to-pom }} --settings settings.xml org.sonarsource.scanner.maven:sonar-maven-plugin:3.7.0.1746:sonar
           service-account-key: ${{ secrets.SECRET_AUTH }}
-
+          
+      - uses: graalvm/setup-graalvm@v1
+        if: ${{ inputs.native-image == true }}
+        with:
+          distribution: 'graalvm'
+          java-version: '17'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Package native image
+        if: ${{ inputs.native-image == true }}
+        uses: extenda/actions/maven@v0
+        with:
+          args: verify -Dpackaging=native-image -s settings.xml
+          version: ${{ steps.semver.outputs.version }}-SNAPSHOT
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+    
       - name: Publish pacts
         if: ${{ inputs.do-pact-consumer-tests == true }}
         uses: extenda/actions/pact-publish@v0
@@ -134,7 +159,7 @@ jobs:
         uses: extenda/actions/pact-can-i-deploy@v0
         with:
           service-account-key: ${{ secrets.SECRET_AUTH }}
-          application-name: ${{ secrets.pact-application-id }}
+          application-name: ${{ inputs.pact-application-id }}
           retry-while-unknown: 15
           retry-interval: 10
           dry-run: ${{ inputs.is-pact-consumer-can-i-deploy-dry-run }}
@@ -145,7 +170,7 @@ jobs:
         uses: extenda/actions/pact-can-i-deploy@v0
         with:
           service-account-key: ${{ secrets.SECRET_AUTH }}
-          application-name: ${{ secrets.pact-application-id }}
+          application-name: ${{ inputs.pact-application-id }}
           retry-while-unknown: 15
           retry-interval: 10
           dry-run: ${{ inputs.is-pact-provider-can-i-deploy-dry-run }}
@@ -166,15 +191,15 @@ jobs:
       - name: Docker build and push
         if: github.ref == 'refs/heads/master'
         run: |
-          IMAGE=eu.gcr.io/extenda/${{ secrets.GCR_image_name }}
-          docker build . -f ${{ secrets.path-to-dockerfile }} --build-arg jar_version=${{ steps.semver.outputs.version }} -t $IMAGE:${{ steps.semver.outputs.version }} -t $IMAGE:${{ github.sha }} -t $IMAGE:latest
+          IMAGE=eu.gcr.io/extenda/${{ inputs.GCR_image_name }}
+          docker build . -f ${{ inputs.path-to-dockerfile }} --build-arg jar_version=${{ steps.semver.outputs.version }} -t $IMAGE:${{ steps.semver.outputs.version }} -t $IMAGE:${{ github.sha }} -t $IMAGE:latest
           docker push --all-tags $IMAGE
 
       - name: Attest image
         if: github.ref == 'refs/heads/master'
         uses: extenda/actions/binary-auth-attestation@v0
         with:
-          image-path: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}
+          image-path: eu.gcr.io/extenda/${{ inputs.GCR_image_name }}
           service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
 
       - name: Notify Slack if failed
@@ -184,5 +209,5 @@ jobs:
           text: |
             *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
             Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
-          channel: ${{ secrets.slack-channel }}
+          channel: ${{ inputs.slack-channel }}
           service-account-key: ${{ secrets.SECRET_AUTH }}

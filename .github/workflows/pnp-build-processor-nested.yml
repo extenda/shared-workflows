@@ -3,29 +3,36 @@ name: Merge to master
 on:
   workflow_call:
     secrets:
-      GCR_image_name:
-        description: 'A name of the image to be created in GCR'
-        required: true
-      path-to-pom:
-        description: 'Path to the pom file'
-        required: true
-      path-to-dockerfile:
-        description: 'Path to dockerfile which builds the service.'
-        required: true
-      slack-channel:
-        description: 'A slack channel which needs to be notified in case of failure'
-        required: false
       SECRET_AUTH:
         required: true
       GCLOUD_AUTH_STAGING:
         required: true
+    inputs:
+      GCR_image_name:
+        description: 'A name of the image to be created in GCR'
+        required: true
+        type: string
+      path-to-pom:
+        description: 'Path to the pom file'
+        required: true
+        type: string
+      path-to-dockerfile:
+        description: 'Path to dockerfile which builds the service.'
+        required: true
+        type: string
+      slack-channel:
+        description: 'A slack channel which needs to be notified in case of failure'
+        required: false
+        type: string
       pact-application-id:
         required: false
+        type: string
       pact-webhook-id:
         required: false
+        type: string
       working-directory:
         required: false
-    inputs:
+        type: string
       path-to-kubernetes-config:
         description: 'Path to kubernetes config file.'
         type: string
@@ -126,7 +133,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag-prefix: ${{ inputs.tag-prefix }}
-        
 
       - name: Verify with Maven
         uses: extenda/actions/maven@v0
@@ -134,7 +140,15 @@ jobs:
           args: verify -s settings.xml
           version: ${{ steps.semver.outputs.version }}-SNAPSHOT
           service-account-key: ${{ secrets.SECRET_AUTH }}
-          working-directory: ${{ secrets.working-directory || '.' }}
+          working-directory: ${{ inputs.working-directory || '.' }}
+
+      - name: Analyze with Sonar
+        uses: extenda/actions/sonar-scanner@v0
+        with:
+          sonar-host: https://sonarcloud.io
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+          report-path: ${{ inputs.sonar-report-path }}
+          working-directory: ${{ inputs.working-directory || '.' }}
 
       - name: Publish pacts
         if: ${{ inputs.do-pact-consumer-tests == true }}
@@ -148,7 +162,7 @@ jobs:
         uses: extenda/actions/pact-can-i-deploy@v0
         with:
           service-account-key: ${{ secrets.SECRET_AUTH }}
-          application-name: ${{ secrets.pact-application-id }}
+          application-name: ${{ inputs.pact-application-id }}
           retry-while-unknown: 15
           retry-interval: 10
           dry-run: ${{ inputs.is-pact-consumer-can-i-deploy-dry-run }}
@@ -159,7 +173,7 @@ jobs:
         uses: extenda/actions/pact-can-i-deploy@v0
         with:
           service-account-key: ${{ secrets.SECRET_AUTH }}
-          application-name: ${{ secrets.pact-application-id }}
+          application-name: ${{ inputs.pact-application-id }}
           retry-while-unknown: 15
           retry-interval: 10
           dry-run: ${{ inputs.is-pact-provider-can-i-deploy-dry-run }}
@@ -172,36 +186,7 @@ jobs:
           text: |
             *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
             Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
-          channel: ${{ secrets.slack-channel }}
-          service-account-key: ${{ secrets.SECRET_AUTH }}
-
-  analyze-nested-sonar:
-    name: Generate aggregated Sonar Report
-    needs:
-      - build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Set up JDK
-        uses: actions/setup-java@v3
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-          cache: maven
-
-      - name: Verify with Maven
-        uses: extenda/actions/maven@v0
-        with:
-          args: verify
-          service-account-key: ${{ secrets.SECRET_AUTH }}
-
-      - name: Analyze with Sonar
-        uses: extenda/actions/sonar-scanner@v0
-        with:
-          sonar-host: https://sonarcloud.io
+          channel: ${{ inputs.slack-channel }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
   staging:
@@ -209,9 +194,8 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - build
-      - analyze-nested-sonar
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       
@@ -260,7 +244,7 @@ jobs:
           args: install -s settings.xml -DskipTests=false
           version: ${{ steps.semver.outputs.version }}-SNAPSHOT
           service-account-key: ${{ secrets.SECRET_AUTH }}
-          working-directory: ${{ secrets.working-directory }}
+          working-directory: ${{ inputs.working-directory }}
 
       - name: Setup gcloud
         uses: extenda/actions/setup-gcloud@v0
@@ -274,14 +258,14 @@ jobs:
       
       - name: Docker build and push
         run: |
-          IMAGE=eu.gcr.io/extenda/${{ secrets.GCR_image_name }}
-          docker build ./${{ secrets.working-directory }} -f ${{ secrets.path-to-dockerfile }} --build-arg jar_version=${{ steps.semver.outputs.version }} -t $IMAGE:${{ steps.semver.outputs.version }} -t $IMAGE:${{ github.sha }} -t $IMAGE:latest
+          IMAGE=eu.gcr.io/extenda/${{ inputs.GCR_image_name }}
+          docker build ./${{ inputs.working-directory }} -f ${{ inputs.path-to-dockerfile }} --build-arg jar_version=${{ steps.semver.outputs.version }} -t $IMAGE:${{ steps.semver.outputs.version }} -t $IMAGE:${{ github.sha }} -t $IMAGE:latest
           docker push --all-tags $IMAGE
 
       - name: Attest image
         uses: extenda/actions/binary-auth-attestation@v0
         with:
-          image-path: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}
+          image-path: eu.gcr.io/extenda/${{ inputs.GCR_image_name }}
           service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
       
       - name: Deploy to Kubernetes (staging)
@@ -289,14 +273,14 @@ jobs:
         with:
           service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
           service-definition: ${{ inputs.path-to-kubernetes-config }}
-          image: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.semver.outputs.version }}
+          image: eu.gcr.io/extenda/${{ inputs.GCR_image_name }}:${{ steps.semver.outputs.version }}
 
       - name: PACT record deployment to STAGING
         if: ${{ inputs.do-pact-consumer-tests == true }}
         uses: extenda/actions/pact-record-deployment@v0
         with:
           service-account-key: ${{ secrets.SECRET_AUTH }}
-          application-name: ${{ secrets.pact-application-id }}
+          application-name: ${{ inputs.pact-application-id }}
           release-version: ${{ github.sha }}
           env: "staging"
             
@@ -307,7 +291,7 @@ jobs:
           text: |
             *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
             Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
-          channel: ${{ secrets.slack-channel }}
+          channel: ${{ inputs.slack-channel }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
       
   release:
@@ -315,7 +299,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: staging
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -345,8 +329,8 @@ jobs:
       - name: Add tag in GCR
         run: |
           gcloud container images add-tag \
-            eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ github.sha }} \
-            eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ env.release_version }}
+            eu.gcr.io/extenda/${{ inputs.GCR_image_name }}:${{ github.sha }} \
+            eu.gcr.io/extenda/${{ inputs.GCR_image_name }}:${{ env.release_version }}
         env:
           release_version: ${{ inputs.reuse-release == false && steps.release.outputs.version || steps.release_reuse.outputs.release-version }}
 
@@ -355,7 +339,7 @@ jobs:
         uses: extenda/actions/pact-tag-version@v0
         with:
           service-account-key: ${{ secrets.SECRET_AUTH }}
-          application-name: ${{ secrets.pact-application-id }}
+          application-name: ${{ inputs.pact-application-id }}
           release-tag: ${{ steps.release.outputs.release-tag }}
           env: "staging"
 
@@ -366,5 +350,5 @@ jobs:
           text: |
             *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
             Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
-          channel: ${{ secrets.slack-channel }}
+          channel: ${{ inputs.slack-channel }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
