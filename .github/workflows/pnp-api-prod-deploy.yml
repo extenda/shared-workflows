@@ -5,12 +5,6 @@ on:
       GCR_image_name:
         description: 'A name of the image to be created in GCR'
         required: true
-      service-name:
-        description: 'A name of the service in styra.'
-        required: true
-      permissions-prefix:
-        description: 'Permissions prefix in styra'
-        required: true
       slack-channel:
         description: 'A slack channel which needs to be notified in case of failure'
         required: true
@@ -56,7 +50,6 @@ jobs:
         with:
           service-account-key: ${{ secrets.SECRET_AUTH }}
           secrets: |
-            STYRA_TOKEN: styra-das-token
             JIRA_USERNAME: jira-username
             JIRA_PASSWORD: jira-password
 
@@ -73,13 +66,6 @@ jobs:
           retry-while-unknown: 15
           retry-interval: 10
           dry-run: ${{ inputs.is-pact-provider-can-i-deploy-dry-run }}
-
-      - name: DAS production deploy
-        uses: extenda/actions/styra-das-deploy@v0
-        with:
-          permission-prefix: ${{ secrets.permissions-prefix }}
-          service-name: ${{ secrets.service-name }}
-          styra-das-token: ${{ env.STYRA_TOKEN }}
        
       - name: Deploy to production
         uses: extenda/actions/cloud-deploy@v0
