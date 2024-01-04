@@ -61,7 +61,7 @@ runs:
     - name: Install Node
       uses: actions/setup-node@v3
       with:
-        node-version: 18
+        node-version: 16
 
     - name: Auth to Nexus npm registry
       uses: extenda/actions/nexus-auth-npm@v0
@@ -91,7 +91,7 @@ runs:
     - name: Install dependencies
       shell: bash
       if: steps.cache-yarn-node-modules.outputs.cache-hit != 'true' && inputs.BUILD_TOOL == 'yarn' 
-      run: yarn install --frozen-lockfile
+      run: yarn install --ignore-engines --frozen-lockfile
 
     - name: Lint
       shell: bash
