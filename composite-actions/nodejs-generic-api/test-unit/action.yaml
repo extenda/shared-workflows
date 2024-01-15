@@ -1,25 +1,25 @@
-name: 'Run unit tests'
-description: 'Run unit tests for the service'
+name: "Run unit tests"
+description: "Run unit tests for the service"
 inputs:
   SECRET_AUTH:
-    description: 'GCP Auth'
+    description: "GCP Auth"
     required: true
   GCLOUD_AUTH:
-    description: 'GCP Auth (staging)'
+    description: "GCP Auth (staging)"
     required: false
   slack-channel:
     description: Name of the channel to notify failing action
     required: false
   notify-slack-on-fail:
-    description: 'If true notifies slack channel specified in secrets in case this workflow fails'
+    description: "If true notifies slack channel specified in secrets in case this workflow fails"
     default: false
     type: boolean
     required: false
   node-version:
-    description: 'Version of NodeJS to setup'
+    description: "Version of NodeJS to setup"
     default: 16
     required: false
-runs: 
+runs:
   using: "composite"
   steps:
     - uses: actions/checkout@v3
@@ -53,7 +53,7 @@ runs:
 
     - name: Start Emulators
       shell: bash
-      run: npm run emulators:start
+      run: npm run emulators:start --if-present
 
     - name: Cache Sonar binary
       uses: actions/cache@v3

@@ -13,7 +13,7 @@ This is typical action, to run tests in nodejs api application.
 ### Requirements
 
 - You have to have a ```test/example.env``` file, with all env variables needed to run tests.
-- You have to have a ```npm run emulators:start``` script.
+- You should have a ```npm run emulators:start``` script if you need to start any emulators before tests.
 - You have to have a ```npm run lint:ci``` script.
 - You have to have a ```npm run test:cov``` script.
 - Your application have to be compatible with node 16.
