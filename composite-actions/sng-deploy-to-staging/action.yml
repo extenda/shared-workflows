@@ -1,0 +1,28 @@
+name: 'Deploy to staging'
+
+inputs:
+  secret-auth:
+    description: 'SECRET_AUTH value from secrets'
+    required: true
+  gcloud-auth-staging:
+    description: 'GCLOUD_AUTH_STAGING value from secrets'
+    required: true
+  gcr-image-name:
+    description: 'Google Container Registry Docker image name'
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+    - uses: extenda/actions/setup-gcloud@v0
+      id: gcloud
+      with:
+        service-account-key: ${{ inputs.gcloud-auth-staging }}
+
+    - name: Deploy to staging
+      uses: extenda/actions/cloud-deploy@v0
+      with:
+        secrets-account-key: ${{ inputs.secret-auth }}
+        service-account-key: ${{ inputs.gcloud-auth-staging }}
+        image: eu.gcr.io/extenda/${{ inputs.gcr-image-name }}:${{ github.sha }}
+        update-dns: always

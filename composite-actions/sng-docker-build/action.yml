@@ -1,0 +1,40 @@
+name: 'Docker Build'
+description: 'Build and push Docker image to Google Container Registry'
+
+inputs:
+  gcloud-auth-staging:
+    description: 'GCLOUD_AUTH_STAGING value from secrets'
+    required: true
+  dockerfile-path:
+    description: 'Path to the Dockerfile'
+    required: true
+  gcr-image-name:
+    description: 'Google Container Registry Docker image name'
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - uses: extenda/actions/setup-gcloud@v0
+      id: gcloud
+      with:
+        service-account-key: ${{ inputs.gcloud-auth-staging }}
+
+    - name: Build and push Docker
+      shell: bash
+      run: |
+        gcloud --quiet auth configure-docker
+        IMAGE=eu.gcr.io/extenda/${{ inputs.gcr-image-name }}:${{ github.sha }}
+        docker build -t $IMAGE . -f ${{ inputs.dockerfile-path }}
+        docker push $IMAGE
+
+    - name: Attest image
+      uses: extenda/actions/binary-auth-attestation@v0
+      with:
+        image-path: eu.gcr.io/extenda/${{ inputs.gcr-image-name }}
+        service-account-key: ${{ inputs.gcloud-auth-staging }}

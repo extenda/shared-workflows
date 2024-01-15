@@ -1,0 +1,45 @@
+name: 'NuGet config'
+description: 'Setup NuGet and its sources'
+
+inputs:
+  secret-auth:
+    description: 'SECRET_AUTH value from secrets'
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - uses: extenda/actions/gcp-secret-manager@v0
+      with:
+        service-account-key: ${{ inputs.secret-auth }}
+        secrets: |
+          NUGET_API_KEY: nuget-api-key
+          NEXUS_PASSWORD: nexus-password
+          NEXUS_USERNAME: nexus-username
+
+    - name: Setup NuGet
+      uses: NuGet/setup-nuget@v1
+      with:
+        nuget-version: 'latest'
+
+    - name: Setup NuGet sources
+      uses: extenda/actions/setup-nuget-sources@v0
+      with:
+        config-file: NuGet.Config
+        sources: |
+          [{
+            "name": "nuget.org",
+            "source": "https://api.nuget.org/v3/index.json"
+          },
+          {
+            "name": "Nexus ExtendaRetail",
+            "source": "https://repo.extendaretail.com/repository/nuget-group/",
+            "username": "${{ env.NEXUS_USERNAME }}",
+            "password": "${{ env.NEXUS_PASSWORD }}",
+            "apikey": "${{ env.NUGET_API_KEY }}"
+          }]

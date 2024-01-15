@@ -1,0 +1,100 @@
+name: 'Deploy to production'
+
+inputs:
+  secret-auth:
+    description: 'SECRET_AUTH value from secrets'
+    required: true
+  gcloud-auth-prod:
+    description: 'GCLOUD_AUTH_PROD value from secrets'
+    required: true
+  gcr-image-name:
+    description: 'Google Container Registry Docker image name'
+    required: true
+  service-name:
+    description: 'Service name in GCP'
+    required: true
+  system-name:
+    description: 'System name (sng/mcp)'
+    required: false
+    default: 'sng'
+  release-name:
+    description: 'The product name to include in the release title. This should not contain a version.'
+    required: false
+    default: 'Release'
+  jira-project-key:
+    description: 'Jira product key'
+    required: false
+    default: 'MCPE'
+  product-name:
+    description: 'Product name'
+    required: false
+    default: 'Scan & Go'
+  product-component:
+    description: 'Product component'
+    required: false
+    default: 'scanngo'
+
+runs:
+  using: 'composite'
+  steps:
+    - uses: extenda/actions/gcp-secret-manager@v0
+      with:
+        service-account-key: ${{ inputs.secret-auth }}
+        secrets: |
+          GITHUB-TOKEN: github-token
+
+    - name: Create release
+      uses: extenda/actions/conventional-release@v0
+      id: semver
+      with:
+        name: ${{ inputs.release-name }}
+      env:
+        GITHUB_TOKEN: ${{ env.GITHUB-TOKEN }}
+
+    - uses: extenda/actions/setup-gcloud@v0
+      id: gcloud
+      with:
+        service-account-key: ${{ inputs.gcloud-auth-prod }}
+
+    - name: Add tag in GCR
+      shell: bash
+      run: |
+        gcloud container images add-tag \
+          eu.gcr.io/extenda/${{ inputs.gcr-image-name }}:${{ github.sha }} \
+          eu.gcr.io/extenda/${{ inputs.gcr-image-name }}:${{ steps.semver.outputs.release-tag }}
+
+    - uses: extenda/actions/gcp-secret-manager@v0
+      with:
+        service-account-key: ${{ inputs.secret-auth }}
+        secrets: |
+          JIRA_USERNAME: jira-username
+          JIRA_PASSWORD: jira-password
+          STYRA_TOKEN: styra-das-token
+
+    - name: Deploy to Styra DAS Production
+      uses: extenda/actions/styra-das-deploy@v0
+      with:
+        styra-das-token: ${{ env.STYRA_TOKEN }}
+        permission-prefix: ${{ inputs.system-name }}
+        service-name: ${{ inputs.service-name }}
+
+    - name: Deploy to production
+      uses: extenda/actions/cloud-deploy@v0
+      with:
+        secrets-account-key: ${{ inputs.secret-auth }}
+        service-account-key: ${{ inputs.gcloud-auth-prod }}
+        image: eu.gcr.io/extenda/${{ inputs.gcr-image-name }}:${{ steps.semver.outputs.release-tag }}
+        update-dns: always
+
+    - uses: extenda/actions/dora-metrics@v0
+      with:
+        product-name: ${{ inputs.product-name }}
+        product-component: ${{ inputs.product-component }}
+        jira-username: ${{ env.JIRA_USERNAME }}
+        jira-password: ${{ env.JIRA_PASSWORD }}
+        jira-project-key: ${{ inputs.jira-project-key }}
+
+    - name: Update JIRA release notes
+      uses: extenda/actions/jira-releasenotes@v0
+      with:
+        jira-project: ${{ inputs.jira-project-key }}

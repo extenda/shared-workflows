@@ -1,0 +1,50 @@
+name: 'Acceptance'
+
+inputs:
+  secret-auth:
+    description: 'SECRET_AUTH value from secrets'
+    required: true
+  gcloud-auth-staging:
+    description: 'GCLOUD_AUTH_STAGING value from secrets'
+    required: true
+  acceptance-username:
+    description: 'Acceptance username'
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+    - uses: extenda/actions/gcp-secret-manager@v0
+      with:
+        service-account-key: ${{ inputs.gcloud-auth-staging }}
+        secrets: |
+          MCPE_PASSWORD: test_user_mcpe_password
+          MCPE2_PASSWORD: test_user_mcpe2_password
+          SCANNGO_SHOPPER_PASSWORD: scanngo_shopper_password
+
+    - uses: extenda/actions/gcp-secret-manager@v0
+      with:
+        service-account-key: ${{ inputs.secret-auth }}
+        secrets: |
+          GITHUB-TOKEN: github-token
+
+    - uses: actions/checkout@v4
+      with:
+        repository: extenda/mcpe-common
+        path: 'mcpe-common'
+        token: ${{ env.GITHUB-TOKEN }}
+
+    - name: create-json
+      id: create-json
+      uses: jsdaniell/create-json@v1.2.2
+      with:
+        name: "./mcpe-common/tests/acceptance/globals.json"
+        json: '{"values":[{"key":"scanngo_shopper_username","value":"${{ inputs.acceptance-username }}","enabled":true},{"key":"scanngo_flags_on_username","value":"${{ inputs.acceptance-username }}-on","enabled":true},{"key":"scanngo_rescan_username","value":"${{ inputs.acceptance-username }}-rescan","enabled":true},{"key":"scanngo_shopper_password","value":"${{env.SCANNGO_SHOPPER_PASSWORD}}","enabled":true}]}'
+
+    - name: Acceptance tests
+      uses: matt-ball/newman-action@master
+      with:
+        collection: ./mcpe-common/tests/acceptance/scanngo-acceptance.postman_collection.json
+        environment: ./mcpe-common/tests/acceptance/scanngo-acceptance.postman_environment.json
+        globals: ./mcpe-common/tests/acceptance/globals.json
+        folder: '["Acceptance"]'
