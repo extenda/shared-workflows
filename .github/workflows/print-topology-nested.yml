@@ -61,17 +61,20 @@ jobs:
           IFS=';' read -ra processorTopicsOutputFilePaths <<< "${{ inputs.processorTopicsOutputFilePaths }}"
           IFS=';' read -ra readmeFilePaths <<< "${{ inputs.readmeFilePaths }}"
 
+      - name: Update README & Collect topic names
+        run: |
           # Iterate over the arrays and process each set of paths
-          for i in "${!topologyFilePaths[@]}"; do
-            topologyFilePath="${topologyFilePaths[i]}"
-            processorTopicsOutputFilePath="${processorTopicsOutputFilePaths[i]}"
-            readmeFilePath="${readmeFilePaths[i]}"
+          for i in "${!topologyFilePathsArray[@]}"; do
+            topologyFilePath="${topologyFilePathsArray[i]}"
+            processorTopicsOutputFilePath="${processorTopicsOutputFilePathsArray[i]}"
+            readmeFilePath="${readmeFilePathsArray[i]}"
 
             # Update README & Collect topic names
-            extenda/shared-workflows/composite-actions/nodejs-script/print-topology@feat/EA-1919_adjust_topic_list_generating_action_to_multi_module_repo \
-              --topologyFilePath "${topologyFilePath}" \
-              --processorTopicsOutputFilePath "${processorTopicsOutputFilePath}" \
-              --readmeFilePath "${readmeFilePath}"
+            uses: extenda/shared-workflows/composite-actions/nodejs-script/print-topology@master
+            with:
+              topologyFilePath: "${topologyFilePath}"
+              processorTopicsOutputFilePath: "${processorTopicsOutputFilePath}"
+              readmeFilePath: "${readmeFilePath}"
           done
 
       - name: Commit and Push Changes
