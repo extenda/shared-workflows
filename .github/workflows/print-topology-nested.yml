@@ -68,7 +68,7 @@ jobs:
             readmeFilePath="${readmeFilePaths[i]}"
 
             # Update README & Collect topic names
-            ./extenda/shared-workflows/composite-actions/nodejs-script/print-topology@master \
+            extenda/shared-workflows/composite-actions/nodejs-script/print-topology@feat/EA-1919_adjust_topic_list_generating_action_to_multi_module_repo \
               --topologyFilePath "${topologyFilePath}" \
               --processorTopicsOutputFilePath "${processorTopicsOutputFilePath}" \
               --readmeFilePath "${readmeFilePath}"
