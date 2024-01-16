@@ -60,14 +60,12 @@ jobs:
           IFS=';' read -ra topologyFilePaths <<< "${{ inputs.topologyFilePaths }}"
           IFS=';' read -ra processorTopicsOutputFilePaths <<< "${{ inputs.processorTopicsOutputFilePaths }}"
           IFS=';' read -ra readmeFilePaths <<< "${{ inputs.readmeFilePaths }}"
-
-      - name: Update README & Collect topic names
-        run: |
+          
           # Iterate over the arrays and process each set of paths
           for i in "${!topologyFilePathsArray[@]}"; do
-            topologyFilePath="${topologyFilePathsArray[i]}"
-            processorTopicsOutputFilePath="${processorTopicsOutputFilePathsArray[i]}"
-            readmeFilePath="${readmeFilePathsArray[i]}"
+            topologyFilePath="${topologyFilePaths[i]}"
+            processorTopicsOutputFilePath="${processorTopicsOutputFilePaths[i]}"
+            readmeFilePath="${readmeFilePaths[i]}"
 
             # Update README & Collect topic names
             uses: extenda/shared-workflows/composite-actions/nodejs-script/print-topology@master
@@ -76,9 +74,7 @@ jobs:
               processorTopicsOutputFilePath: "${processorTopicsOutputFilePath}"
               readmeFilePath: "${readmeFilePath}"
           done
-
-      - name: Commit and Push Changes
-        run: |
+          
           if [[ -n $(git status --porcelain) ]]; then
             git add .
             git -c user.name="Extenda-DevOps-Bot" -c user.email="devops_team@extenda.se" commit -S -m "Update README.md topology"
