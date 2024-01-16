@@ -1,0 +1,84 @@
+name: Kafka Stream Nested Topology Print
+on:
+  workflow_call:
+    secrets:
+      GPG_PRIVATE_KEY:
+        required: true
+      GPG_PASSPHRASE:
+        required: true
+    inputs:
+      topologyFilePaths:
+        description: 'List of paths to topology files'
+        type: string
+        required: false
+        default: 'docs/topology/stream.txt'
+      processorTopicsOutputFilePaths:
+        description: 'List of paths to processor topics files'
+        type: string
+        required: false
+        default: 'docs/topics/processor-topics.txt'
+      readmeFilePaths:
+        description: 'List of paths to README files'
+        type: string
+        required: false
+        default: 'README.md'
+
+jobs:
+  update-readme-topology:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure Git
+        uses: extenda/actions/setup-git@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Import GPG Key
+        uses: crazy-max/ghaction-import-gpg@v5.3.0
+        id: import_gpg
+        with:
+          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.GPG_PASSPHRASE }}
+          git_user_signingkey: true
+          git_commit_gpgsign: true
+          git_config_global: true
+
+      - name: Fetch latest changes
+        run: git pull origin ${{ github.ref }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '16'
+
+      - name: Update README & Collect topic names
+        run: |
+          # Split input paths into arrays
+          IFS=';' read -ra topologyFilePaths <<< "${{ inputs.topologyFilePaths }}"
+          IFS=';' read -ra processorTopicsOutputFilePaths <<< "${{ inputs.processorTopicsOutputFilePaths }}"
+          IFS=';' read -ra readmeFilePaths <<< "${{ inputs.readmeFilePaths }}"
+
+          # Iterate over the arrays and process each set of paths
+          for i in "${!topologyFilePaths[@]}"; do
+            topologyFilePath="${topologyFilePaths[i]}"
+            processorTopicsOutputFilePath="${processorTopicsOutputFilePaths[i]}"
+            readmeFilePath="${readmeFilePaths[i]}"
+
+            # Update README & Collect topic names
+            extenda/shared-workflows/composite-actions/nodejs-script/print-topology@master \
+              --topologyFilePath "${topologyFilePath}" \
+              --processorTopicsOutputFilePath "${processorTopicsOutputFilePath}" \
+              --readmeFilePath "${readmeFilePath}"
+
+      - name: Commit and Push Changes
+        run: |
+          if [[ -n $(git status --porcelain) ]]; then
+            git add .
+            git -c user.name="Extenda-DevOps-Bot" -c user.email="devops_team@extenda.se" commit -S -m "Update README.md topology"
+            git push origin HEAD:${{ github.ref }}
+          else
+            echo "No changes to commit."
+          fi
