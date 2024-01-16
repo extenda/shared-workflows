@@ -1,0 +1,50 @@
+﻿name: 'NuGet pack and upload artifacts to Nexus Extenda Retail'
+
+inputs:
+  secret-auth:
+    description: 'SECRET_AUTH value from secrets'
+    required: true
+  csproj-path:
+    description: 'Path to the *.csproj file to pack'
+    required: true
+  output-path:
+    description: 'Path for output of the Pack step'
+    default: './NuGet'
+    required: false
+
+runs:
+  using: "composite"
+  steps:
+    - uses: extenda/actions/gcp-secret-manager@v0
+      with:
+        service-account-key: ${{ inputs.secret-auth }}
+        secrets: |
+          NUGET-API-KEY: nuget-api-key
+          NEXUS_PASSWORD: nexus-password
+          NEXUS_USERNAME: nexus-username
+
+    - name: Determine version
+      uses: extenda/actions/conventional-version@v0
+      id: semver
+      with:
+        build-number: ${{ github.run_number }}
+          
+    - name: Add a private NuGet source and restore project dependencies
+      shell: bash
+      run: |
+        dotnet nuget add source "https://repo.extendaretail.com/repository/nuget-group/" --name "Nexus ExtendaRetail" --username "${{ env.NEXUS_USERNAME }}" --password "${{ env.NEXUS_PASSWORD }}" --store-password-in-clear-text
+      
+    - name: Pack
+      shell: bash
+      run: |
+        dotnet pack ${{ inputs.csproj-path }} --configuration Release --output "${{ inputs.output-path }}" -p:PackageVersion=${{ steps.semver.outputs.semver }}
+    
+    - name: Push
+      shell: bash
+      run: |
+        dotnet nuget push "${{ inputs.output-path }}/*.nupkg" --source "https://repo.extendaretail.com/repository/nuget-hosted/" --api-key ${{ env.NUGET-API-KEY }}
+    
+    - uses: actions/upload-artifact@v3
+      with:
+        name: nuget-package
+        path: ${{ inputs.output-path }}
