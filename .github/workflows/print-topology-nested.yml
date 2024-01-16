@@ -62,7 +62,7 @@ jobs:
           IFS=';' read -ra readmeFilePaths <<< "${{ inputs.readmeFilePaths }}"
           
           # Iterate over the arrays and process each set of paths
-          for i in "${!topologyFilePathsArray[@]}"; do
+          for i in "${!topologyFilePaths[@]}"; do
             topologyFilePath="${topologyFilePaths[i]}"
             processorTopicsOutputFilePath="${processorTopicsOutputFilePaths[i]}"
             readmeFilePath="${readmeFilePaths[i]}"
