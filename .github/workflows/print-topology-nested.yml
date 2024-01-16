@@ -72,6 +72,7 @@ jobs:
               --topologyFilePath "${topologyFilePath}" \
               --processorTopicsOutputFilePath "${processorTopicsOutputFilePath}" \
               --readmeFilePath "${readmeFilePath}"
+          done
 
       - name: Commit and Push Changes
         run: |
