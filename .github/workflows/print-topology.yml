@@ -61,7 +61,7 @@ jobs:
       - name: Commit and Push Changes
         run: |
           # Fetch latest changes
-          git pull
+          git pull origin ${{ github.ref }}
           
           if [[ -n $(git status --porcelain) ]]; then
             git add .
