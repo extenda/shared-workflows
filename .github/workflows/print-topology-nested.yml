@@ -68,11 +68,11 @@ jobs:
             readmeFilePath="${readmeFilePaths[i]}"
 
             # Update README & Collect topic names
-            uses: extenda/shared-workflows/composite-actions/nodejs-script/print-topology@master
-            with:
-              topologyFilePath: "${topologyFilePath}"
-              processorTopicsOutputFilePath: "${processorTopicsOutputFilePath}"
-              readmeFilePath: "${readmeFilePath}"
+            echo "Running action for $topologyFilePath"
+            ./.github/workflows/composite-actions/nodejs-script/print-topology/action.yml \
+              --topologyFilePath "${topologyFilePath}" \
+              --processorTopicsOutputFilePath "${processorTopicsOutputFilePath}" \
+              --readmeFilePath "${readmeFilePath}"
           done
           
           if [[ -n $(git status --porcelain) ]]; then
