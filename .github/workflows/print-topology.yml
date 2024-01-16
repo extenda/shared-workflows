@@ -65,7 +65,7 @@ jobs:
         run: |
           if [[ -n $(git status --porcelain) ]]; then
             git add .
-            git -c user.name="Extenda-DevOps-Bot" -c user.email="devops_team@extenda.se" commit -S -m "Update ${README_FILE_PATH} topology"
+            git -c user.name="Extenda-DevOps-Bot" -c user.email="devops_team@extenda.se" commit -S -m "Update ${{ inputs.readmeFilePath }} topology"
             git push origin HEAD:${{ github.ref }}
           else
             echo "No changes to commit."
