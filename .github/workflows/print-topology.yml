@@ -31,18 +31,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v2
-        with:
-          node-version: '16'
-
-      - name: Update README & Collect topic names
-        uses: extenda/shared-workflows/composite-actions/nodejs-script/print-topology@master
-        with:
-          topologyFilePath : ${{ inputs.topologyFilePath }}
-          processorTopicsOutputFilePath : ${{ inputs.processorTopicsOutputFilePath }}
-          readmeFilePath : ${{ inputs.readmeFilePath }}
-
       - name: Configure Git
         uses: extenda/actions/setup-git@v0
         env:
@@ -57,6 +45,21 @@ jobs:
           git_user_signingkey: true
           git_commit_gpgsign: true
           git_config_global: true
+
+      - name: Fetch latest changes
+        run: git pull origin ${{ github.ref }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '16'
+
+      - name: Update README & Collect topic names
+        uses: extenda/shared-workflows/composite-actions/nodejs-script/print-topology@master
+        with:
+          topologyFilePath : ${{ inputs.topologyFilePath }}
+          processorTopicsOutputFilePath : ${{ inputs.processorTopicsOutputFilePath }}
+          readmeFilePath : ${{ inputs.readmeFilePath }}
 
       - name: Commit and Push Changes
         run: |
