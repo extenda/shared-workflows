@@ -145,8 +145,7 @@ jobs:
   
   release:
     if: |
-      always() &&
-      (needs.acceptance.result == 'success' || needs.acceptance.result == 'skipped')
+      needs.acceptance.result == 'success' || needs.acceptance.result == 'skipped'
     runs-on: ubuntu-latest
     needs: acceptance
     steps:
@@ -168,7 +167,6 @@ jobs:
 
   publish-openapi:
     if: |
-      always() &&
       (needs.acceptance.result == 'success' || needs.acceptance.result == 'skipped') &&
       (needs.release.result == 'success' || needs.release.result == 'skipped')
     runs-on: ubuntu-latest
