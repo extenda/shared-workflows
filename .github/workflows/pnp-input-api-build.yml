@@ -204,7 +204,7 @@ jobs:
           retry-while-unknown: 15
           retry-interval: 10
           dry-run: ${{ inputs.is-pact-provider-can-i-deploy-dry-run }}
-          env: "staging"
+          env: 'staging'
 
       - name: Notify Slack if failed
         if: ${{ failure() && github.ref == 'refs/heads/master' }}
@@ -287,7 +287,7 @@ jobs:
           service-account-key: ${{ secrets.SECRET_AUTH }}
           application-name: ${{ secrets.pact-application-id }}
           release-version: ${{ github.sha }}
-          env: "staging"
+          env: 'staging'
 
       - name: Notify Slack if failed
         if: failure()
@@ -352,12 +352,12 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: "${{ inputs.dotnet-version }}.0.x"
+          dotnet-version: '${{ inputs.dotnet-version }}.0.x'
 
       - name: Setup NuGet
         uses: NuGet/setup-nuget@v1
         with:
-          nuget-version: "latest"
+          nuget-version: 'latest'
 
       - name: Setup NuGet sources
         uses: extenda/actions/setup-nuget-sources@v0
@@ -434,7 +434,7 @@ jobs:
           service-account-key: ${{ secrets.SECRET_AUTH }}
           application-name: ${{ secrets.pact-application-id }}
           release-tag: ${{ steps.release.outputs.release-tag }}
-          env: "staging"
+          env: 'staging'
 
       - name: Notify Slack if failed
         if: failure()
