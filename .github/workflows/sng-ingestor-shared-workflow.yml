@@ -144,7 +144,9 @@ jobs:
           globals: ${{ inputs.acceptance-globals-path }}
   
   release:
-    if: ${{ inputs.release-to-prod && (!inputs.use-acceptance || success()) }}
+    if: |
+      always() &&
+      (needs.acceptance.result == 'success' || needs.acceptance.result == 'skipped')
     runs-on: ubuntu-latest
     needs: acceptance
     steps:
@@ -165,9 +167,12 @@ jobs:
           product-component: ${{ inputs.product-component }}
 
   publish-openapi:
-    if: ${{ inputs.publish-openapi }}
+    if: |
+      always() &&
+      (needs.acceptance.result == 'success' || needs.acceptance.result == 'skipped') &&
+      (needs.release.result == 'success' || needs.release.result == 'skipped')
     runs-on: ubuntu-latest
-    needs: release
+    needs: [release, acceptance]
     steps:
       - uses: actions/checkout@v4
         with:

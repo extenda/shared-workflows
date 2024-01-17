@@ -219,6 +219,9 @@ jobs:
           acceptance-mcpe-globals-path: ${{ inputs.acceptance-mcpe-globals-path }}
 
   production:
+    if: |
+      always() &&
+      (needs.acceptance.result == 'success' || needs.acceptance.result == 'skipped')
     runs-on: ubuntu-latest
     needs: acceptance
     steps:
