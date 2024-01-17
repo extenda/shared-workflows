@@ -129,7 +129,8 @@ jobs:
           globals: ${{ inputs.acceptance-globals-path }}
   
   release:
-    if: ${{ !inputs.use-acceptance || success() }}
+    if: |
+      needs.acceptance.result == 'success' || needs.acceptance.result == 'skipped'
     runs-on: ubuntu-latest
     needs: acceptance
     steps:
@@ -162,8 +163,11 @@ jobs:
             eu.gcr.io/extenda/${{ inputs.gcr-image-name }}:${{ steps.semver.outputs.release-tag }}
 
   deploy:
+    if: |
+      (needs.acceptance.result == 'success' || needs.acceptance.result == 'skipped') &&
+      (needs.release.result == 'success' || needs.release.result == 'skipped')
     runs-on: ubuntu-latest
-    needs: release
+    needs: [acceptance, release]
     steps:
       - uses: actions/checkout@v4
         with:
