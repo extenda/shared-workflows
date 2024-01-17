@@ -86,10 +86,12 @@ jobs:
     runs-on: ubuntu-latest
     needs: validate
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Build Docker image
-        uses: ./.github/actions/docker-build
+        uses: extenda/shared-workflows/composite-actions/sng-docker-build@master
         with:
           gcloud-auth-staging: ${{ secrets.gcloud-auth-staging }}
           dockerfile-path: ${{ inputs.dockerfile-path }}
