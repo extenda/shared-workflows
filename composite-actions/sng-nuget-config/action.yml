@@ -9,11 +9,6 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-
     - uses: extenda/actions/gcp-secret-manager@v0
       with:
         service-account-key: ${{ inputs.secret-auth }}
