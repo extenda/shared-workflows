@@ -172,7 +172,8 @@ jobs:
       always() &&
       (needs.acceptance.result == 'success' || needs.acceptance.result == 'skipped') &&
       (needs.release.result == 'success' || needs.release.result == 'skipped') &&
-      (needs.staging.result == 'success')
+      (needs.staging.result == 'success') &&
+      inputs.publish-openapi
     runs-on: ubuntu-latest
     needs: [staging, acceptance, release]
     steps:
