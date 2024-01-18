@@ -131,9 +131,10 @@ jobs:
   release:
     if: |
       always() &&
-      (needs.acceptance.result == 'success' || needs.acceptance.result == 'skipped')
+      (needs.acceptance.result == 'success' || needs.acceptance.result == 'skipped') &&
+      (needs.staging.result == 'success')
     runs-on: ubuntu-latest
-    needs: acceptance
+    needs: [staging, acceptance]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -167,9 +168,10 @@ jobs:
     if: |
       always() &&
       (needs.acceptance.result == 'success' || needs.acceptance.result == 'skipped') &&
-      (needs.release.result == 'success' || needs.release.result == 'skipped')
+      (needs.release.result == 'success' || needs.release.result == 'skipped') &&
+      (needs.staging.result == 'success')
     runs-on: ubuntu-latest
-    needs: [acceptance, release]
+    needs: [staging, acceptance, release]
     steps:
       - uses: actions/checkout@v4
         with:
