@@ -1,4 +1,5 @@
 name: 'Acceptance for MCPE'
+description: 'Acceptance action for MCPE services'
 
 inputs:
   gcloud-auth-staging:

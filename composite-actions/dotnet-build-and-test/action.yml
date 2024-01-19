@@ -1,4 +1,7 @@
 ﻿name: 'Build and run tests'
+description: | 
+  Composite action for .NET services which does the setup, adds the the custom Extenda Retail Nexus NuGet source,
+  build the solution, run the tests and analyze results with Sonar.
 
 inputs:
   sln-path:

@@ -1,5 +1,7 @@
 name: 'Docker Build'
-description: 'Build and push Docker image to Google Container Registry'
+description: |
+  Builds Docker image and pushes it to Google Container Registry.
+  The Docker image is being also attested afterwards.
 
 inputs:
   gcloud-auth-staging:

@@ -91,7 +91,7 @@ jobs:
           fetch-depth: 0
 
       - name: Build Docker image
-        uses: extenda/shared-workflows/composite-actions/sng-docker-build@master
+        uses: extenda/shared-workflows/composite-actions/docker-build@master
         with:
           gcloud-auth-staging: ${{ secrets.gcloud-auth-staging }}
           dockerfile-path: ${{ inputs.dockerfile-path }}

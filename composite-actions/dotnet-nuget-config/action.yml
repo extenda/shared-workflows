@@ -1,5 +1,6 @@
 name: 'NuGet config'
-description: 'Setup NuGet and its sources'
+description: |
+  Configures NuGet by adding default NuGet source and Nexus Extenda Retail source to 'NuGet.Config' file
 
 inputs:
   secret-auth:
