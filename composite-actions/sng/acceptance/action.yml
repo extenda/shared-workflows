@@ -1,4 +1,5 @@
 name: 'Acceptance'
+description: 'Acceptance action for Scan&Go services'
 
 inputs:
   secret-auth:

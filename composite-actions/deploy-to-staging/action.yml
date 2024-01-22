@@ -1,4 +1,6 @@
 name: 'Deploy to staging'
+description: |
+  Takes an already built Docker image and deploys to staging
 
 inputs:
   secret-auth:

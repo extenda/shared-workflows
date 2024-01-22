@@ -1,4 +1,6 @@
-﻿name: 'NuGet pack and upload artifacts to Nexus Extenda Retail'
+﻿name: 'NuGet pack'
+description: |
+  NuGet pack a project and upload artifacts to Nexus Extenda Retail source
 
 inputs:
   secret-auth:
