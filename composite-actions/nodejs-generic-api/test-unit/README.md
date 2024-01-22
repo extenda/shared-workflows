@@ -16,6 +16,6 @@ This is typical action, to run tests in nodejs api application.
 - You should have a ```npm run emulators:start``` script if you need to start any emulators before tests.
 - You have to have a ```npm run lint:ci``` script.
 - You have to have a ```npm run test:cov``` script.
-- Your application have to be compatible with node 16.
+- You must set Node.js version in `.nvmrc` file.
 - You should have a ```npm run check-openapi-schema``` script, to test you openapi schema.
 - You should have a ```npm run ts:check``` script, to check, whether your typescript code is valid.

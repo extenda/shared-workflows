@@ -15,10 +15,6 @@ inputs:
     default: false
     type: boolean
     required: false
-  node-version:
-    description: "Version of NodeJS to setup"
-    default: 16
-    required: false
 runs:
   using: "composite"
   steps:
@@ -68,7 +64,7 @@ runs:
     - name: Install Node
       uses: actions/setup-node@v2
       with:
-        node-version: ${{ inputs.node-version }}
+        node-version-file: .nvmrc
 
     - name: Auth to Nexus npm registry
       uses: extenda/actions/nexus-auth-npm@v0
