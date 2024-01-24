@@ -7,6 +7,7 @@ This is typical action, to run tests in nodejs api application.
 ```yaml
 - uses: extenda/shared-workflows/composite-actions/nodejs-generic-api/test-unit@master
   with:
+    GCLOUD_AUTH: ${{ secrets.GCLOUD_AUTH_STAGING }}
     SECRET_AUTH: ${{ secrets.SECRET_AUTH }}
 ```
 
