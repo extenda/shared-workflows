@@ -1,0 +1,68 @@
+name: 'Run database migration'
+description: 'Run database migration for the service'
+inputs:
+  CHANGELOG_PATH:
+    description: Path to changeset (master) file
+    required: false
+    default: 'liquibase/changelog-master.yaml'
+  GCLOUD_AUTH:
+    description: 'GCP Auth'
+    required: true
+  DB_INST_SECRET_NAME:
+    description: 'Key name of the database instance connection name in gcp secret manager'
+    required: true
+  DB_NAME_SECRET_NAME:
+    description: 'Key name of the database name in gcp secret manager'
+    required: true
+  DB_USER_SECRET_NAME:
+    description: 'Key name of the database user in gcp secret manager'
+    required: true
+  DB_PASS_SECRET_NAME:
+    description: 'Key name of the database password in gcp secret manager'
+    required: true
+runs:
+  using: composite
+  steps:
+    - uses: actions/checkout@v4
+
+    - uses: extenda/actions/setup-gcloud@v0
+      id: gcloud
+      with:
+        service-account-key: ${{ inputs.GCLOUD_AUTH }}
+        export-default-credentials: true
+
+    - name: GCloud configure-docker
+      shell: bash
+      run: gcloud --quiet auth configure-docker eu.gcr.io
+
+    - uses: extenda/actions/gcp-secret-manager@v0
+      with:
+        service-account-key: ${{ inputs.GCLOUD_AUTH }}
+        secrets: |
+          DB_INST: ${{ inputs.DB_INST_SECRET_NAME }}
+          DB_NAME: ${{ inputs.DB_NAME_SECRET_NAME }}
+          DB_USER: ${{ inputs.DB_USER_SECRET_NAME }}
+          DB_PASS: ${{ inputs.DB_PASS_SECRET_NAME }}
+
+    - name: Enable cloud SQL proxy to instance
+      shell: bash
+      run: |
+        curl -o cloud-sql-proxy https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.8.2/cloud-sql-proxy.linux.amd64
+        chmod +x cloud-sql-proxy
+        nohup ./cloud-sql-proxy ${{ env.DB_INST }} --address 172.17.0.1 --port 5432 --run-connection-test > cloud-sql-proxy.err 2>&1 < /dev/null &
+        echo $!
+        echo CLOUD_SQL_PROXY_PID=$(echo $!) >> $GITHUB_ENV
+
+    - uses: liquibase-github-actions/update@v4.25.1
+      with:
+        changelogFile: ${{ inputs.CHANGELOG_PATH }}
+        url: jdbc:postgresql://172.17.0.1:5432/${{ env.DB_NAME }}
+        username: ${{ env.DB_USER }}
+        password: ${{ env.DB_PASS }}
+        showBanner: false
+        showSummary: summary
+        showSummaryOutput: console
+
+    - name: Kill Cloud SQL Proxy
+      shell: bash
+      run: kill $CLOUD_SQL_PROXY_PID
