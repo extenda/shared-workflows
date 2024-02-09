@@ -1,12 +1,16 @@
 name: Checkout and setup Java
 description: Checkout the code and setup Java
 inputs:
+  fetch-depth:
+    description: The checkout fetch depth to use.
+    required: false
+    default: '0'
   java-version-file:
-    description: The location of the java version file
+    description: The location of the java version file.
     required: false
     default: .java-version
   java-distribution:
-    description: The distribution to use
+    description: The distribution to use.
     required: false
     default: temurin
 runs:
@@ -14,7 +18,7 @@ runs:
   steps:
     - uses: actions/checkout@v4
       with:
-        fetch-depth: 0
+        fetch-depth: ${{ inputs.fetch-depth }}
 
     - uses: actions/setup-java@v4
       with:
