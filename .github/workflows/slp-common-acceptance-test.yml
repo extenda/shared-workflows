@@ -14,10 +14,12 @@ on:
         description: 'Collection to use'
         type: string
         required: true
+        default: './slp/tests/acceptance/integration_test.postman_collection.json'
       environment:
         description: 'Environment to use'
         type: string
         required: true
+        default: './slp/tests/acceptance/integration_test.staging.postman_environment.json'
 jobs: 
   acceptance:
     runs-on: ubuntu-latest
