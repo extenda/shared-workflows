@@ -1,0 +1,28 @@
+name: should-i-liquibase
+description: Check if Liquibase changeset files has been modified
+inputs:
+  path:
+    description: The path to changeset files
+    required: false
+    default: liquibase
+outputs:
+  should-run:
+    description: Should I liquibase?
+    value: ${{ steps.should-i-liquibase.outputs.should-run }}
+runs:
+  using: composite
+  steps:
+    - name: Check liquibase changeset modifications
+      id: should-i-liquibase
+      shell: bash
+      run: |
+        if git diff --name-only ${{ github.base_ref }}...${{ github.sha }} | grep '^${{ inputs.path }}' >/dev/null; then
+          echo "should-run=true\n" >> $GITHUB_OUTPUT
+        else
+          echo "Changesets not modified, skipping..."
+          echo "should-run=false\n" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Run liquibase?
+      shell: bash
+      run: echo "The flag is ${{ steps.should-i-liquibase.outputs.should-run }}"
