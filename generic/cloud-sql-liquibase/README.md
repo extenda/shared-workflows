@@ -17,7 +17,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Apply changesets
-        uses: extenda/shared-workflows/java/cloud-sql-liquibase@master
+        uses: extenda/shared-workflows/generic/cloud-sql-liquibase@v0
         with:
           GCLOUD_AUTH: ${{ secrets.GCLOUD_AUTH_STAGING }}
           DB_INST_SECRET_NAME: ...
