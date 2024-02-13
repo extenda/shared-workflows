@@ -36,7 +36,7 @@ jobs:
         with:
           repository: extenda/selfservice-lossprevention-common
           path: 'slp'
-          token: ${{ env.GITHUB_TOKEN }}
+          token: ${{ env.GITHUB-TOKEN }}
 
       - name: Set up GCloud
         uses: extenda/actions/setup-gcloud@v0
@@ -50,11 +50,6 @@ jobs:
           service-account-key: ${{ inputs.gcloud-auth }}
           service-account: basketauditfrontend@${{ steps.gcloud.outputs.project-id }}.iam.gserviceaccount.com
           audiences: basketauditfrontend
-
-      - name: Install Node.js
-        uses: actions/setup-node@v2
-        with:
-          node-version: '20'
 
       - name: Accceptance tests
         run: |
