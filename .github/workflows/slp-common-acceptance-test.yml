@@ -6,8 +6,8 @@ on:
         description: 'SECRET_AUTH value from secrets'
         type: string
         required: true
-      gcloud-auth-staging:
-        description: 'GCLOUD_AUTH_STAGING value from secrets'
+      gcloud-auth:
+        description: 'GCLOUD_AUTH_STAGING/GCLOUD_AUTH_PROD value from secrets based on the environment'
         type: string
         required: true
       collection:
@@ -24,13 +24,6 @@ jobs:
   acceptance:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          repository: extenda/selfservice-lossprevention-common
-          path: 'slp'
-          token: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Set up secrets
         uses: extenda/actions/gcp-secret-manager@v0
         with:
@@ -38,16 +31,23 @@ jobs:
           secrets: |
             GITHUB-TOKEN: github-token
 
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          repository: extenda/selfservice-lossprevention-common
+          path: 'slp'
+          token: ${{ env.GITHUB_TOKEN }}
+
       - name: Set up GCloud
         uses: extenda/actions/setup-gcloud@v0
         id: gcloud
         with:
-          service-account-key: ${{ inputs.gcloud-auth-staging }}
+          service-account-key: ${{ inputs.gcloud-auth }}
 
       - name: Identity token
         uses: extenda/actions/identity-token@v0
         with:
-          service-account-key: ${{ inputs.gcloud-auth-staging }}
+          service-account-key: ${{ inputs.gcloud-auth }}
           service-account: basketauditfrontend@${{ steps.gcloud.outputs.project-id }}.iam.gserviceaccount.com
           audiences: basketauditfrontend
 
