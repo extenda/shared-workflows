@@ -1,6 +1,6 @@
 # Acceptance Composite Action
 
-Performs acceptance tests for lossprevention services.
+Performs acceptance tests for lossprevention services using Postman tests.
 
 ## Usage
 
@@ -12,7 +12,7 @@ Performs acceptance tests for lossprevention services.
 - `environment` (optional): path of the environment variable to use. Default collection path: ```./slp/tests/acceptance/integration_test.staging.postman_environment.json```
 
 ### Example
-1.
+1. With default settings
 ```yaml
 - name: Acceptance tests
         uses: extenda/shared-workflows/composite-actions/lossprevention/acceptance@master
@@ -20,7 +20,7 @@ Performs acceptance tests for lossprevention services.
           secret-auth: ${{ secrets.SECRET_AUTH }}
           gcloud-auth: ${{ secrets.GCLOUD_AUTH_STAGING }}
 ```
-2.
+2. With custom settings
 ```yaml
 - name: Acceptance tests
         uses: extenda/shared-workflows/composite-actions/lossprevention/acceptance@master
@@ -33,6 +33,4 @@ Performs acceptance tests for lossprevention services.
 
 ### Requirements
 
-- You have to have a ```test/example.env``` file, with all env variables needed to run tests.
-- You have to have a ```test/collection.json``` script with all the required requests in the collection.
 - You have to pass the required inputs.
