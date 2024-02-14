@@ -10,11 +10,11 @@ inputs:
     required: true
   collection:
     description: 'Collection to use'
-    required: true
+    required: false
     default: './slp/tests/acceptance/integration_test.postman_collection.json'
   environment:
     description: 'Environment to use'
-    required: true
+    required: false
     default: './slp/tests/acceptance/integration_test.staging.postman_environment.json'
 
 runs:
