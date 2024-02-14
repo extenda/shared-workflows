@@ -1,0 +1,55 @@
+name: 'Acceptance'
+description: 'Acceptance action for lossprevention services'
+
+inputs:
+  secret-auth:
+    description: 'SECRET_AUTH value from secrets'
+    required: true
+  gcloud-auth:
+    description: 'GCLOUD_AUTH_STAGING/GCLOUD_AUTH_PROD value from secrets based on the environment'
+    required: true
+  collection:
+    description: 'Collection to use'
+    required: false
+    default: './slp/tests/acceptance/integration_test.postman_collection.json'
+  environment:
+    description: 'Environment to use'
+    required: false
+    default: './slp/tests/acceptance/integration_test.staging.postman_environment.json'
+
+runs:
+  using: 'composite'
+  steps:
+    - uses: extenda/actions/gcp-secret-manager@v0
+      with:
+        service-account-key: ${{ inputs.secret-auth }}
+        secrets: |
+          GITHUB-TOKEN: github-token
+
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        repository: extenda/selfservice-lossprevention-common
+        path: 'slp'
+        token: ${{ env.GITHUB-TOKEN }}
+
+    - name: Set up GCloud
+      uses: extenda/actions/setup-gcloud@v0
+      id: gcloud
+      with:
+        service-account-key: ${{ inputs.gcloud-auth }}
+
+    - name: Identity token
+      uses: extenda/actions/identity-token@v0
+      with:
+        service-account-key: ${{ inputs.gcloud-auth }}
+        service-account: basketauditfrontend@${{ steps.gcloud.outputs.project-id }}.iam.gserviceaccount.com
+        audiences: basketauditfrontend
+
+    - name: Acceptance tests
+      shell: bash
+      run: |
+          npm install newman --no-save --silent
+          npx newman run ${{ inputs.collection }} \
+            --environment ${{ inputs.environment }} \
+            --env-var iamToken=$IDENTITY_TOKEN
