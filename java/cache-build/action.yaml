@@ -1,0 +1,10 @@
+name: Cache Maven build
+description: Save the Maven build in cache
+runs:
+  using: composite
+  steps:
+    - name: Cache build
+      uses: actions/cache/save@v3
+      with:
+        path: '**/target/**'
+        key: cache-mvn-build-${{ github.run_id }}-${{ github.run_attempt }}
