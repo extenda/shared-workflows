@@ -18,7 +18,7 @@ jobs:
          
       - name: Run liquibase?
         id: should-i-liquibase
-        uses: extenda/shared-workflows/java/should-i-liquibase@v0
+        uses: extenda/shared-workflows/generic/should-i-liquibase@v0
         path: /path/to/changesets
     ...
 
