@@ -1,0 +1,27 @@
+name: Checkout and setup Java
+description: Checkout the code and setup Java
+inputs:
+  fetch-depth:
+    description: The checkout fetch depth to use.
+    required: false
+    default: '0'
+  java-version-file:
+    description: The location of the java version file.
+    required: false
+    default: .java-version
+  java-distribution:
+    description: The distribution to use.
+    required: false
+    default: temurin
+runs:
+  using: composite
+  steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: ${{ inputs.fetch-depth }}
+
+    - uses: actions/setup-java@v4
+      with:
+        distribution: ${{ inputs.java-distribution }}
+        java-version-file: ${{ inputs.java-version-file }}
+        cache: maven
