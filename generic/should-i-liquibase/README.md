@@ -11,11 +11,7 @@ jobs:
     needs: compile
     outputs:
       run-liquibase: ${{ steps.should-i-liquibase.outputs.should-run }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-         
+    steps:         
       - name: Run liquibase?
         id: should-i-liquibase
         uses: extenda/shared-workflows/generic/should-i-liquibase@v0
