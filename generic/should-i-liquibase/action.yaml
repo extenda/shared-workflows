@@ -8,7 +8,7 @@ inputs:
   base-ref:
     description: The ref to compare from
     required: false
-    default: origin/master
+    default: ${{ github.event.before }}
 outputs:
   should-run:
     description: Should I liquibase?
