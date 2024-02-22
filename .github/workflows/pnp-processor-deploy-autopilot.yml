@@ -38,6 +38,10 @@ on:
         type: string
         required: false
         default: 'v'
+      workflow-env-vars:
+        description: 'key/value pairs separated by commas to pass as deploy environment variables'
+        type: string
+        required: false
 jobs:
   deploy:
     if: github.ref == 'refs/heads/master'
@@ -68,23 +72,26 @@ jobs:
 
       - name: Deploy to Autopilot staging
         if: ${{ inputs.release-version == false }}
-        uses: extenda/actions/cloud-deploy@v0
+        uses: extenda/actions/cloud-deploy@feat/EA-2106
         with:
           secrets-account-key: ${{ secrets.SECRET_AUTH }}
           service-account-key: ${{ secrets.GCLOUD_AUTH }}
           service-definition: ${{ inputs.service-definition }}
           image: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.semver.outputs.release-version }}
           update-dns: always
+          workflow-env-vars: ${{ inputs.workflow-env-vars }}
+
 
       - name: Deploy to Autopilot prod
         if: ${{ inputs.release-version == true }}
-        uses: extenda/actions/cloud-deploy@v0
+        uses: extenda/actions/cloud-deploy@feat/EA-2106
         with:
           secrets-account-key: ${{ secrets.SECRET_AUTH }}
           service-account-key: ${{ secrets.GCLOUD_AUTH }}
           service-definition: ${{ inputs.service-definition }}
           image: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.semver.outputs.release-version }}
           update-dns: always
+          workflow-env-vars: ${{ inputs.workflow-env-vars }}
 
       - name: Dora Component
         if: ${{ inputs.release-version == true }}
