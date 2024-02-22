@@ -25,11 +25,13 @@
         description: |
           Path to Dockerfile
         type: string
+        default: 'Dockerfile'
         required: true
       system-name:
         description: |
           System name (sng or mcp)
         type: string
+        default: 'sng'
         required: true
       use-acceptance:
         description: |
@@ -40,33 +42,36 @@
         description: |
           Base URL of the service against which to run acceptance tests. Must be set when 'use-acceptance' is 'true'
         type: string
-        required: true
+        required: false
       acceptance-postman-collection-path:
         description: |
           Path to Postman collection. Must be set when 'use-acceptance' is 'true'
         type: string
-        required: true
+        required: false
       acceptance-postman-environment-path:
         description: |
           Path to Postman environment variables. Must be set when 'use-acceptance' is 'true'
         type: string
-        required: true
+        required: false
       acceptance-globals-path:
         description: |
           Path to globals.json. Must be set when 'use-acceptance' is 'true'
         type: string
-        required: true
+        required: false
       release-name:
         type: string
         required: true
       product-name:
         type: string
+        default: 'Scan & Go'
         required: true
       product-component:
         type: string
+        default: 'scanngo'
         required: true
       jira-project-key:
         type: string
+        default: 'MCPE'
         required: true
       release-to-prod:
         type: boolean
