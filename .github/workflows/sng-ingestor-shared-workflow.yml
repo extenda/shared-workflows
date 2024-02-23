@@ -20,19 +20,16 @@
         description: |
           Service name in GCP
         type: string
-        required: true
       dockerfile-path:
         description: |
           Path to Dockerfile
         type: string
         default: 'Dockerfile'
-        required: true
       system-name:
         description: |
           System name (sng or mcp)
         type: string
         default: 'sng'
-        required: true
       use-acceptance:
         description: |
           Use acceptance
@@ -64,15 +61,12 @@
       product-name:
         type: string
         default: 'Scan & Go'
-        required: true
       product-component:
         type: string
         default: 'scanngo'
-        required: true
       jira-project-key:
         type: string
         default: 'MCPE'
-        required: true
       release-to-prod:
         type: boolean
         required: false
