@@ -20,6 +20,10 @@ inputs:
   DB_PASS_SECRET_NAME:
     description: 'Key name of the database password in gcp secret manager'
     required: true
+  SEARCH_PATH:
+    description: 'The additional path to search for changesets'
+    required: false
+    default: ''
 runs:
   using: composite
   steps:
@@ -59,6 +63,7 @@ runs:
         url: jdbc:postgresql://172.17.0.1:5432/${{ env.DB_NAME }}
         username: ${{ env.DB_USER }}
         password: ${{ env.DB_PASS }}
+        searchPath: ${{ inputs.SEARCH_PATH }}
         showBanner: false
         showSummary: summary
         showSummaryOutput: console
