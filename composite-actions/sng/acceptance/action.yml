@@ -1,5 +1,5 @@
 name: 'Acceptance'
-description: 'Acceptance action for Scan&Go services'
+description: 'Acceptance action for Scan&Go and MCPE services'
 
 inputs:
   secret-auth:
@@ -11,6 +11,18 @@ inputs:
   acceptance-username:
     description: 'Acceptance username'
     required: true
+  acceptance-postman-collection-path:
+    description: 'Path to Postman collection'
+    required: false
+    default: './mcpe-common/tests/acceptance/scanngo-acceptance.postman_collection.json'
+  acceptance-postman-environment-path:
+    description: 'Path to Postman environment variables'
+    required: false
+    default: './mcpe-common/tests/acceptance/scanngo-acceptance.postman_environment.json'
+  acceptance-globals-path:
+    description: 'Path to globals.json'
+    required: false
+    default: './mcpe-common/tests/acceptance/globals.json'
 
 runs:
   using: 'composite'
@@ -22,6 +34,9 @@ runs:
           MCPE_PASSWORD: test_user_mcpe_password
           MCPE2_PASSWORD: test_user_mcpe2_password
           SCANNGO_SHOPPER_PASSWORD: scanngo_shopper_password
+          MCPE_SHOPPER_PASSWORD: mcpe_shopper_password
+          MCPE_STAFF_PASSWORD: mcpe_staff_password
+          ATTENDANT_STAFF_PASSWORD: attedant_staff_password
 
     - uses: extenda/actions/gcp-secret-manager@v0
       with:
@@ -40,12 +55,12 @@ runs:
       uses: jsdaniell/create-json@v1.2.2
       with:
         name: "./mcpe-common/tests/acceptance/globals.json"
-        json: '{"values":[{"key":"scanngo_shopper_username","value":"${{ inputs.acceptance-username }}","enabled":true},{"key":"scanngo_flags_on_username","value":"${{ inputs.acceptance-username }}-on","enabled":true},{"key":"scanngo_rescan_username","value":"${{ inputs.acceptance-username }}-rescan","enabled":true},{"key":"scanngo_shopper_password","value":"${{env.SCANNGO_SHOPPER_PASSWORD}}","enabled":true}]}'
+        json: '{"values":[{"key":"scanngo_shopper_username","value":"${{ inputs.acceptance-username }}","enabled":true},{"key":"scanngo_flags_on_username","value":"${{ inputs.acceptance-username }}-on","enabled":true},{"key":"scanngo_rescan_username","value":"${{ inputs.acceptance-username }}-rescan","enabled":true},{"key":"scanngo_shopper_password","value":"${{env.SCANNGO_SHOPPER_PASSWORD}}","enabled":true},{"key":"mcpe_shopper_username","value":"${{ inputs.acceptance-username }}","enabled":true},{"key":"mcpe_shopper_password","value":"${{env.MCPE_SHOPPER_PASSWORD}}","enabled":true},{"key":"attedant_staff_password","value":"${{env.ATTENDANT_STAFF_PASSWORD}}","enabled":true},{"key":"staff_password","value":"${{env.MCPE_STAFF_PASSWORD}}","enabled":true}]}'
 
     - name: Acceptance tests
       uses: matt-ball/newman-action@master
       with:
-        collection: ./mcpe-common/tests/acceptance/scanngo-acceptance.postman_collection.json
-        environment: ./mcpe-common/tests/acceptance/scanngo-acceptance.postman_environment.json
-        globals: ./mcpe-common/tests/acceptance/globals.json
+        collection: ${{ inputs.acceptance-postman-collection-path }}
+        environment: ${{ inputs.acceptance-postman-environment-path }}
+        globals: ${{ inputs.acceptance-globals-path }}
         folder: '["Acceptance"]'
