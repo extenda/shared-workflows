@@ -3,12 +3,13 @@
 Performs acceptance tests for lossprevention services using Postman tests.
 
 ## Usage
+This action is designed to read collections from the specified folder and execute acceptance tests.
 
 ### Inputs
 
 - `secret-auth` (required): SECRET_AUTH value from secrets.
 - `gcloud-auth` (required): GCLOUD_AUTH_STAGING/GCLOUD_AUTH_PROD value from secrets based on the environment.
-- `collection` (optional): path of the collection to use. Default collection path:  ```./slp/tests/acceptance/integration_test.postman_collection.json```
+- `collections_folder` (optional): Folder containing collections. Default folder: ```./slp/tests/acceptance/```
 - `environment` (optional): path of the environment variable to use. Default collection path: ```./slp/tests/acceptance/integration_test.staging.postman_environment.json```
 
 ### Example
@@ -27,7 +28,7 @@ Performs acceptance tests for lossprevention services using Postman tests.
         with: 
           secret-auth: ${{ secrets.SECRET_AUTH }}
           gcloud-auth: ${{ secrets.GCLOUD_AUTH_STAGING }}
-          collection: './slp/tests/acceptance/integration_test.postman_collection.json'
+          collections_folder: './slp/tests/acceptance/'
           environment: './slp/tests/acceptance/integration_test.staging.postman_environment.json'
 ```
 
