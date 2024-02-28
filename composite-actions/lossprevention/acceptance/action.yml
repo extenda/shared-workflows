@@ -46,22 +46,14 @@ runs:
         service-account: basketauditfrontend@${{ steps.gcloud.outputs.project-id }}.iam.gserviceaccount.com
         audiences: basketauditfrontend
 
-    - name: List collection files
-      id: list_collections
-      run: |
-        collections=$(find "${{ inputs.collections_folder }}" -name '*.postman_collection.json' -type f)
-        echo "Found collections:"
-        echo "$collections"
-        echo "::set-output name=collections::$(echo "$collections" | tr '\n' ',')"
-
     - name: Acceptance tests
       shell: bash
       run: |
-          npm install newman --no-save --silent
-          IFS=',' read -ra COLLECTIONS_ARRAY <<< "${{ steps.list_collections.outputs.collections }}"
-          for collection in "${COLLECTIONS_ARRAY[@]}"; do
-            echo "Running tests for collection: $collection"
-            npx newman run "$collection" \
-              --environment tests/integration_test.staging.postman_environment.json \
-              --env-var iamToken=$IDENTITY_TOKEN
-          done
+        npm install newman --no-save --silent
+        readarray -t COLLECTIONS_ARRAY <<< "$(find "${{ inputs.collections_folder }}" -name '*.postman_collection.json' -type f)"
+        for collection in "${COLLECTIONS_ARRAY[@]}"; do
+          echo "Running tests for collection: $collection"
+          npx newman run "$collection" \
+            --environment ${{ inputs.environment }} \
+            --env-var iamToken=$IDENTITY_TOKEN
+        done
