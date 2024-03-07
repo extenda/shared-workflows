@@ -26,11 +26,6 @@ inputs:
     default: false
     type: boolean
     required: false
-  with-opa:
-    description: "Flag to enable deployment to OPA"
-    required: false
-    type: boolean
-    default: true
   update-dns:
     description: |
       Set how DNS should be updated. Use `if-missing` to only create DNS if an
@@ -45,20 +40,6 @@ runs:
     - uses: actions/checkout@v3
       with:
         fetch-depth: 0
-
-    - uses: extenda/actions/gcp-secret-manager@v0
-      with:
-        service-account-key: ${{ inputs.SECRET_AUTH }}
-        secrets: |
-          STYRA_TOKEN: styra-das-token
-
-    - name: DAS production deploy
-      if: ${{ inputs.with-opa == 'true' }}
-      uses: extenda/actions/styra-das-deploy@v0
-      with:
-        permission-prefix: ${{ inputs.system }}
-        service-name: ${{ inputs.service-name }}
-        styra-das-token: ${{ env.STYRA_TOKEN }}
 
     - name: Create release
       uses: extenda/actions/conventional-release@v0
