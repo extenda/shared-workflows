@@ -87,7 +87,7 @@ jobs:
           update-dns: always
 
       - name: Dora Component
-        if: ${{ inputs.release-version == true && dora-component != ''}}
+        if: ${{ inputs.release-version == true && inputs.dora-component != ''}}
         uses: extenda/actions/dora-metrics@v0
         with:
           product-name: Product And Price
