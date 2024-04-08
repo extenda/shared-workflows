@@ -105,6 +105,16 @@ jobs:
           image: eu.gcr.io/extenda/${{ inputs.gcr-image-name }}:${{ github.sha }}
           update-dns: always
 
+      - name: Notify Slack if staging fails
+        uses: extenda/actions/slack-notify@v0
+        if: failure()
+        with:
+          text: |
+            *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+          channel: selfscan-pipeline-notifications
+          service-account-key: ${{ secrets.secret-auth }}
+
   acceptance:
     if: ${{ inputs.use-acceptance }}
     runs-on: ubuntu-latest
@@ -127,6 +137,16 @@ jobs:
           collection: ${{ inputs.acceptance-postman-collection-path }}
           environment: ${{ inputs.acceptance-postman-environment-path }}
           globals: ${{ inputs.acceptance-globals-path }}
+
+      - name: Notify Slack if acceptance fails
+        uses: extenda/actions/slack-notify@v0
+        if: failure()
+        with:
+          text: |
+            *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+          channel: selfscan-pipeline-notifications
+          service-account-key: ${{ secrets.secret-auth }}
   
   release:
     if: |
@@ -163,6 +183,16 @@ jobs:
           gcloud container images add-tag \
             eu.gcr.io/extenda/${{ inputs.gcr-image-name }}:${{ github.sha }} \
             eu.gcr.io/extenda/${{ inputs.gcr-image-name }}:${{ steps.semver.outputs.release-tag }}
+
+      - name: Notify Slack if release fails
+        uses: extenda/actions/slack-notify@v0
+        if: failure()
+        with:
+          text: |
+            *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+          channel: selfscan-pipeline-notifications
+          service-account-key: ${{ secrets.secret-auth }}
 
   deploy:
     if: |
@@ -215,3 +245,13 @@ jobs:
           jira-username: ${{ env.JIRA_USERNAME }}
           jira-password: ${{ env.JIRA_PASSWORD }}
           jira-project-key: ${{ inputs.jira-project-key }}
+
+      - name: Notify Slack if deploy fails
+        uses: extenda/actions/slack-notify@v0
+        if: failure()
+        with:
+          text: |
+            *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+          channel: selfscan-pipeline-notifications
+          service-account-key: ${{ secrets.secret-auth }}
