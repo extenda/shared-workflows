@@ -68,6 +68,11 @@ on:
       jira-project-key:
         type: string
         required: true
+      slack-channel:
+        description: Name of the channel to notify failing action
+        required: false
+        default: selfscan-pipeline-notifications
+        type: string
 
 jobs:
   validate:
@@ -81,14 +86,14 @@ jobs:
         with:
           service-account-key: ${{ secrets.gcloud-auth-staging }}
 
-      - name: Notify Slack if staging fails
+      - name: Notify Slack if validate fails
         uses: extenda/actions/slack-notify@v0
         if: failure()
         with:
           text: |
             *Validate failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
             Validate failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{ github.job }}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
-          channel: selfscan-pipeline-notifications
+          channel: ${{ inputs.slack-channel }}
           service-account-key: ${{ secrets.secret-auth }}
 
   staging:
@@ -122,7 +127,7 @@ jobs:
           text: |
             *Staging failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
             Staging failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{ github.job }}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
-          channel: selfscan-pipeline-notifications
+          channel: ${{ inputs.slack-channel }}
           service-account-key: ${{ secrets.secret-auth }}
 
   acceptance:
@@ -155,7 +160,7 @@ jobs:
           text: |
             *Acceptance failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
             Acceptance failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{ github.job }}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
-          channel: selfscan-pipeline-notifications
+          channel: ${{ inputs.slack-channel }}
           service-account-key: ${{ secrets.secret-auth }}
   
   release:
@@ -201,7 +206,7 @@ jobs:
           text: |
             *Release failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
             Release failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{ github.job }}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
-          channel: selfscan-pipeline-notifications
+          channel: ${{ inputs.slack-channel }}
           service-account-key: ${{ secrets.secret-auth }}
 
   deploy:
@@ -263,5 +268,5 @@ jobs:
           text: |
             *Deploy failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
             Deploy failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{ github.job }}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
-          channel: selfscan-pipeline-notifications
+          channel: ${{ inputs.slack-channel }}
           service-account-key: ${{ secrets.secret-auth }}

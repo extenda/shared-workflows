@@ -92,6 +92,11 @@
         type: boolean
         required: false
         default: true
+      slack-channel:
+        description: Name of the channel to notify failing action
+        required: false
+        default: selfscan-pipeline-notifications
+        type: string
 
 jobs:
   build:
@@ -136,7 +141,7 @@ jobs:
           text: |
             *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
             Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
-          channel: selfscan-pipeline-notifications
+          channel: ${{ inputs.slack-channel }}
           service-account-key: ${{ secrets.secret-auth }}
 
   pack:
@@ -161,7 +166,7 @@ jobs:
           text: |
             *Pack failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
             Pack failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
-          channel: selfscan-pipeline-notifications
+          channel: ${{ inputs.slack-channel }}
           service-account-key: ${{ secrets.secret-auth }}
 
   docker-build:
@@ -193,7 +198,7 @@ jobs:
           text: |
             *Docker build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
             Docker build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
-          channel: selfscan-pipeline-notifications
+          channel: ${{ inputs.slack-channel }}
           service-account-key: ${{ secrets.secret-auth }}
 
   staging:
@@ -218,7 +223,7 @@ jobs:
           text: |
             *Staging failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
             Staging failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
-          channel: selfscan-pipeline-notifications
+          channel: ${{ inputs.slack-channel }}
           service-account-key: ${{ secrets.secret-auth }}
 
   acceptance:
@@ -247,7 +252,7 @@ jobs:
           text: |
             *Acceptance failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
             Acceptance failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
-          channel: selfscan-pipeline-notifications
+          channel: ${{ inputs.slack-channel }}
           service-account-key: ${{ secrets.secret-auth }}
 
   production:
@@ -281,5 +286,5 @@ jobs:
           text: |
             *Production failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
             Production failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
-          channel: selfscan-pipeline-notifications
+          channel: ${{ inputs.slack-channel }}
           service-account-key: ${{ secrets.secret-auth }}
