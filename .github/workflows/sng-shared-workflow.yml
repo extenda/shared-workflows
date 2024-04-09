@@ -159,8 +159,8 @@ jobs:
         if: failure() && github.ref == 'refs/heads/master'
         with:
           text: |
-            *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
-            Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+            *Pack failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            Pack failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
           channel: selfscan-pipeline-notifications
           service-account-key: ${{ secrets.secret-auth }}
 
@@ -191,8 +191,8 @@ jobs:
         if: failure()
         with:
           text: |
-            *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
-            Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+            *Docker build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            Docker build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
           channel: selfscan-pipeline-notifications
           service-account-key: ${{ secrets.secret-auth }}
 
@@ -216,8 +216,8 @@ jobs:
         if: failure()
         with:
           text: |
-            *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
-            Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+            *Staging failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            Staging failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
           channel: selfscan-pipeline-notifications
           service-account-key: ${{ secrets.secret-auth }}
 
@@ -245,8 +245,8 @@ jobs:
         if: failure()
         with:
           text: |
-            *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
-            Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+            *Acceptance failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            Acceptance failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
           channel: selfscan-pipeline-notifications
           service-account-key: ${{ secrets.secret-auth }}
 
@@ -279,7 +279,7 @@ jobs:
         if: failure()
         with:
           text: |
-            *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
-            Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+            *Production failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            Production failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
           channel: selfscan-pipeline-notifications
           service-account-key: ${{ secrets.secret-auth }}
