@@ -92,6 +92,11 @@
         type: boolean
         required: false
         default: true
+      slack-channel:
+        description: Name of the channel to notify failing action
+        required: false
+        default: selfscan-pipeline-notifications
+        type: string
 
 jobs:
   build:
@@ -129,6 +134,16 @@ jobs:
         shell: bash
         run: docker stop sql-server
 
+      - name: Notify Slack if build fails
+        uses: extenda/actions/slack-notify@v0
+        if: failure() && github.ref == 'refs/heads/master'
+        with:
+          text: |
+            *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+          channel: ${{ inputs.slack-channel }}
+          service-account-key: ${{ secrets.secret-auth }}
+
   pack:
     if: ${{ inputs.models-project-path != '' }}
     runs-on: ubuntu-latest
@@ -143,6 +158,16 @@ jobs:
         with:
           secret-auth: ${{ secrets.secret-auth }}
           csproj-path: ${{ inputs.models-project-path }}
+
+      - name: Notify Slack if pack fails
+        uses: extenda/actions/slack-notify@v0
+        if: failure() && github.ref == 'refs/heads/master'
+        with:
+          text: |
+            *Pack failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            Pack failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+          channel: ${{ inputs.slack-channel }}
+          service-account-key: ${{ secrets.secret-auth }}
 
   docker-build:
     if: github.ref == 'refs/heads/master'
@@ -166,6 +191,16 @@ jobs:
           dockerfile-path: ${{ inputs.dockerfile-path }}
           gcr-image-name: ${{ inputs.gcr-image-name }}
 
+      - name: Notify Slack if docker-build fails
+        uses: extenda/actions/slack-notify@v0
+        if: failure()
+        with:
+          text: |
+            *Docker build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            Docker build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+          channel: ${{ inputs.slack-channel }}
+          service-account-key: ${{ secrets.secret-auth }}
+
   staging:
     runs-on: ubuntu-latest
     needs: docker-build
@@ -180,6 +215,16 @@ jobs:
           secret-auth: ${{ secrets.secret-auth }}
           gcloud-auth-staging: ${{ secrets.gcloud-auth-staging }}
           gcr-image-name: ${{ inputs.gcr-image-name }}
+
+      - name: Notify Slack if staging fails
+        uses: extenda/actions/slack-notify@v0
+        if: failure()
+        with:
+          text: |
+            *Staging failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            Staging failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+          channel: ${{ inputs.slack-channel }}
+          service-account-key: ${{ secrets.secret-auth }}
 
   acceptance:
     if: ${{ inputs.use-scanngo-acceptance }}
@@ -199,6 +244,16 @@ jobs:
           acceptance-postman-collection-path: ${{ inputs.acceptance-postman-collection-path }}
           acceptance-postman-environment-path: ${{ inputs.acceptance-postman-environment-path }}
           acceptance-globals-path: ${{ inputs.acceptance-globals-path }}
+
+      - name: Notify Slack if acceptance fails
+        uses: extenda/actions/slack-notify@v0
+        if: failure()
+        with:
+          text: |
+            *Acceptance failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            Acceptance failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+          channel: ${{ inputs.slack-channel }}
+          service-account-key: ${{ secrets.secret-auth }}
 
   production:
     if: |
@@ -223,3 +278,13 @@ jobs:
           release-name: ${{ inputs.release-name }}
           product-name: ${{ inputs.product-name }}
           product-component: ${{ inputs.product-component }}
+
+      - name: Notify Slack if production fails
+        uses: extenda/actions/slack-notify@v0
+        if: failure()
+        with:
+          text: |
+            *Production failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            Production failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+          channel: ${{ inputs.slack-channel }}
+          service-account-key: ${{ secrets.secret-auth }}
