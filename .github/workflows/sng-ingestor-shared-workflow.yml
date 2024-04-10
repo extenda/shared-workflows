@@ -82,6 +82,11 @@
         required: false
         default: selfscan-pipeline-notifications
         type: string
+      code-freeze:
+        description: |
+            Code freeze flag. Use this flag when there is a code freeze and code changes should not be deployed to staging and production environments.
+        type: boolean
+        required: false
 
 jobs:
   validate:
@@ -113,6 +118,16 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name:  Code freeze check
+        run: |
+          if [[ "${{ inputs.code-freeze }}" == "true" && "${{ github.event.head_commit.message }}" != *"[force-deploy]"* ]]; then
+            echo "Code freeze flag is enabled. Skipping deployment.";
+            echo "To trigger a deployment that bypasses the code-freeze input checks, include '[force-deploy]' in the commit message.";
+            exit 1
+          else
+            echo "Code freeze is not enabled. Proceeding with deployment."
+          fi
 
       - name: Build Docker image
         uses: extenda/shared-workflows/composite-actions/docker-build@master
