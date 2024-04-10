@@ -137,7 +137,9 @@ jobs:
 
       - name: Notify Slack if staging fails
         uses: extenda/actions/slack-notify@v0
-        if: failure()
+        if: |
+            failure() &&
+            (!inputs.code-freeze || contains(github.event.head_commit.message, '[force-deploy]'))
         with:
           text: |
             *Staging failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:

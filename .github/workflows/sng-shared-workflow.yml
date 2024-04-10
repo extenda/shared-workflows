@@ -208,7 +208,9 @@ jobs:
 
       - name: Notify Slack if docker-build fails
         uses: extenda/actions/slack-notify@v0
-        if: failure()
+        if: |
+            failure() &&
+            (!inputs.code-freeze || contains(github.event.head_commit.message, '[force-deploy]'))
         with:
           text: |
             *Docker build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
