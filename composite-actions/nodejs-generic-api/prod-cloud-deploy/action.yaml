@@ -67,7 +67,7 @@ runs:
           ${{ inputs.image }}:latest
 
     - name: Deploy to production
-      uses: extenda/actions/cloud-deploy@v0
+      uses: extenda/actions/cloud-deploy@feat/HII-9322
       with:
         secrets-account-key: ${{ inputs.SECRET_AUTH }}
         service-account-key: ${{ inputs.GCLOUD_AUTH }}
