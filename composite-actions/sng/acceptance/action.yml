@@ -64,3 +64,4 @@ runs:
         environment: ${{ inputs.acceptance-postman-environment-path }}
         globals: ${{ inputs.acceptance-globals-path }}
         folder: '["Acceptance"]'
+        bail: true
