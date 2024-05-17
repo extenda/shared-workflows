@@ -4,39 +4,39 @@ on:
     secrets:
       GCR_image_name:
         description: |
-          A name of the image to be created in GCR
+          The name of the image to be created in GCR.
         required: true
       path-to-sln:
         description: |
-          Path to the sln file
+          The path to the solution.
         required: true
       path-to-unit-tests:
         description: |
-          Path unit tests project/solution
+          The path to the unit tests project/solution.
         required: true
       path-to-nuget-config:
         description: |
-          Path to nuget.config file
+          The path to the nuget config file.
         required: false
       path-to-dockerfile:
         description: |
-          Path to dockerfile which builds the API
+          The path to the dockerfile which builds the API.
         required: true
       path-to-acceptance-tests:
         description: |
-          Path to acceptance tests project/solution
+          The path to the acceptance tests project/solution.
         required: true
       path-to-acceptance-tests-nuget-config:
         description: |
-          Path to acceptance tests nuget.config file
+          The path to the acceptance tests nuget config file.
         required: true
       staging-service-base-url:
         description: |
-          A url of the service in staging
+          The base url of the service in staging.
         required: true
       slack-channel:
         description: |
-          A slack channel which needs to be notified in case of failure
+          The slack channel which needs to be notified in case of failure.
         required: false
       SECRET_AUTH:
         required: true
@@ -57,30 +57,31 @@ on:
     inputs:
       do-pact-consumer-tests:
         description: |
-          If true runs tests defining data contracts
+          If true, runs tests defining data contracts.
         type: boolean
         required: false
         default: false
       do-pact-provider-tests:
         description: |
-          If true runs tests verifying implementation against data-contracts
+          If true, runs tests verifying implementation against data contracts.
         type: boolean
         required: false
         default: false
       is-pact-consumer-can-i-deploy-dry-run:
         description: |
-          If true, consumer can-i-deploy step will be executed in dry-run mode
+          If true, consumer can-i-deploy step will be executed in dry-run mode.
         type: boolean
         required: false
         default: false
       is-pact-provider-can-i-deploy-dry-run:
         description: |
-          If true, provider can-i-deploy step will be executed in dry-run mode
+          If true, provider can-i-deploy step will be executed in dry-run mode.
         type: boolean
         required: false
         default: false
       dotnet-version:
-        description: '.NET version'
+        description: |
+          The .NET version.
         type: number
         required: false
         default: 8
@@ -144,7 +145,7 @@ jobs:
       - name: Setup NuGet sources
         uses: extenda/actions/setup-nuget-sources@v0
         with:
-          config-file: ${{ secrets.path-to-nuget-config != '' && secrets.path-to-nuget-config || 'src/nuget.config' }}
+          config-file: ${{ secrets.path-to-nuget-config || 'src/nuget.config' }}
           sources: |
             [{
               "name": "nuget.org",
@@ -245,7 +246,7 @@ jobs:
       - name: Setup NuGet sources
         uses: extenda/actions/setup-nuget-sources@v0
         with:
-          config-file: ${{ secrets.path-to-nuget-config != '' && secrets.path-to-nuget-config || 'src/nuget.config' }}
+          config-file: ${{ secrets.path-to-nuget-config || 'src/nuget.config' }}
           sources: |
             [{
               "name": "nuget.org",
