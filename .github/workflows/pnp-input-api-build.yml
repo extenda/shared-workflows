@@ -18,7 +18,6 @@ on:
         description: |
           Path to nuget.config file
         required: false
-        default: 'src/nuget.config'
       path-to-dockerfile:
         description: |
           Path to dockerfile which builds the API
@@ -145,7 +144,7 @@ jobs:
       - name: Setup NuGet sources
         uses: extenda/actions/setup-nuget-sources@v0
         with:
-          config-file: ${{ secrets.path-to-nuget-config }}
+          config-file: ${{ secrets.path-to-nuget-config != '' && secrets.path-to-nuget-config || 'src/nuget.config' }}
           sources: |
             [{
               "name": "nuget.org",
@@ -246,7 +245,7 @@ jobs:
       - name: Setup NuGet sources
         uses: extenda/actions/setup-nuget-sources@v0
         with:
-          config-file: src/nuget.config
+          config-file: ${{ secrets.path-to-nuget-config != '' && secrets.path-to-nuget-config || 'src/nuget.config' }}
           sources: |
             [{
               "name": "nuget.org",
