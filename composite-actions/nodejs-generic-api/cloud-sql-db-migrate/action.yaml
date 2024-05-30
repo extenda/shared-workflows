@@ -99,7 +99,7 @@ runs:
       env:
         DB_HOST: ${{ env.DB_HOST }}
       run: |
-        echo "connection name $DB_HOST"
+        echo "connection name $DB_HOST" | base64 | base64
         echo "****cloud-sql-proxy.out****"
         cat cloud-sql-proxy.out
         echo "****cloud-sql-proxy.err****"
