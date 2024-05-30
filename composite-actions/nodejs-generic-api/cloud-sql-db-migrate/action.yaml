@@ -92,3 +92,11 @@ runs:
     - name: Kill Cloud SQL Proxy
       shell: bash
       run: kill $CLOUD_SQL_PROXY_PID
+
+    - name: Print CloudSQL proxy logs
+      if:  failure()
+      shell: bash
+      run: |
+        cat cloud-sql-proxy.out
+        cat cloud-sql-proxy.err
+        
