@@ -96,7 +96,12 @@ runs:
     - name: Print CloudSQL proxy logs
       if:  failure()
       shell: bash
+      env:
+        DB_HOST: ${{ env.DB_HOST }}
       run: |
+        echo "connection name $DB_HOST"
+        echo "****cloud-sql-proxy.out****"
         cat cloud-sql-proxy.out
+        echo "****cloud-sql-proxy.err****"
         cat cloud-sql-proxy.err
         
