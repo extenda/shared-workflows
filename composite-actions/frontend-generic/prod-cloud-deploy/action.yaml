@@ -1,28 +1,30 @@
-name: 'Cloud deploy prod'
-description: 'Cloud deploy prod'
+name: "Cloud deploy prod"
+description: "Cloud deploy prod"
 inputs:
   SECRET_AUTH:
-    description: 'GCP Auth'
-    required: true 
+    description: "GCP Auth"
+    required: true
   GCLOUD_AUTH_STAGING:
-    description: 'GCP Auth (staging)'
+    description: "GCP Auth (staging)"
     required: true
   GCLOUD_AUTH_PROD:
-    description: 'GCP Auth (prod)'
+    description: "GCP Auth (prod)"
     required: true
   GITHUB_TOKEN:
-    description: 'GH token to create a release'
+    description: "GH token to create a release"
   LD_CLIENT_ID:
-    description: 'LaunchDarkly client ID in Secret Manager'
+    description: "LaunchDarkly client ID in Secret Manager"
     required: true
   IMAGE:
-    description: 'Image name for the service (without tag)'
+    description: "Image name for the service (without tag)"
     required: true
 
 runs:
   using: "composite"
   steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
 
     - name: Auth to Nexus npm registry
       uses: extenda/actions/nexus-auth-npm@v0
@@ -38,7 +40,7 @@ runs:
       with:
         service-account-key: ${{ inputs.GCLOUD_AUTH_PROD }}
         secrets: |
-          LD_CLIENT_ID: ${{ inputs.LD_CLIENT_ID }} 
+          LD_CLIENT_ID: ${{ inputs.LD_CLIENT_ID }}
 
     - name: Build and push Docker
       shell: bash
@@ -53,9 +55,9 @@ runs:
         image-path: ${{ inputs.image }}:${{ github.sha }}
         service-account-key: ${{ inputs.GCLOUD_AUTH_STAGING }}
 
-    - uses: actions/setup-node@v1
+    - uses: actions/setup-node@v3
       with:
-        node-version: 16
+        node-version: 20
 
     - name: Create release
       uses: extenda/actions/conventional-release@v0
