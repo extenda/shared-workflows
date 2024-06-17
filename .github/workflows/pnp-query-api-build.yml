@@ -209,12 +209,10 @@ jobs:
         with:
           service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
 
-      - name: Build and push Docker
+      - name: Build and push container image
         run: |
           gcloud --quiet auth configure-docker
-          IMAGE=eu.gcr.io/extenda/${{ secrets.GCR_image_name }}
-          docker build -t $IMAGE:${{ github.sha }} -t $IMAGE:latest . -f ${{ secrets.path-to-dockerfile }}
-          docker push --all-tags $IMAGE
+          dotnet publish ${{ secrets.path-to-sln }} --runtime linux-x64 --self-contained -p:PublishReadyToRun=true -t:PublishContainer -p:ContainerRepository=extenda/${{ secrets.GCR_image_name }} -p:ContainerImageTag=${{ github.sha }} -p:ContainerRegistry=eu.gcr.io
 
       - name: Attest image
         uses: extenda/actions/binary-auth-attestation@v0
