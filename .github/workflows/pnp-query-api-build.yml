@@ -205,19 +205,23 @@ jobs:
               "apikey": "${{ env.NUGET_API_KEY }}"
             }]
 
+      - name: Build container image
+        run: |
+          dotnet publish ${{ secrets.path-to-sln }} --runtime linux-x64 --self-contained -p:PublishReadyToRun=true -t:PublishContainer -p:ContainerRepository=extenda/${{ secrets.GCR_image_name }} -p:ContainerImageTag=${{ github.sha }}
+
       - uses: extenda/actions/setup-gcloud@v0
         with:
-          service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
+          service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}  
 
-      - name: Build and push container image
+      - name: Push container image
         run: |
           gcloud --quiet auth configure-docker
-          dotnet publish ${{ secrets.path-to-sln }} --runtime linux-x64 --self-contained -p:PublishReadyToRun=true -t:PublishContainer -p:ContainerRepository=extenda/${{ secrets.GCR_image_name }} -p:ContainerImageTag=${{ github.sha }} -p:ContainerRegistry=eu.gcr.io
+          docker push eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ github.sha }}
 
       - name: Attest image
         uses: extenda/actions/binary-auth-attestation@v0
         with:
-          image-path: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}
+          image-path: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ github.sha }}
           service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
 
       - name: Deploy to staging
