@@ -21,7 +21,7 @@ on:
       path-to-dockerfile:
         description: |
           The path to the dockerfile which builds the API.
-        required: true
+        required: false
       staging-service-base-url:
         description: 
           The base url of the service in staging.
