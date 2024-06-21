@@ -207,7 +207,7 @@ jobs:
 
       - name: Build container image
         run: |
-          dotnet publish ${{ secrets.path-to-sln }} -t:PublishContainer -p:ContainerRepository=eu.gcr.io/extenda/${{ secrets.GCR_image_name }} -p:ContainerImageTag=${{ github.sha }} -p:ContainerFamily=jammy-chiseled
+          dotnet publish ${{ secrets.path-to-sln }} -p:PublishProfile=DefaultContainer -p:ContainerRepository=eu.gcr.io/extenda/${{ secrets.GCR_image_name }} -p:ContainerImageTag=${{ github.sha }} -p:ContainerFamily=jammy-chiseled
 
       - uses: extenda/actions/setup-gcloud@v0
         with:
