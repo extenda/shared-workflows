@@ -385,7 +385,7 @@ jobs:
         run: |
           dotnet test ${{ secrets.path-to-acceptance-tests }}
         env:
-          INPUT_API_URL: ${{ secrets.staging-service-base-url }}
+          API_URL: ${{ secrets.staging-service-base-url }}
           BEARER_TOKEN: ${{ steps.testtoken.outputs.iam-token }}
 
       - name: Run Acceptance Tests with WID token
@@ -393,7 +393,7 @@ jobs:
         run: |
           dotnet test ${{ secrets.path-to-acceptance-tests }}
         env:
-          INPUT_API_URL: ${{ secrets.staging-service-base-url }}
+          API_URL: ${{ secrets.staging-service-base-url }}
           BEARER_TOKEN: ${{ steps.identitytoken.outputs.identity-token }}
           TENANT_ID: ${{ env.TEST_TENANT_ID }}
 
