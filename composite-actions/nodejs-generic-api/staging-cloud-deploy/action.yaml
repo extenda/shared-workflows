@@ -86,6 +86,7 @@ runs:
 
     - name: Get API_KEY
       uses: extenda/actions/gcp-secret-manager@v0
+      if: ${{ inputs.with-component-tests == 'true' }}
       with:
         service-account-key: ${{ inputs.GCLOUD_AUTH }}
         secrets: |
@@ -93,6 +94,7 @@ runs:
 
     - name: Get IAM token
       uses: extenda/actions/iam-test-token@v0
+      if: ${{ inputs.with-component-tests == 'true' }}
       with:
         service-account-key: ${{ inputs.GCLOUD_AUTH }}
         api-key: ${{ env.API_KEY }}
