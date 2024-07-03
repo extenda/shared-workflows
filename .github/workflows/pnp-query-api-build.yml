@@ -21,7 +21,7 @@ on:
       path-to-dockerfile:
         description: |
           The path to the dockerfile which builds the API.
-        required: true
+        required: false
       staging-service-base-url:
         description: 
           The base url of the service in staging.
@@ -205,21 +205,23 @@ jobs:
               "apikey": "${{ env.NUGET_API_KEY }}"
             }]
 
+      - name: Build container image
+        run: |
+          dotnet publish ${{ secrets.path-to-sln }} -p:PublishProfile=DefaultContainer -p:ContainerRepository=eu.gcr.io/extenda/${{ secrets.GCR_image_name }} -p:ContainerImageTag=${{ github.sha }} -p:ContainerFamily=jammy-chiseled
+
       - uses: extenda/actions/setup-gcloud@v0
         with:
-          service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
+          service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}  
 
-      - name: Build and push Docker
+      - name: Push container image
         run: |
           gcloud --quiet auth configure-docker
-          IMAGE=eu.gcr.io/extenda/${{ secrets.GCR_image_name }}
-          docker build -t $IMAGE:${{ github.sha }} -t $IMAGE:latest . -f ${{ secrets.path-to-dockerfile }}
-          docker push --all-tags $IMAGE
+          docker push eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ github.sha }}
 
       - name: Attest image
         uses: extenda/actions/binary-auth-attestation@v0
         with:
-          image-path: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}
+          image-path: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ github.sha }}
           service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
 
       - name: Deploy to staging
