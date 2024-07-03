@@ -1,18 +1,22 @@
-const path = require('path');
+import path from 'path';
+import {fileURLToPath} from 'url';
 
-module.exports = {
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+const webpackConfig = {
   entry: './src/index.js', // Replace with the actual entry point of your JS code
   mode: 'production',
   output: {
     filename: 'index.js', // The name of the bundled output file
     path: path.resolve(__dirname, 'dist'), // The output directory path
+    libraryTarget: 'module',  // Output as ESM
+    chunkFormat: 'module',    // Use ESM chunk format explicitly
+  },
+  experiments: {
+    outputModule: true,  // Enables ESM output
   },
   target: 'node', // Bundle for Node.js environment
-  externals: {
-    // Exclude any browser-specific dependencies from being bundled
-    // For example, if you want to exclude the 'fs' module:
-    fs: 'commonjs fs',
-    // Add other exclusions if needed
-  },
   // ...other webpack configuration options...
 };
+
+export default webpackConfig;
