@@ -13,14 +13,9 @@
     "expect": "^29.6.1"
   },
   "devDependencies": {
-    "@babel/cli": "^7.22.9",
-    "@babel/preset-env": "^7.22.9",
     "eslint": "^8.45.0",
     "eslint-config-airbnb-base": "^15.0.0",
     "eslint-plugin-import": "^2.27.5",
-    "fs-extra": "^10.0.0",
-    "jest": "^27.5.1",
-    "mock-fs": "^4.11.0",
     "webpack": "^5.88.2",
     "webpack-cli": "^5.1.4"
   },

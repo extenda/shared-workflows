@@ -14,10 +14,10 @@ async function updateReadmeWithMermaidGraph(topologyContent, readmeFilePath) {
     // Generate mermaid graph
     const mermaidGraphDefinition = Topology.toMermaid(topologyContent);
 
-    const updatedMermaidBlock = `### Kafka Stream Topology\n\`\`\`mermaid\n${mermaidGraphDefinition}\n\`\`\`\n----`;
+    const updatedMermaidBlock = `## Kafka Stream Topology\n\`\`\`mermaid\n${mermaidGraphDefinition}\n\`\`\`\n----`;
 
     // Check if the mermaid block exists in the README.md file
-    const mermaidBlockRegex = /### Kafka Stream Topology\n([\s\S]*?)\n----/;
+    const mermaidBlockRegex = /## Kafka Stream Topology\n([\s\S]*?)\n----/;
     if (mermaidBlockRegex.test(readmeFileContent)) {
       // Replace the existing mermaid block in the README.md file with the updated content
       readmeFileContent = readmeFileContent.replace(mermaidBlockRegex, updatedMermaidBlock);
@@ -54,9 +54,9 @@ async function main() {
   const topologyFilePath = core.getInput("topologyFilePath") || "docs/topology/stream.txt";
   const processorTopicsFilePath = core.getInput("processorTopicsOutputFilePath") || "docs/topics/processor-topics.json";
   const readmeFilePath = core.getInput("readmeFilePath") || "README.md";
-  const processorName = core.getInput("processorName") || "pnp-price-model-item-fanout-ks";
+  const processorName = core.getInput("processorName");
 
-  if(!processorName) {
+  if (!processorName) {
     console.error("processorName input parameter is required.");
     process.exit(1);
   }
