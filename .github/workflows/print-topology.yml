@@ -49,7 +49,7 @@ jobs:
           node-version: '20'
 
       - name: Update README & Collect topic and state store names
-        uses: extenda/shared-workflows/composite-actions/nodejs-script/print-topology@feat/EA-2278_improveMermaidDiagramGenerationAction
+        uses: extenda/shared-workflows/composite-actions/nodejs-script/print-topology@master
         with:
           topologyFilePath : ${{ inputs.topologyFilePath }}
           processorTopicsOutputFilePath : ${{ inputs.processorTopicsOutputFilePath }}
