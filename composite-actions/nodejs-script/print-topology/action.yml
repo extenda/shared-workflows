@@ -13,8 +13,8 @@ inputs:
     description: 'Path to the README file'
     required: false
     default: 'README.md'
-  processorName:
-    description: 'Name of the processor.'
+  applicationIds:
+    description: 'List of application ids provided as a JSON array string. For example: ["application-1", "application-2"]'
     required: true
 runs:
   using: node20

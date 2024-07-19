@@ -36,16 +36,16 @@ async function updateReadmeWithMermaidGraph(topologyContent, readmeFilePath) {
   }
 }
 
-async function saveProcessorTopicsAndStoresAsJson(topologyContent, processorName, outputFilePath) {
+async function saveProcessorTopicsAndStoresAsJson(topologyContent, applicationIdArray, outputFilePath) {
   try {
     // Write the processor topics to a file
     const result = Topology.collectTopicsAndStores(topologyContent);
-    result.processorName = processorName;
+    result.applicationIds = applicationIdArray;
     fs.writeFileSync(outputFilePath, JSON.stringify(result, null, 2), "utf-8");
 
-    console.info("Processor topics and state stores collected successfully.");
+    console.info("Processor topics, state stores and application ids collected successfully.");
   } catch (error) {
-    console.error("An error occurred while saving the processor topics:", error);
+    console.error("An error occurred while saving the collected information:", error);
     process.exit(1);
   }
 }
@@ -54,18 +54,20 @@ async function main() {
   const topologyFilePath = core.getInput("topologyFilePath") || "docs/topology/stream.txt";
   const processorTopicsFilePath = core.getInput("processorTopicsOutputFilePath") || "docs/topics/processor-topics.json";
   const readmeFilePath = core.getInput("readmeFilePath") || "README.md";
-  const processorName = core.getInput("processorName");
+  const applicationIdArrayString = core.getInput("applicationIds");
 
-  if (!processorName) {
-    console.error("processorName input parameter is required.");
+  if (!applicationIdArrayString) {
+    console.error("applicationIds input parameter is required.");
     process.exit(1);
   }
+
+  const applicationIdArray = JSON.parse(applicationIdArrayString);
 
   // Read the contents of topology/stream.txt file
   const topologyContent = fs.readFileSync(topologyFilePath, "utf8");
 
   updateReadmeWithMermaidGraph(topologyContent, readmeFilePath);
-  saveProcessorTopicsAndStoresAsJson(topologyContent, processorName, processorTopicsFilePath);
+  saveProcessorTopicsAndStoresAsJson(topologyContent, applicationIdArray, processorTopicsFilePath);
 }
 
 main();
