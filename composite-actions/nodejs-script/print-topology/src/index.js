@@ -1,7 +1,7 @@
 import fs from "fs";
 import core from "@actions/core";
-import Topology from "./lib/Topology.js";
 import path from "path";
+import Topology from "./lib/Topology.js";
 
 async function updateReadmeWithMermaidGraph(topologyContent, readmeFilePath) {
   try {
@@ -62,7 +62,7 @@ async function main() {
   const topologyFilePath = core.getInput("topologyFilePath") || "docs/topology/stream.txt";
   const processorTopicsFilePath = core.getInput("processorTopicsOutputFilePath") || "docs/topics/processor-topics.json";
   const readmeFilePath = core.getInput("readmeFilePath") || "README.md";
-  const applicationIdArrayString = core.getInput("applicationIds");
+  const applicationIdArrayString = core.getInput("applicationIds") || "[]";
 
   if (!applicationIdArrayString) {
     console.error("applicationIds input parameter is required.");

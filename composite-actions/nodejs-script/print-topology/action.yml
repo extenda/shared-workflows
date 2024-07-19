@@ -15,7 +15,8 @@ inputs:
     default: 'README.md'
   applicationIds:
     description: 'List of application ids provided as a JSON array string. For example: ["application-1", "application-2"]'
-    required: true
+    required: false
+    default: '[]'
 runs:
   using: node20
   main: dist/index.js
