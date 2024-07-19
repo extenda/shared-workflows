@@ -1,6 +1,7 @@
 import fs from "fs";
 import core from "@actions/core";
 import Topology from "./lib/Topology.js";
+import path from "path";
 
 async function updateReadmeWithMermaidGraph(topologyContent, readmeFilePath) {
   try {
@@ -41,6 +42,13 @@ async function saveProcessorTopicsAndStoresAsJson(topologyContent, applicationId
     // Write the processor topics to a file
     const result = Topology.collectTopicsAndStores(topologyContent);
     result.applicationIds = applicationIdArray;
+
+    // Create the directory hierarchy if it doesn't exist
+    const outputFileDir = path.dirname(outputFilePath);
+    if (!fs.existsSync(outputFileDir)) {
+      fs.mkdirSync(outputFileDir, { recursive: true });
+    }
+
     fs.writeFileSync(outputFilePath, JSON.stringify(result, null, 2), "utf-8");
 
     console.info("Processor topics, state stores and application ids collected successfully.");
