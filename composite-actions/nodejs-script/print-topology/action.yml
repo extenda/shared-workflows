@@ -14,7 +14,7 @@ inputs:
     required: false
     default: 'README.md'
   applicationIds:
-    description: 'List of application ids provided as a JSON array string. For example: ["application-1", "application-2"]'
+    description: 'List of application ids (processor with multiple processing-functions will have many) provided as a JSON array string. For example: ["application-1", "application-2"]'
     required: false
     default: '[]'
 runs:
