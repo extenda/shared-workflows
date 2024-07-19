@@ -22,10 +22,11 @@ on:
         type: string
         required: false
         default: 'README.md'
-      processorName:
-        description: 'Name of the processor.'
+      applicationIds:
+        description: 'List of application ids (processor with multiple processing-functions will have many) provided as a JSON array string. For example: ["application-1", "application-2"].'
         type: string
-        required: true
+        required: false
+        default: '[]'
 
 jobs:
   update-readme-topology:
@@ -48,13 +49,13 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Update README & Collect topic and state store names
+      - name: Update README & Collect topics, state store names and application ids
         uses: extenda/shared-workflows/composite-actions/nodejs-script/print-topology@master
         with:
           topologyFilePath : ${{ inputs.topologyFilePath }}
           processorTopicsOutputFilePath : ${{ inputs.processorTopicsOutputFilePath }}
           readmeFilePath : ${{ inputs.readmeFilePath }}
-          processorName : ${{ inputs.processorName }}
+          applicationIds : ${{ inputs.applicationIds }}
 
       - name: Import GPG Key
         uses: crazy-max/ghaction-import-gpg@v5.3.0
