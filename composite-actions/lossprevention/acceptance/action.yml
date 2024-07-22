@@ -16,6 +16,10 @@ inputs:
     description: 'Environment to use'
     required: false
     default: './slp/tests/acceptance/integration_test.staging.postman_environment.json'
+  service-account-name:
+    description: 'service account name to use'
+    required: false
+    default: 'basketauditfrontend'
 
 runs:
   using: 'composite'
@@ -43,8 +47,8 @@ runs:
       uses: extenda/actions/identity-token@v0
       with:
         service-account-key: ${{ inputs.gcloud-auth }}
-        service-account: basketauditfrontend@${{ steps.gcloud.outputs.project-id }}.iam.gserviceaccount.com
-        audiences: basketauditfrontend
+        service-account: ${{ inputs.service-account-name }}@${{ steps.gcloud.outputs.project-id }}.iam.gserviceaccount.com
+        audiences: ${{ inputs.service-account-name }}
 
     - name: Acceptance tests
       shell: bash
