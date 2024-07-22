@@ -17,7 +17,7 @@ inputs:
     required: false
     default: './slp/tests/acceptance/integration_test.staging.postman_environment.json'
   audiences:
-    description: 'audience for service account'
+    description: 'Audience for service account'
     required: false
     default: 'basketauditfrontend'
 
