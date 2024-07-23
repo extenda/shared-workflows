@@ -40,10 +40,6 @@ inputs:
     default: false
     type: boolean
     required: false
-  with-component-tests:
-    description: "If true runs component tests"
-    default: 'true'
-    required: false
 
 runs:
   using: "composite"
@@ -104,7 +100,6 @@ runs:
 
     - name: Component tests
       uses: extenda/actions/component-tests@v0
-      if: ${{ inputs.with-component-tests == 'true' }}
       with:
         auth-token: ${{ env.IAM_TOKEN }}
         base-url: ${{ inputs.service-url }}
