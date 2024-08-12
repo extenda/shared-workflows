@@ -1,5 +1,5 @@
-name: 'Run database migration'
-description: 'Run database migration for the service'
+name: "Run database migration"
+description: "Run database migration for the service"
 on:
   push:
     branches:
@@ -7,28 +7,28 @@ on:
       - master
 inputs:
   IMAGE_NAME:
-    description: 'Image name to build and test on'
+    description: "Image name to build and test on"
     required: true
   SECRET_AUTH:
-    description: 'Auth for Nexus registry'
+    description: "Auth for Nexus registry"
     required: true
   GCLOUD_AUTH:
-    description: 'GCP Auth'
+    description: "GCP Auth"
     required: true
-  db_host_secret_name:
-    description: 'Key name of the database host in gcp secret manager'
+  db_instance_connection_name_secret_name:
+    description: "Key name of the database instance connection name in gcp secret manager"
     required: true
   db_port_secret_name:
-    description: 'Key name of the database port in gcp secret manager'
+    description: "Key name of the database port in gcp secret manager"
     required: true
   db_name_secret_name:
-    description: 'Key name of the database name in gcp secret manager'
+    description: "Key name of the database name in gcp secret manager"
     required: true
   db_user_secret_name:
-    description: 'Key name of the database user in gcp secret manager'
+    description: "Key name of the database user in gcp secret manager"
     required: true
   db_pass_secret_name:
-    description: 'Key name of the database password in gcp secret manager'
+    description: "Key name of the database password in gcp secret manager"
     required: true
 runs:
   using: "composite"
@@ -64,7 +64,7 @@ runs:
       with:
         service-account-key: ${{ inputs.GCLOUD_AUTH }}
         secrets: |
-          DB_HOST: ${{ inputs.db_host_secret_name }}
+          DB_INSTANCE_CONNECTION_NAME: ${{ inputs.db_instance_connection_name_secret_name }}
           DB_NAME: ${{ inputs.db_name_secret_name }}
           DB_USER: ${{ inputs.db_user_secret_name }}
           DB_PASS: ${{ inputs.db_pass_secret_name }}
@@ -74,7 +74,7 @@ runs:
       run: |
         curl -o cloud-sql-proxy https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.7.0/cloud-sql-proxy.linux.amd64
         chmod +x cloud-sql-proxy
-        nohup ./cloud-sql-proxy ${{ env.DB_HOST }} > cloud-sql-proxy.out 2> cloud-sql-proxy.err < /dev/null &
+        nohup ./cloud-sql-proxy ${{ env.DB_INSTANCE_CONNECTION_NAME }} > cloud-sql-proxy.out 2> cloud-sql-proxy.err < /dev/null &
         echo $!
         echo CLOUD_SQL_PROXY_PID=$(echo $!) >> $GITHUB_ENV
 

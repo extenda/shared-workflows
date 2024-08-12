@@ -10,11 +10,11 @@ An action to run database migration in nodejs api application.
         with:
           IMAGE: eu.gcr.io/extenda/user-profiles-api-migration
           GCLOUD_AUTH: ${{ secrets.GCLOUD_AUTH_STAGING }}
-          db_host_secret_name: postgresql_user_profile_private_address
-          db_port_secret_name: postgres_user_profile_db_port
-          db_name_secret_name: postgres_user_profile_db_name
-          db_user_secret_name: postgres_user_profile_role_name
-          db_pass_secret_name: postgres_user_profile_role_password
+          db_instance_connection_name_secret_name: postgresql_clan_instance_connection_name
+          db_port_secret_name: skip
+          db_name_secret_name: postgres_clan_user_profile_db_name
+          db_user_secret_name: postgres_clan_user_profile_role_name
+          db_pass_secret_name: postgres_clan_user_profile_role_password
 ```
 
 ### Requirements
