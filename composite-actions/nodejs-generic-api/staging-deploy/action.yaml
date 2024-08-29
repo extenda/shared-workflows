@@ -3,7 +3,7 @@ description: 'Deploy & run tests in staging'
 inputs:
   SECRET_AUTH:
     description: 'GCP Auth'
-    required: true 
+    required: true
   GCLOUD_AUTH:
     description: 'GCP Auth (staging)'
     required: true
@@ -41,7 +41,7 @@ inputs:
 runs:
   using: "composite"
   steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - uses: extenda/actions/setup-gcloud@v0
         id: gcloud
@@ -62,13 +62,13 @@ runs:
         run: |
           docker build -t ${{ inputs.image }}:${{ github.sha }} .
           docker push ${{ inputs.image }}:${{ github.sha }}
-     
+
       - name: Attest image
         uses: extenda/actions/binary-auth-attestation@v0
         with:
           image-path: ${{ inputs.image }}
           service-account-key: ${{ inputs.GCLOUD_AUTH }}
-          
+
       - name: Deploy to staging
         uses: extenda/actions/cloud-run@v0
         with:

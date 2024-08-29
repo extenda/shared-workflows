@@ -45,7 +45,7 @@ jobs:
         run: git pull origin ${{ github.ref }}
 
       - name: Set up Node.js
-        uses: actions/setup-node@v2
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
 
@@ -68,7 +68,7 @@ jobs:
           git_config_global: true
 
       - name: Commit and Push Changes
-        run: |  
+        run: |
           if [[ -n $(git status --porcelain) ]]; then
             git add .
             git -c user.name="Extenda-DevOps-Bot" -c user.email="devops_team@extenda.se" commit -S -m "Update ${{ inputs.readmeFilePath }}  topology"
