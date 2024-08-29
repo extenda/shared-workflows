@@ -45,7 +45,7 @@ on:
           Node version needed for k6 tests.
         type: number
         required: false
-        default: 14
+        default: 18
       k6-tests-root-folder:
         description: |
           k6 tests root folder.
@@ -100,41 +100,22 @@ jobs:
           service-account-key: ${{ secrets.SECRET_AUTH }}
           secrets: |
             NEXUS_PASSWORD: nexus-password
-            NEXUS_USERNAME: nexus-username
-            NUGET_API_KEY: nuget-api-key                           
+            NEXUS_USERNAME: nexus-username                        
         
       - name: Determine version
         uses: extenda/actions/conventional-version@v0
         id: semver
         with:
           build-number: ${{ github.run_number }}
-      
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '${{ inputs.dotnet-version }}.0.x'
 
-      - name: Setup NuGet
-        uses: NuGet/setup-nuget@v1
-        with:
-          nuget-version: 'latest'
-
-      - name: Setup NuGet sources
-        uses: extenda/actions/setup-nuget-sources@v0
-        with:
-          config-file: ${{ secrets.path-to-nuget-config || 'src/nuget.config' }}
-          sources: |
-            [{
-              "name": "nuget.org",
-              "source": "https://api.nuget.org/v3/index.json"
-            },
-            {
-              "name": "Extenda",
-              "source": "https://repo.extendaretail.com/repository/nuget-hosted/index.json",
-              "username": "${{ env.NEXUS_USERNAME }}",
-              "password": "${{ env.NEXUS_PASSWORD }}",
-              "apikey": "${{ env.NUGET_API_KEY }}"
-            }]
+      - name: Register nuget source
+        run: |
+          dotnet nuget add source "https://repo.extendaretail.com/repository/nuget-hosted/" --name "Extenda" --username ${{ env.NEXUS_USERNAME }} --password ${{ env.NEXUS_PASSWORD }} --store-password-in-clear-text
 
       - name: Start Sonar Scanner
         uses: extenda/actions/sonar-scanner@v0
@@ -181,29 +162,15 @@ jobs:
           secrets: |
             NEXUS_PASSWORD: nexus-password
             NEXUS_USERNAME: nexus-username
-            NUGET_API_KEY: nuget-api-key
 
-      - name: Setup NuGet
-        uses: NuGet/setup-nuget@v1
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
         with:
-          nuget-version: 'latest'
+          dotnet-version: '${{ inputs.dotnet-version }}.0.x'
 
-      - name: Setup NuGet sources
-        uses: extenda/actions/setup-nuget-sources@v0
-        with:
-          config-file: ${{ secrets.path-to-nuget-config || 'src/nuget.config' }}
-          sources: |
-            [{
-              "name": "nuget.org",
-              "source": "https://api.nuget.org/v3/index.json"
-            },
-            {
-              "name": "Extenda",
-              "source": "https://repo.extendaretail.com/repository/nuget-hosted/index.json",
-              "username": "${{ env.NEXUS_USERNAME }}",
-              "password": "${{ env.NEXUS_PASSWORD }}",
-              "apikey": "${{ env.NUGET_API_KEY }}"
-            }]
+      - name: Register nuget source
+        run: |
+          dotnet nuget add source "https://repo.extendaretail.com/repository/nuget-hosted/" --name "Extenda" --username ${{ env.NEXUS_USERNAME }} --password ${{ env.NEXUS_PASSWORD }} --store-password-in-clear-text
 
       - uses: extenda/actions/setup-gcloud@v0
         with:
