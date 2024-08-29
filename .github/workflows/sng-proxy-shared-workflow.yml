@@ -112,7 +112,10 @@ jobs:
 
       - name:  Code freeze check
         run: |
-          commit_message="${{ github.event.head_commit.message }}"
+          commit_message=$(cat <<EOF
+          ${{ github.event.head_commit.message }}
+          EOF
+          )
           if [[ "${{ inputs.code-freeze }}" == "true" && $commit_message != *"[force-deploy]"* ]]; then
             echo "Code freeze flag is enabled. Skipping deployment.";
             echo "To trigger a deployment that bypasses the code-freeze input checks, include '[force-deploy]' in the commit message.";
