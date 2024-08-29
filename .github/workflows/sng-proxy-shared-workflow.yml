@@ -78,6 +78,10 @@ on:
             Code freeze flag. Use this flag when there is a code freeze and code changes should not be deployed to staging and production environments.
         type: boolean
         required: false
+      release-to-staging-only:
+        description: 'A flag to stop deploy to Production after running acceptance tests in Staging'
+        type: boolean
+        required: false
 
 jobs:
   validate:
@@ -183,10 +187,11 @@ jobs:
             Acceptance failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{ github.job }}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
           channel: ${{ inputs.slack-channel }}
           service-account-key: ${{ secrets.secret-auth }}
-  
+
   release:
     if: |
       always() &&
+      (!inputs.release-to-staging-only) &&
       (needs.acceptance.result == 'success' || needs.acceptance.result == 'skipped') &&
       (needs.staging.result == 'success')
     runs-on: ubuntu-latest
@@ -233,6 +238,7 @@ jobs:
   deploy:
     if: |
       always() &&
+      (!inputs.release-to-staging-only) &&
       (needs.acceptance.result == 'success' || needs.acceptance.result == 'skipped') &&
       (needs.release.result == 'success' || needs.release.result == 'skipped') &&
       (needs.staging.result == 'success')

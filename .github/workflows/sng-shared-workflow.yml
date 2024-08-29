@@ -102,6 +102,10 @@
             Code freeze flag. Use this flag when there is a code freeze and code changes should not be deployed to staging and production environments.
         type: boolean
         required: false
+      release-to-staging-only:
+        description: 'A flag to stop deploy to Production after running acceptance tests in Staging'
+        type: boolean
+        required: false
 
 jobs:
   build:
@@ -198,7 +202,7 @@ jobs:
         uses: extenda/shared-workflows/composite-actions/dotnet-nuget-config@master
         with:
           secret-auth: ${{ secrets.secret-auth }}
-      
+
       - name: Build Docker image
         uses: extenda/shared-workflows/composite-actions/docker-build@master
         with:
@@ -275,6 +279,7 @@ jobs:
   production:
     if: |
       always() &&
+      (!inputs.release-to-staging-only) &&
       (needs.acceptance.result == 'success' || needs.acceptance.result == 'skipped') &&
       (needs.staging.result == 'success')
     runs-on: ubuntu-latest
