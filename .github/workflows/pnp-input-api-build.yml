@@ -14,10 +14,6 @@ on:
         description: |
           The path to the unit tests project/solution.
         required: true
-      path-to-dockerfile:
-        description: |
-          The path to the dockerfile which builds the API.
-        required: true
       path-to-acceptance-tests:
         description: |
           The path to the acceptance tests project/solution.
@@ -130,7 +126,8 @@ jobs:
 
       - name: Register nuget source
         run: |
-          dotnet nuget add source "https://repo.extendaretail.com/repository/nuget-hosted/" --name "Extenda" --username ${{ env.NEXUS_USERNAME }} --password ${{ env.NEXUS_PASSWORD }} --store-password-in-clear-text
+          dotnet nuget add source "https://repo.extendaretail.com/repository/nuget-hosted/" --name "Extenda" \
+            --username ${{ env.NEXUS_USERNAME }} --password ${{ env.NEXUS_PASSWORD }} --store-password-in-clear-text
 
       - name: Start Sonar Scanner
         uses: extenda/actions/sonar-scanner@v0
@@ -141,7 +138,8 @@ jobs:
 
       - name: Build dotnet solution
         run: |
-          dotnet build ${{ secrets.path-to-sln }} --configuration Release /p:Version=${{ steps.semver.outputs.semver }} /p:FileVersion=${{ steps.semver.outputs.version }}
+          dotnet build ${{ secrets.path-to-sln }} --configuration Release \
+            /p:Version=${{ steps.semver.outputs.semver }} /p:FileVersion=${{ steps.semver.outputs.version }}
 
       - name: Create/update Pact broker webhook
         if: ${{ inputs.do-pact-provider-tests == true }}
@@ -153,7 +151,8 @@ jobs:
 
       - name: Run Unit Tests
         run: |
-          dotnet test ${{ secrets.path-to-unit-tests }} --configuration Release --no-build /p:CollectCoverage=true /p:CoverletOutputFormat=opencover
+          dotnet test ${{ secrets.path-to-unit-tests }} --configuration Release --no-build \
+            /p:CollectCoverage=true /p:CoverletOutputFormat=opencover
         env:
           GIT_BRANCH: ${{ github.ref_name }}
           GIT_COMMIT: ${{ github.sha }}
@@ -217,7 +216,15 @@ jobs:
 
       - name: Register nuget source
         run: |
-          dotnet nuget add source "https://repo.extendaretail.com/repository/nuget-hosted/" --name "Extenda" --username ${{ env.NEXUS_USERNAME }} --password ${{ env.NEXUS_PASSWORD }} --store-password-in-clear-text  
+          dotnet nuget add source "https://repo.extendaretail.com/repository/nuget-hosted/" --name "Extenda" \
+            --username ${{ env.NEXUS_USERNAME }} --password ${{ env.NEXUS_PASSWORD }} \
+            --store-password-in-clear-text  
+
+      - name: Build container image
+        run: |
+          dotnet publish ${{ secrets.path-to-sln }} -r linux-x64 \
+            -p PublishProfile=DefaultContainer -p ContainerRepository=eu.gcr.io/extenda/${{ secrets.GCR_image_name }} \
+            -p ContainerImageTag=${{ github.sha }}
 
       - uses: extenda/actions/setup-gcloud@v0
         with:
@@ -226,14 +233,13 @@ jobs:
       - name: Build and push Docker
         run: |
           gcloud --quiet auth configure-docker
-          IMAGE=eu.gcr.io/extenda/${{ secrets.GCR_image_name }}
-          docker build -t $IMAGE:${{ github.sha }} -t $IMAGE:latest . -f ${{ secrets.path-to-dockerfile }}
-          docker push --all-tags $IMAGE
+          IMAGE=eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ github.sha }}
+          docker push $IMAGE
 
       - name: Attest image
         uses: extenda/actions/binary-auth-attestation@v0
         with:
-          image-path: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}
+          image-path: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ github.sha }}
           service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
 
       - name: Deploy to staging
@@ -319,7 +325,8 @@ jobs:
 
       - name: Register nuget source
         run: |
-          dotnet nuget add source "https://repo.extendaretail.com/repository/nuget-hosted/" --name "Extenda" --username ${{ env.NEXUS_USERNAME }} --password ${{ env.NEXUS_PASSWORD }} --store-password-in-clear-text
+          dotnet nuget add source "https://repo.extendaretail.com/repository/nuget-hosted/" --name "Extenda" \
+            --username ${{ env.NEXUS_USERNAME }} --password ${{ env.NEXUS_PASSWORD }} --store-password-in-clear-text
 
       - name: Run Acceptance Tests with IAM token
         run: |
