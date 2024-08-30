@@ -14,10 +14,6 @@ on:
         description: |
           The path to the unit tests project/solution.'
         required: true
-      path-to-nuget-config:
-        description: |
-          The path to the nuget config file.
-        required: false
       path-to-dockerfile:
         description: |
           The path to the dockerfile which builds the API.
