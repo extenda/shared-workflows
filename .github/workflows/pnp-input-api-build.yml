@@ -168,8 +168,7 @@ jobs:
 
       - name: Build dotnet solution
         run: |
-          dotnet build ${{ secrets.path-to-sln }} --configuration Release \
-            /p:Version=${{ steps.semver.outputs.semver }} /p:FileVersion=${{ steps.semver.outputs.version }}
+          dotnet build ${{ secrets.path-to-sln }} --configuration Release /p:Version=${{ steps.semver.outputs.semver }} /p:FileVersion=${{ steps.semver.outputs.version }}
 
       - name: Create/update Pact broker webhook
         if: ${{ inputs.do-pact-provider-tests == true }}
@@ -181,8 +180,7 @@ jobs:
 
       - name: Run Unit Tests
         run: |
-          dotnet test ${{ secrets.path-to-unit-tests }} --configuration Release --no-build \
-            /p:CollectCoverage=true /p:CoverletOutputFormat=opencover
+          dotnet test ${{ secrets.path-to-unit-tests }} --configuration Release --no-build /p:CollectCoverage=true /p:CoverletOutputFormat=opencover
         env:
           GIT_BRANCH: ${{ github.ref_name }}
           GIT_COMMIT: ${{ github.sha }}
