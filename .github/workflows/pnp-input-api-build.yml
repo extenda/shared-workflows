@@ -269,13 +269,14 @@ jobs:
       - name: Build and push Docker
         run: |
           gcloud --quiet auth configure-docker
-          IMAGE=eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ github.sha }}
-          docker push $IMAGE
-
+          IMAGE=eu.gcr.io/extenda/${{ secrets.GCR_image_name }}
+          docker build -t $IMAGE:${{ github.sha }} -t $IMAGE:latest . -f ${{ secrets.path-to-dockerfile }}
+          docker push --all-tags $IMAGE
+  
       - name: Attest image
         uses: extenda/actions/binary-auth-attestation@v0
         with:
-          image-path: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ github.sha }}
+          image-path: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}
           service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
 
       - name: Deploy to staging
