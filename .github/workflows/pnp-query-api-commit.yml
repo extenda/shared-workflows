@@ -1,39 +1,32 @@
-name: Build and Deploy
+name: PNP Query API commit workflow
 on:
   workflow_call:
     secrets:
-      GCR_image_name:
-        description: |
-          The name of the image to be created in GCR.
-        required: true
-      path-to-sln:
-        description: |
-          The path to the solution.
-        required: true
-      path-to-unit-tests:
-        description: |
-          The path to the unit tests project/solution.'
-        required: true
-      path-to-nuget-config:
-        description: |
-          The path to the nuget config file.
-        required: false
-      path-to-dockerfile:
-        description: |
-          The path to the dockerfile which builds the API.
-        required: true
-      staging-service-base-url:
-        description: 
-          The base url of the service in staging.
-        required: false
-      slack-channel:
-        description: |
-          The slack channel which needs to be notified in case of failure.
-        required: false
       SECRET_AUTH:
         required: true
       GCLOUD_AUTH_STAGING:
         required: true
+      IMAGE_NAME:
+        description: |
+          The name of the image to be created in GCR.
+        required: true
+      PATH_TO_SOLUTION:
+        description: |
+          The path to the solution.
+        required: true
+      PATH_TO_UNIT_TESTS:
+        description: |
+          The path to the unit tests project/solution.
+        required: true
+      SERVICE_BASE_URL_STAGING:
+        description: 
+          The base url of the service in staging.
+        required: false
+      SLACK_CHANNEL:
+        description: |
+          The slack channel which needs to be notified in case of failure.
+        required: false
+
     inputs:
       has-k6-tests:
         description: |
@@ -100,8 +93,7 @@ jobs:
           service-account-key: ${{ secrets.SECRET_AUTH }}
           secrets: |
             NEXUS_PASSWORD: nexus-password
-            NEXUS_USERNAME: nexus-username
-            NUGET_API_KEY: nuget-api-key                      
+            NEXUS_USERNAME: nexus-username                        
         
       - name: Determine version
         uses: extenda/actions/conventional-version@v0
@@ -114,27 +106,11 @@ jobs:
         with:
           dotnet-version: '${{ inputs.dotnet-version }}.0.x'
 
-      - name: Setup NuGet
-        uses: NuGet/setup-nuget@v1
-        with:
-          nuget-version: 'latest'
-  
-      - name: Setup NuGet sources
-        uses: extenda/actions/setup-nuget-sources@v0
-        with:
-          config-file: ${{ secrets.path-to-nuget-config || 'src/nuget.config' }}
-          sources: |
-            [{
-              "name": "nuget.org",
-              "source": "https://api.nuget.org/v3/index.json"
-            },
-            {
-              "name": "Extenda",
-              "source": "https://repo.extendaretail.com/repository/nuget-hosted/index.json",
-              "username": "${{ env.NEXUS_USERNAME }}",
-              "password": "${{ env.NEXUS_PASSWORD }}",
-              "apikey": "${{ env.NUGET_API_KEY }}"
-            }]
+      - name: Register nuget source
+        run: |
+          dotnet nuget add source "https://repo.extendaretail.com/repository/nuget-hosted/" --name "Extenda" \
+            --username ${{ env.NEXUS_USERNAME }} --password ${{ env.NEXUS_PASSWORD }} \
+            --store-password-in-clear-text
 
       - name: Start Sonar Scanner
         uses: extenda/actions/sonar-scanner@v0
@@ -145,11 +121,13 @@ jobs:
 
       - name: Build dotnet solution
         run: |
-          dotnet build ${{ secrets.path-to-sln }} -c Release /p:Version=${{ steps.semver.outputs.semver }}
+          dotnet build ${{ secrets.PATH_TO_SOLUTION }} --configuration Release \
+            /p:Version=${{ steps.semver.outputs.semver }}
       
       - name: Test dotnet solution
         run: |
-          dotnet test ${{ secrets.path-to-unit-tests }} -c Release --no-build /p:CollectCoverage=true /p:CoverletOutputFormat=opencover
+          dotnet test ${{ secrets.PATH_TO_UNIT_TESTS }} --configuration Release --no-build \
+            /p:CollectCoverage=true /p:CoverletOutputFormat=opencover
 
       - name: Analyze with Sonar  
         uses: extenda/actions/sonar-scanner@v0
@@ -165,7 +143,7 @@ jobs:
           text: |
             *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
             Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
-          channel: ${{ secrets.slack-channel }}
+          channel: ${{ secrets.SLACK_CHANNEL }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
   staging:
@@ -181,29 +159,23 @@ jobs:
           secrets: |
             NEXUS_PASSWORD: nexus-password
             NEXUS_USERNAME: nexus-username
-            NUGET_API_KEY: nuget-api-key
 
-      - name: Setup NuGet
-        uses: NuGet/setup-nuget@v1
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
         with:
-          nuget-version: 'latest'
+          dotnet-version: '${{ inputs.dotnet-version }}.0.x'
 
-      - name: Setup NuGet sources
-        uses: extenda/actions/setup-nuget-sources@v0
-        with:
-          config-file: ${{ secrets.path-to-nuget-config || 'src/nuget.config' }}
-          sources: |
-            [{
-              "name": "nuget.org",
-              "source": "https://api.nuget.org/v3/index.json"
-            },
-            {
-              "name": "Extenda",
-              "source": "https://repo.extendaretail.com/repository/nuget-hosted/index.json",
-              "username": "${{ env.NEXUS_USERNAME }}",
-              "password": "${{ env.NEXUS_PASSWORD }}",
-              "apikey": "${{ env.NUGET_API_KEY }}"
-            }]
+      - name: Register nuget source
+        run: |
+          dotnet nuget add source "https://repo.extendaretail.com/repository/nuget-hosted/" --name "Extenda" \
+            --username ${{ env.NEXUS_USERNAME }} --password ${{ env.NEXUS_PASSWORD }} \
+            --store-password-in-clear-text
+
+      - name: Build container image
+        run: |
+          dotnet publish ${{ secrets.PATH_TO_SOLUTION }} -r linux-x64 \
+            -p PublishProfile=DefaultContainer -p ContainerRepository=eu.gcr.io/extenda/${{ secrets.IMAGE_NAME }} \
+            -p ContainerImageTag=${{ github.sha }}
 
       - uses: extenda/actions/setup-gcloud@v0
         with:
@@ -212,14 +184,13 @@ jobs:
       - name: Build and push Docker
         run: |
           gcloud --quiet auth configure-docker
-          IMAGE=eu.gcr.io/extenda/${{ secrets.GCR_image_name }}
-          docker build -t $IMAGE:${{ github.sha }} -t $IMAGE:latest . -f ${{ secrets.path-to-dockerfile }}
-          docker push --all-tags $IMAGE
+          IMAGE=eu.gcr.io/extenda/${{ secrets.IMAGE_NAME }}:${{ github.sha }}
+          docker push $IMAGE
 
       - name: Attest image
         uses: extenda/actions/binary-auth-attestation@v0
         with:
-          image-path: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}
+          image-path: eu.gcr.io/extenda/${{ secrets.IMAGE_NAME }}:${{ github.sha }}
           service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
 
       - name: Deploy to staging
@@ -227,7 +198,7 @@ jobs:
         with:
           secrets-account-key: ${{ secrets.SECRET_AUTH }}
           service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
-          image: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ github.sha }}
+          image: eu.gcr.io/extenda/${{ secrets.IMAGE_NAME }}:${{ github.sha }}
           update-dns: always
       
       - name: Notify Slack if failed
@@ -237,7 +208,7 @@ jobs:
           text: |
             *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
             Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
-          channel: ${{ secrets.slack-channel }}
+          channel: ${{ secrets.SLACK_CHANNEL }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
   acceptance:
@@ -278,7 +249,7 @@ jobs:
         uses: k6io/action@v0.2.0
         with:
           filename: ${{ inputs.k6-tests-root-folder }}/${{ matrix.k6-test-file-name }}
-          flags: --env IAM_TOKEN=${{ steps.testtoken.outputs.iam-token }} --env SERVICE_BASE_URL=${{ secrets.staging-service-base-url }}
+          flags: --env IAM_TOKEN=${{ steps.testtoken.outputs.iam-token }} --env SERVICE_BASE_URL=${{ secrets.SERVICE_BASE_URL_STAGING }}
 
       - name: Notify Slack if failed
         if: failure()
@@ -287,7 +258,7 @@ jobs:
           text: |
             *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
             Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
-          channel: ${{ secrets.slack-channel }}
+          channel: ${{ secrets.SLACK_CHANNEL }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
   release:
@@ -316,8 +287,8 @@ jobs:
       - name: Add tag in GCR
         run: |
           gcloud container images add-tag \
-            eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ github.sha }} \
-            eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.release.outputs.version }}
+            eu.gcr.io/extenda/${{ secrets.IMAGE_NAME }}:${{ github.sha }} \
+            eu.gcr.io/extenda/${{ secrets.IMAGE_NAME }}:${{ steps.release.outputs.version }}
       
       - name: Notify Slack if failed
         if: failure()
@@ -326,5 +297,5 @@ jobs:
           text: |
             *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
             Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
-          channel: ${{ secrets.slack-channel }}
+          channel: ${{ secrets.SLACK_CHANNEL }}
           service-account-key: ${{ secrets.SECRET_AUTH }}

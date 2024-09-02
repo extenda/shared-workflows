@@ -1,56 +1,44 @@
-name: PNP Input API build workflow
+name: PNP Input API commit workflow
 on:
   workflow_call:
     secrets:
-      GCR_image_name:
-        description: |
-          The name of the image to be created in GCR.
-        required: true
-      path-to-sln:
-        description: |
-          The path to the solution.
-        required: true
-      path-to-unit-tests:
-        description: |
-          The path to the unit tests project/solution.
-        required: true
-      path-to-nuget-config:
-        description: |
-          The path to the nuget config file.
-        required: false
-      path-to-dockerfile:
-        description: |
-          The path to the dockerfile which builds the API.
-        required: true
-      path-to-acceptance-tests:
-        description: |
-          The path to the acceptance tests project/solution.
-        required: true
-      path-to-acceptance-tests-nuget-config:
-        description: |
-          The path to the acceptance tests nuget config file.
-        required: true
-      staging-service-base-url:
-        description: |
-          The base url of the service in staging.
-        required: true
-      slack-channel:
-        description: |
-          The slack channel which needs to be notified in case of failure.
-        required: false
       SECRET_AUTH:
         required: true
       GCLOUD_AUTH_STAGING:
         required: true
-      pact-application-id:
+      IMAGE_NAME:
+        description: |
+          The name of the image to be created in GCR.
+        required: true
+      PATH_TO_SOLUTION:
+        description: |
+          The path to the solution.
+        required: true
+      PATH_TO_UNIT_TESTS:
+        description: |
+          The path to the unit tests project/solution.
+        required: true
+      PATH_TO_ACCEPTANCE_TESTS:
+        description: |
+          The path to the acceptance tests project/solution.
+        required: true
+      SERVICE_BASE_URL_STAGING:
+        description: |
+          The base url of the service in staging.
+        required: true
+      SLACK_CHANNEL:
+        description: |
+          The slack channel which needs to be notified in case of failure.
         required: false
-      pact-webhook-id:
+      PACT_APPLICATION_ID:
         required: false
-      wid-token-audience:
+      PACT_WEBHOOK_ID:
+        required: false
+      WID_TOKEN_AUDIENCE:
         description: |
           The audience of the generated Workload Identity token. Should be the name of the receiving service.
         required: false
-      wid-token-service-account:
+      WID_TOKEN_SERVICE_ACCOUNT:
         description: |
           The service account of the requestor service. Will be used during Workload Identity token generation.
         required: false
@@ -122,7 +110,6 @@ jobs:
           secrets: |
             NEXUS_PASSWORD: nexus-password
             NEXUS_USERNAME: nexus-username
-            NUGET_API_KEY: nuget-api-key
             PACT_BROKER_PASSWORD: pact-broker-password
             PACT_BROKER_USERNAME: pact-broker-username
 
@@ -137,27 +124,11 @@ jobs:
         with:
           dotnet-version: '${{ inputs.dotnet-version }}.0.x'
 
-      - name: Setup NuGet
-        uses: NuGet/setup-nuget@v1
-        with:
-          nuget-version: 'latest'
-
-      - name: Setup NuGet sources
-        uses: extenda/actions/setup-nuget-sources@v0
-        with:
-          config-file: ${{ secrets.path-to-nuget-config || 'src/nuget.config' }}
-          sources: |
-            [{
-              "name": "nuget.org",
-              "source": "https://api.nuget.org/v3/index.json"
-            },
-            {
-              "name": "Extenda",
-              "source": "https://repo.extendaretail.com/repository/nuget-hosted/index.json",
-              "username": "${{ env.NEXUS_USERNAME }}",
-              "password": "${{ env.NEXUS_PASSWORD }}",
-              "apikey": "${{ env.NUGET_API_KEY }}"
-            }]
+      - name: Register nuget source
+        run: |
+          dotnet nuget add source "https://repo.extendaretail.com/repository/nuget-hosted/" --name "Extenda" \
+            --username ${{ env.NEXUS_USERNAME }} --password ${{ env.NEXUS_PASSWORD }} \
+            --store-password-in-clear-text
 
       - name: Start Sonar Scanner
         uses: extenda/actions/sonar-scanner@v0
@@ -168,19 +139,21 @@ jobs:
 
       - name: Build dotnet solution
         run: |
-          dotnet build ${{ secrets.path-to-sln }} --configuration Release /p:Version=${{ steps.semver.outputs.semver }} /p:FileVersion=${{ steps.semver.outputs.version }}
+          dotnet build ${{ secrets.PATH_TO_SOLUTION }} --configuration Release \
+            /p:Version=${{ steps.semver.outputs.semver }} /p:FileVersion=${{ steps.semver.outputs.version }}
 
       - name: Create/update Pact broker webhook
         if: ${{ inputs.do-pact-provider-tests == true }}
         uses: extenda/actions/pact-create-webhook@v0
         with:
           service-account-key: ${{ secrets.SECRET_AUTH }}
-          application-name: ${{ secrets.pact-application-id }}
-          uuid: ${{secrets.pact-webhook-id}}
+          application-name: ${{ secrets.PACT_APPLICATION_ID }}
+          uuid: ${{secrets.PACT_WEBHOOK_ID}}
 
       - name: Run Unit Tests
         run: |
-          dotnet test ${{ secrets.path-to-unit-tests }} --configuration Release --no-build /p:CollectCoverage=true /p:CoverletOutputFormat=opencover
+          dotnet test ${{ secrets.PATH_TO_UNIT_TESTS }} --configuration Release --no-build \
+            /p:CollectCoverage=true /p:CoverletOutputFormat=opencover
         env:
           GIT_BRANCH: ${{ github.ref_name }}
           GIT_COMMIT: ${{ github.sha }}
@@ -198,14 +171,14 @@ jobs:
         uses: extenda/actions/pact-create-version@v0
         with:
           service-account-key: ${{ secrets.SECRET_AUTH }}
-          application-name: ${{ secrets.pact-application-id }}
+          application-name: ${{ secrets.PACT_APPLICATION_ID }}
 
       - name: Can I deploy - provider?
         if: ${{ inputs.do-pact-provider-tests == true }}
         uses: extenda/actions/pact-can-i-deploy@v0
         with:
           service-account-key: ${{ secrets.SECRET_AUTH }}
-          application-name: ${{ secrets.pact-application-id }}
+          application-name: ${{ secrets.PACT_APPLICATION_ID }}
           retry-while-unknown: 15
           retry-interval: 10
           dry-run: ${{ inputs.is-pact-provider-can-i-deploy-dry-run }}
@@ -218,7 +191,7 @@ jobs:
           text: |
             *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
             Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
-          channel: ${{ secrets.slack-channel }}
+          channel: ${{ secrets.SLACK_CHANNEL }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
   staging:
@@ -236,29 +209,23 @@ jobs:
           secrets: |
             NEXUS_PASSWORD: nexus-password
             NEXUS_USERNAME: nexus-username
-            NUGET_API_KEY: nuget-api-key
 
-      - name: Setup NuGet
-        uses: NuGet/setup-nuget@v1
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
         with:
-          nuget-version: 'latest'
+          dotnet-version: '${{ inputs.dotnet-version }}.0.x'
 
-      - name: Setup NuGet sources
-        uses: extenda/actions/setup-nuget-sources@v0
-        with:
-          config-file: ${{ secrets.path-to-nuget-config || 'src/nuget.config' }}
-          sources: |
-            [{
-              "name": "nuget.org",
-              "source": "https://api.nuget.org/v3/index.json"
-            },
-            {
-              "name": "Extenda",
-              "source": "https://repo.extendaretail.com/repository/nuget-hosted/index.json",
-              "username": "${{ env.NEXUS_USERNAME }}",
-              "password": "${{ env.NEXUS_PASSWORD }}",
-              "apikey": "${{ env.NUGET_API_KEY }}"
-            }]
+      - name: Register nuget source
+        run: |
+          dotnet nuget add source "https://repo.extendaretail.com/repository/nuget-hosted/" --name "Extenda" \
+            --username ${{ env.NEXUS_USERNAME }} --password ${{ env.NEXUS_PASSWORD }} \
+            --store-password-in-clear-text  
+
+      - name: Build container image
+        run: |
+          dotnet publish ${{ secrets.PATH_TO_SOLUTION }} -r linux-x64 \
+            -p PublishProfile=DefaultContainer -p ContainerRepository=eu.gcr.io/extenda/${{ secrets.IMAGE_NAME }} \
+            -p ContainerImageTag=${{ github.sha }}
 
       - uses: extenda/actions/setup-gcloud@v0
         with:
@@ -267,14 +234,13 @@ jobs:
       - name: Build and push Docker
         run: |
           gcloud --quiet auth configure-docker
-          IMAGE=eu.gcr.io/extenda/${{ secrets.GCR_image_name }}
-          docker build -t $IMAGE:${{ github.sha }} -t $IMAGE:latest . -f ${{ secrets.path-to-dockerfile }}
-          docker push --all-tags $IMAGE
-  
+          IMAGE=eu.gcr.io/extenda/${{ secrets.IMAGE_NAME }}:${{ github.sha }}
+          docker push $IMAGE
+
       - name: Attest image
         uses: extenda/actions/binary-auth-attestation@v0
         with:
-          image-path: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}
+          image-path: eu.gcr.io/extenda/${{ secrets.IMAGE_NAME }}:${{ github.sha }}
           service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
 
       - name: Deploy to staging
@@ -282,7 +248,7 @@ jobs:
         with:
           secrets-account-key: ${{ secrets.SECRET_AUTH }}
           service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
-          image: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ github.sha }}
+          image: eu.gcr.io/extenda/${{ secrets.IMAGE_NAME }}:${{ github.sha }}
           update-dns: always
 
       - name: PACT record deploy to STAGING
@@ -290,7 +256,7 @@ jobs:
         uses: extenda/actions/pact-record-deployment@v0
         with:
           service-account-key: ${{ secrets.SECRET_AUTH }}
-          application-name: ${{ secrets.pact-application-id }}
+          application-name: ${{ secrets.PACT_APPLICATION_ID }}
           release-version: ${{ github.sha }}
           env: 'staging'
 
@@ -301,7 +267,7 @@ jobs:
           text: |
             *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
             Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
-          channel: ${{ secrets.slack-channel }}
+          channel: ${{ secrets.SLACK_CHANNEL }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
   acceptance:
@@ -319,7 +285,6 @@ jobs:
           secrets: |
             NEXUS_PASSWORD: nexus-password
             NEXUS_USERNAME: nexus-username
-            NUGET_API_KEY: nuget-api-key
             API_KEY: api-key-hiidentity-staff
 
       - uses: extenda/actions/gcp-secret-manager@v0
@@ -339,7 +304,7 @@ jobs:
         id: wid-token-secrets-check
         shell: bash
         run: |
-          if [ "${{ secrets.wid-token-audience }}" != '' ] && [ "${{ secrets.wid-token-service-account }}" != '' ]; then
+          if [ "${{ secrets.WID_TOKEN_AUDIENCE }}" != '' ] && [ "${{ secrets.WID_TOKEN_SERVICE_ACCOUNT }}" != '' ]; then
             echo "secretsProvided=true" >> $GITHUB_OUTPUT;
           else
             echo "secretsProvided=false" >> $GITHUB_OUTPUT;
@@ -351,49 +316,32 @@ jobs:
         uses: extenda/actions/identity-token@v0
         with:
           service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
-          service-account: ${{ secrets.wid-token-service-account}}
-          audiences: ${{ secrets.wid-token-audience }}
+          service-account: ${{ secrets.WID_TOKEN_SERVICE_ACCOUNT}}
+          audiences: ${{ secrets.WID_TOKEN_AUDIENCE }}
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '${{ inputs.dotnet-version }}.0.x'
 
-      - name: Setup NuGet
-        uses: NuGet/setup-nuget@v1
-        with:
-          nuget-version: 'latest'
-
-      - name: Setup NuGet sources
-        uses: extenda/actions/setup-nuget-sources@v0
-        with:
-          config-file: ${{ secrets.path-to-acceptance-tests-nuget-config }}
-          sources: |
-            [{
-              "name": "nuget.org",
-              "source": "https://api.nuget.org/v3/index.json"
-            },
-            {
-              "name": "Extenda",
-              "source": "https://repo.extendaretail.com/repository/nuget-hosted/index.json",
-              "username": "${{ env.NEXUS_USERNAME }}",
-              "password": "${{ env.NEXUS_PASSWORD }}",
-              "apikey": "${{ env.NUGET_API_KEY }}"
-            }]
+      - name: Register nuget source
+        run: |
+          dotnet nuget add source "https://repo.extendaretail.com/repository/nuget-hosted/" --name "Extenda" \
+            --username ${{ env.NEXUS_USERNAME }} --password ${{ env.NEXUS_PASSWORD }} --store-password-in-clear-text
 
       - name: Run Acceptance Tests with IAM token
         run: |
-          dotnet test ${{ secrets.path-to-acceptance-tests }}
+          dotnet test ${{ secrets.PATH_TO_ACCEPTANCE_TESTS }}
         env:
-          API_URL: ${{ secrets.staging-service-base-url }}
+          API_URL: ${{ secrets.SERVICE_BASE_URL_STAGING }}
           BEARER_TOKEN: ${{ steps.testtoken.outputs.iam-token }}
 
       - name: Run Acceptance Tests with WID token
         if: ${{ steps.wid-token-secrets-check.outputs.secretsProvided == 'true' }}
         run: |
-          dotnet test ${{ secrets.path-to-acceptance-tests }}
+          dotnet test ${{ secrets.PATH_TO_ACCEPTANCE_TESTS }}
         env:
-          API_URL: ${{ secrets.staging-service-base-url }}
+          API_URL: ${{ secrets.SERVICE_BASE_URL_STAGING }}
           BEARER_TOKEN: ${{ steps.identitytoken.outputs.identity-token }}
           TENANT_ID: ${{ env.TEST_TENANT_ID }}
 
@@ -404,7 +352,7 @@ jobs:
           text: |
             *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
             Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
-          channel: ${{ secrets.slack-channel }}
+          channel: ${{ secrets.SLACK_CHANNEL }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
   release:
@@ -429,15 +377,15 @@ jobs:
       - name: Add tag in GCR
         run: |
           gcloud container images add-tag \
-            eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ github.sha }} \
-            eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.release.outputs.version }}
+            eu.gcr.io/extenda/${{ secrets.IMAGE_NAME }}:${{ github.sha }} \
+            eu.gcr.io/extenda/${{ secrets.IMAGE_NAME }}:${{ steps.release.outputs.version }}
 
       - name: Create Pact STAGING release
         if: ${{ inputs.do-pact-provider-tests == true }}
         uses: extenda/actions/pact-tag-version@v0
         with:
           service-account-key: ${{ secrets.SECRET_AUTH }}
-          application-name: ${{ secrets.pact-application-id }}
+          application-name: ${{ secrets.PACT_APPLICATION_ID }}
           release-tag: ${{ steps.release.outputs.release-tag }}
           env: 'staging'
 
@@ -448,5 +396,5 @@ jobs:
           text: |
             *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
             Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
-          channel: ${{ secrets.slack-channel }}
+          channel: ${{ secrets.SLACK_CHANNEL }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
