@@ -136,6 +136,7 @@ jobs:
           sonar-host: https://sonarcloud.io
           sonar-scanner: dotnet
           service-account-key: ${{ secrets.SECRET_AUTH }}
+          dotnet-args: /d:sonar.scanner.scanAll=false
 
       - name: Build dotnet solution
         run: |
