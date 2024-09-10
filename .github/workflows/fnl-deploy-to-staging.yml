@@ -24,7 +24,7 @@ on:
         type: boolean
         default: if-missing
       notify-slack-on-fail:
-        description: "If true notifies slack channel specified in secrets in case this workflow fails"
+        description: If true notifies slack channel specified in secrets in case this workflow fails
         default: false
         type: boolean
         required: false
