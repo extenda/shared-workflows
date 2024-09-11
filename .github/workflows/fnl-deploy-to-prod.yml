@@ -58,7 +58,7 @@ jobs:
           with:
             permission-prefix: ${{ inputs.permission-prefix }}
             service-name: ${{ inputs.service-name }}
-            styra-das-token: ${{ env.STYRA_TOKEN }}
+            styra-das-token: ${{ secrets.STYRA_TOKEN }}
 
         - name: Create release
           uses: extenda/actions/conventional-release@v0
