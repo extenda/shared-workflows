@@ -75,4 +75,4 @@ jobs:
               *Deploy to staging failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
               Deploy failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
             channel: ${{ inputs.slack-channel }}
-            service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
+            service-account-key: ${{ secrets.SECRET_AUTH }}
