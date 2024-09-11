@@ -68,7 +68,7 @@ jobs:
             update-dns: ${{ inputs.update-dns }}
 
         - name: Notify Slack if failed
-          if: ${{ failure() && inputs.notify-slack-on-fail }}
+          if: ${{ failure() && inputs.notify-slack-on-fail == 'true' }}
           uses: extenda/actions/slack-notify@v0
           with:
             text: |
