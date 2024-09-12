@@ -7,8 +7,6 @@ on:
         required: true
       SECRET_AUTH:
         required: true
-      GITHUB_TOKEN:
-        required: true
       STYRA_TOKEN:
         required: false
     inputs:
