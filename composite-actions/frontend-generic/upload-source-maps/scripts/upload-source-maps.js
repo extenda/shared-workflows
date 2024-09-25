@@ -1,9 +1,9 @@
 const fs = require("fs");
 const path = require("path");
 
-const BUILD_DIR = process.env.BUILD_DIR ?? `/dist/recon/`;
-const SERVICE_NAME = process.env.SERVICE_NAME ?? "hiiretail-in-store-landing";
-const SERVICE_VERSION = process.env.SERVICE_VERSION ?? "1";
+const BUILD_DIR = process.env.BUILD_DIR;
+const SERVICE_NAME = process.env.SERVICE_NAME;
+const SERVICE_VERSION = process.env.SERVICE_VERSION;
 
 const ELASTICSEARCH_URL = process.env.ELASTICSEARCH_URL;
 const ELASTICSEARCH_API_KEY = process.env.ELASTICSEARCH_API_KEY;
