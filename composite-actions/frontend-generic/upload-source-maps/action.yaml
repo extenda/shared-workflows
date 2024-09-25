@@ -1,0 +1,71 @@
+name: Source map upload
+description: "A GitHub Action to manage source maps by uploading and deleting them in Elasticsearch."
+
+on:
+  workflow_run:
+    workflows: ["Commit"]
+    types:
+      - completed
+
+inputs:
+  SERVICE_NAME:
+    description: "Service name for the source maps"
+    required: true
+  SERVICE_VERSION:
+    description: "Service version"
+    required: true
+  BUILD_DIR:
+    description: "Build directory containing source maps"
+    required: true
+  SECRET_AUTH:
+    description: "GCP Auth"
+    required: true
+  GCLOUD_AUTH_STAGING:
+    description: "GCP Auth (staging)"
+    required: true
+  ELASTICSEARCH_URL:
+    description: "Elasticsearch URL"
+    required: true
+  ELASTICSEARCH_API_KEY:
+    description: "Elasticsearch API Key"
+    required: true
+
+jobs:
+  prod:
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.ref == 'refs/heads/master' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 20
+
+      - name: Auth to Nexus npm registry
+        uses: extenda/actions/nexus-auth-npm@v0
+        with:
+          service-account-key: ${{ inputs.SECRET_AUTH }}
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Build
+        run: yarn run build
+
+      - name: Setting secrets
+        uses: extenda/actions/gcp-secret-manager@v0
+        with:
+          service-account-key: ${{ inputs.GCLOUD_AUTH_STAGING }}
+          secrets: |
+            ELASTICSEARCH_API_KEY: ${{ inputs.ELASTICSEARCH_API_KEY }}
+            ELASTICSEARCH_URL: ${{ inputs.ELASTICSEARCH_URL }}
+
+      - name: Upload source maps
+        run: node ./scripts/upload-source-maps.js
+        env:
+          SERVICE_NAME: ${{ inputs.SERVICE_NAME }}
+          SERVICE_VERSION: ${{ inputs.SERVICE_VERSION }}
+          BUILD_DIR: ${{ inputs.BUILD_DIR }}
