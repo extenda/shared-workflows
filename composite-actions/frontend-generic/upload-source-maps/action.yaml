@@ -1,11 +1,5 @@
-name: Source map upload
+name: Source Map Upload
 description: "A GitHub Action to manage source maps by uploading and deleting them in Elasticsearch."
-
-on:
-  workflow_run:
-    workflows: ["Commit"]
-    types:
-      - completed
 
 inputs:
   SERVICE_NAME:
@@ -18,22 +12,24 @@ inputs:
     description: "Build directory containing source maps"
     required: true
   SECRET_AUTH:
-    description: "GCP Auth"
+    description: "Service account key for authentication"
     required: true
   GCLOUD_AUTH_STAGING:
-    description: "GCP Auth (staging)"
+    description: "GCP Auth for staging"
     required: true
 
 runs:
   using: composite
   steps:
-    - uses: actions/checkout@v3
+    - name: Checkout the repository
+      uses: actions/checkout@v3
       with:
         fetch-depth: 0
 
-    - uses: actions/setup-node@v3
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
       with:
-        node-version: 20
+        node-version: "20"
 
     - name: Auth to Nexus npm registry
       uses: extenda/actions/nexus-auth-npm@v0
@@ -48,7 +44,7 @@ runs:
       shell: bash
       run: yarn run build
 
-    - name: Setting secrets
+    - name: Set GCP Secrets from Secret Manager
       uses: extenda/actions/gcp-secret-manager@v0
       with:
         service-account-key: ${{ inputs.GCLOUD_AUTH_STAGING }}
@@ -56,9 +52,12 @@ runs:
           ELASTICSEARCH_API_KEY: frontend-elasticsearch-api-key
           ELASTICSEARCH_URL: frontend-elasticsearch-sourcemaps-url
 
+    - name: List files in upload-source-maps directory
+      run: ls -la ./composite-actions/frontend-generic/upload-source-maps/scripts/
+
     - name: Upload source maps
       shell: bash
-      run: node composite-actions/frontend-generic/upload-source-maps/scripts/upload-source-maps.js
+      run: node ./composite-actions/frontend-generic/upload-source-maps/scripts/upload-source-maps.js
       env:
         SERVICE_NAME: ${{ inputs.SERVICE_NAME }}
         SERVICE_VERSION: ${{ inputs.SERVICE_VERSION }}
