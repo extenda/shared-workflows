@@ -30,6 +30,7 @@ async function getExistingSourceMaps() {
 function getBuildSourceMaps() {
   try {
     const filePath = path.join(__dirname, BUILD_DIR);
+    console.log(filePath);
     const files = fs.readdirSync(filePath);
 
     return files
