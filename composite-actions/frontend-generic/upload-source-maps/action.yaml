@@ -54,7 +54,7 @@ runs:
 
     - name: List files in upload-source-maps directory
       shell: bash
-      run: ls -la ./composite-actions/frontend-generic/upload-source-maps/scripts/
+      run: ls -la
 
     - name: Upload source maps
       shell: bash
