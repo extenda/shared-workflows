@@ -61,7 +61,7 @@ runs:
 
     - name: List files in upload-source-maps directory
       shell: bash
-      run: ls -la ./shared-workflows
+      run: ls -la ./shared-workflows/composite-actions/frontend-generic/upload-source-maps/scripts/
 
     - name: Upload source maps
       shell: bash
