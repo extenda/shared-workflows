@@ -58,7 +58,7 @@ runs:
 
     - name: Upload source maps
       shell: bash
-      run: node ./scripts/upload-source-maps.js
+      run: node scripts/upload-source-maps.js
       env:
         SERVICE_NAME: ${{ inputs.SERVICE_NAME }}
         SERVICE_VERSION: ${{ inputs.SERVICE_VERSION }}
