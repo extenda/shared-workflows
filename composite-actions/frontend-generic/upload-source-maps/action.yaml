@@ -25,8 +25,7 @@ inputs:
     required: true
 
 jobs:
-  prod:
-    if: ${{ github.event.workflow_run.conclusion == 'success' && github.ref == 'refs/heads/master' }}
+  source-maps-upload:
     runs-on: ubuntu-latest
 
     steps:
