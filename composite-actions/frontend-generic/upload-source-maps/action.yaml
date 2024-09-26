@@ -26,6 +26,7 @@ inputs:
 
 jobs:
   source-maps-upload:
+    using: composite
     runs-on: ubuntu-latest
 
     steps:
