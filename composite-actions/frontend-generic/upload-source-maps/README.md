@@ -10,7 +10,7 @@ This is a shared action for a frontend application: uploading source maps to Ela
   with:
     SERVICE_NAME: "your-service-name"
     SERVICE_VERSION: "your-service-version"
-    BUILD_DIR: "./dist"
+    BUILD_DIR: "dist"
     SECRET_AUTH: ${{ secrets.SECRET_AUTH }}
     GCLOUD_AUTH_STAGING: ${{ secrets.GCLOUD_AUTH_STAGING }}
 ```
