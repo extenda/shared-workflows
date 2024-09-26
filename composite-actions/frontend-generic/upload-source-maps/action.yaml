@@ -53,6 +53,7 @@ runs:
           ELASTICSEARCH_URL: frontend-elasticsearch-sourcemaps-url
 
     - name: List files in upload-source-maps directory
+      shell: bash
       run: ls -la ./composite-actions/frontend-generic/upload-source-maps/scripts/
 
     - name: Upload source maps
