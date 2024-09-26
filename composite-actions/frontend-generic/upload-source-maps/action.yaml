@@ -41,9 +41,11 @@ runs:
         service-account-key: ${{ inputs.SECRET_AUTH }}
 
     - name: Install dependencies
+      shell: bash
       run: yarn install --frozen-lockfile
 
     - name: Build
+      shell: bash
       run: yarn run build
 
     - name: Setting secrets
@@ -55,6 +57,7 @@ runs:
           ELASTICSEARCH_URL: frontend-elasticsearch-sourcemaps-url
 
     - name: Upload source maps
+      shell: bash
       run: node ./scripts/upload-source-maps.js
       env:
         SERVICE_NAME: ${{ inputs.SERVICE_NAME }}
