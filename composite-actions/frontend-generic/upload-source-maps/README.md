@@ -13,8 +13,6 @@ This is a shared action for a frontend application: uploading source maps to Ela
     BUILD_DIR: "./dist"
     SECRET_AUTH: ${{ secrets.SECRET_AUTH }}
     GCLOUD_AUTH_STAGING: ${{ secrets.GCLOUD_AUTH_STAGING }}
-    ELASTICSEARCH_URL: ${{ secrets.ELASTICSEARCH_URL }}
-    ELASTICSEARCH_API_KEY: ${{ secrets.ELASTICSEARCH_API_KEY }}
 ```
 
 ### Requirements

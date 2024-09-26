@@ -23,12 +23,6 @@ inputs:
   GCLOUD_AUTH_STAGING:
     description: "GCP Auth (staging)"
     required: true
-  ELASTICSEARCH_URL:
-    description: "Elasticsearch URL"
-    required: true
-  ELASTICSEARCH_API_KEY:
-    description: "Elasticsearch API Key"
-    required: true
 
 jobs:
   prod:
@@ -60,8 +54,8 @@ jobs:
         with:
           service-account-key: ${{ inputs.GCLOUD_AUTH_STAGING }}
           secrets: |
-            ELASTICSEARCH_API_KEY: ${{ inputs.ELASTICSEARCH_API_KEY }}
-            ELASTICSEARCH_URL: ${{ inputs.ELASTICSEARCH_URL }}
+            ELASTICSEARCH_API_KEY: frontend-elasticsearch-api-key
+            ELASTICSEARCH_URL: frontend-elasticsearch-sourcemaps-url
 
       - name: Upload source maps
         run: node ./scripts/upload-source-maps.js
