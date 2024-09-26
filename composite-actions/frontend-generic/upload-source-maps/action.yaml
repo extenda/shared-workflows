@@ -29,7 +29,8 @@ runs:
     - name: Checkout the shared-workflows
       uses: actions/checkout@v3
       with:
-        repository: extenda/shared-workflows@feat/HII-10367
+        repository: extenda/shared-workflows
+        ref: feat/HII-10367
         path: shared-workflows
         fetch-depth: 0
 
@@ -58,10 +59,6 @@ runs:
         secrets: |
           ELASTICSEARCH_API_KEY: frontend-elasticsearch-api-key
           ELASTICSEARCH_URL: frontend-elasticsearch-sourcemaps-url
-
-    - name: List files in upload-source-maps directory
-      shell: bash
-      run: ls -la ./shared-workflows/composite-actions/frontend-generic/upload-source-maps/scripts/
 
     - name: Upload source maps
       shell: bash
