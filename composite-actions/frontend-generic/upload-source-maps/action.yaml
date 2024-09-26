@@ -1,0 +1,69 @@
+name: Source Map Upload
+description: "A GitHub Action to manage source maps by uploading and deleting them in Elasticsearch."
+
+inputs:
+  SERVICE_NAME:
+    description: "Service name for the source maps"
+    required: true
+  SERVICE_VERSION:
+    description: "Service version"
+    required: true
+  BUILD_DIR:
+    description: "Build directory containing source maps"
+    required: true
+  SECRET_AUTH:
+    description: "Service account key for authentication"
+    required: true
+  GCLOUD_AUTH_STAGING:
+    description: "GCP Auth for staging"
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Checkout the current repository
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+
+    - name: Checkout the shared-workflows
+      uses: actions/checkout@v3
+      with:
+        repository: extenda/shared-workflows
+        ref: feat/HII-10367
+        path: shared-workflows
+        fetch-depth: 0
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: "20"
+
+    - name: Auth to Nexus npm registry
+      uses: extenda/actions/nexus-auth-npm@v0
+      with:
+        service-account-key: ${{ inputs.SECRET_AUTH }}
+
+    - name: Install dependencies
+      shell: bash
+      run: yarn install --frozen-lockfile
+
+    - name: Build
+      shell: bash
+      run: yarn run build
+
+    - name: Set GCP Secrets from Secret Manager
+      uses: extenda/actions/gcp-secret-manager@v0
+      with:
+        service-account-key: ${{ inputs.GCLOUD_AUTH_STAGING }}
+        secrets: |
+          ELASTICSEARCH_API_KEY: frontend-elasticsearch-api-key
+          ELASTICSEARCH_URL: frontend-elasticsearch-sourcemaps-url
+
+    - name: Upload source maps
+      shell: bash
+      run: node shared-workflows/composite-actions/frontend-generic/upload-source-maps/scripts/upload-source-maps.js
+      env:
+        SERVICE_NAME: ${{ inputs.SERVICE_NAME }}
+        SERVICE_VERSION: ${{ inputs.SERVICE_VERSION }}
+        BUILD_DIR: ${{ inputs.BUILD_DIR }}
