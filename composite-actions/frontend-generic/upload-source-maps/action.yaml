@@ -24,42 +24,39 @@ inputs:
     description: "GCP Auth (staging)"
     required: true
 
-jobs:
-  source-maps-upload:
-    using: composite
-    runs-on: ubuntu-latest
+runs:
+  using: composite
+  steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
 
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
+    - uses: actions/setup-node@v3
+      with:
+        node-version: 20
 
-      - uses: actions/setup-node@v3
-        with:
-          node-version: 20
+    - name: Auth to Nexus npm registry
+      uses: extenda/actions/nexus-auth-npm@v0
+      with:
+        service-account-key: ${{ inputs.SECRET_AUTH }}
 
-      - name: Auth to Nexus npm registry
-        uses: extenda/actions/nexus-auth-npm@v0
-        with:
-          service-account-key: ${{ inputs.SECRET_AUTH }}
+    - name: Install dependencies
+      run: yarn install --frozen-lockfile
 
-      - name: Install dependencies
-        run: yarn install --frozen-lockfile
+    - name: Build
+      run: yarn run build
 
-      - name: Build
-        run: yarn run build
+    - name: Setting secrets
+      uses: extenda/actions/gcp-secret-manager@v0
+      with:
+        service-account-key: ${{ inputs.GCLOUD_AUTH_STAGING }}
+        secrets: |
+          ELASTICSEARCH_API_KEY: frontend-elasticsearch-api-key
+          ELASTICSEARCH_URL: frontend-elasticsearch-sourcemaps-url
 
-      - name: Setting secrets
-        uses: extenda/actions/gcp-secret-manager@v0
-        with:
-          service-account-key: ${{ inputs.GCLOUD_AUTH_STAGING }}
-          secrets: |
-            ELASTICSEARCH_API_KEY: frontend-elasticsearch-api-key
-            ELASTICSEARCH_URL: frontend-elasticsearch-sourcemaps-url
-
-      - name: Upload source maps
-        run: node ./scripts/upload-source-maps.js
-        env:
-          SERVICE_NAME: ${{ inputs.SERVICE_NAME }}
-          SERVICE_VERSION: ${{ inputs.SERVICE_VERSION }}
-          BUILD_DIR: ${{ inputs.BUILD_DIR }}
+    - name: Upload source maps
+      run: node ./scripts/upload-source-maps.js
+      env:
+        SERVICE_NAME: ${{ inputs.SERVICE_NAME }}
+        SERVICE_VERSION: ${{ inputs.SERVICE_VERSION }}
+        BUILD_DIR: ${{ inputs.BUILD_DIR }}
