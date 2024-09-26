@@ -60,10 +60,6 @@ runs:
           ELASTICSEARCH_API_KEY: frontend-elasticsearch-api-key
           ELASTICSEARCH_URL: frontend-elasticsearch-sourcemaps-url
 
-    - name: List all dirs
-      shell: bash
-      run: dirs
-
     - name: Upload source maps
       shell: bash
       run: node shared-workflows/composite-actions/frontend-generic/upload-source-maps/scripts/upload-source-maps.js
