@@ -29,7 +29,7 @@ runs:
     - name: Checkout the shared-workflows
       uses: actions/checkout@v3
       with:
-        repository: extenda/shared-workflows
+        repository: extenda/shared-workflows@feat/HII-10367
         path: shared-workflows
         fetch-depth: 0
 
