@@ -86,6 +86,9 @@ jobs:
           image: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.semver.outputs.release-version }}
           update-dns: always
 
+      - name: Fetch latest changes
+        run: git pull origin ${{ github.ref }}
+
       - name: Save latest deploy version
         if: ${{ inputs.release-version == true }}
         run : |
@@ -95,9 +98,6 @@ jobs:
         uses: extenda/actions/setup-git@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Fetch latest changes
-        run: git pull origin ${{ github.ref }}
 
       - name: Import GPG Key
         uses: crazy-max/ghaction-import-gpg@v5.3.0
