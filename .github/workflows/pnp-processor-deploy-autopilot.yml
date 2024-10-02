@@ -86,6 +86,39 @@ jobs:
           image: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.semver.outputs.release-version }}
           update-dns: always
 
+      - name: Save latest deploy version
+        if: ${{ inputs.release-version == true }}
+        run : |
+          echo "${{ steps.semver.outputs.release-version }}" > ${{ inputs.tag-prefix }}_deployed_version.txt
+
+      - name: Configure Git
+        uses: extenda/actions/setup-git@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Fetch latest changes
+        run: git pull origin ${{ github.ref }}
+
+      - name: Import GPG Key
+        uses: crazy-max/ghaction-import-gpg@v5.3.0
+        id: import_gpg
+        with:
+          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.GPG_PASSPHRASE }}
+          git_user_signingkey: true
+          git_commit_gpgsign: true
+          git_config_global: true
+
+      - name: Commit and Push Changes
+        run: |
+          if [[ -n $(git status --porcelain) ]]; then
+            git add ${{ inputs.tag-prefix }}_deployed_version.txt
+            git -c user.name="Extenda-DevOps-Bot" -c user.email="devops_team@extenda.se" commit -S -m "Update ${{ inputs.tag-prefix }}_deployed_version.txt"
+            git push origin HEAD:${{ github.ref }}
+          else
+            echo "No changes to commit."
+          fi
+
       - name: Dora Component
         if: ${{ inputs.release-version == true && inputs.dora-component != ''}}
         uses: extenda/actions/dora-metrics@v0
