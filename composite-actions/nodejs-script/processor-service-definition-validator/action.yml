@@ -1,0 +1,9 @@
+name: Processor Service Definition Validator
+description: Validates the processor service definition files to contain the required environment variables.
+inputs:
+  serviceDefinitions:
+    description: 'List of service definition file paths provided as a JSON array string. For example: ["./folder1/service-definition1.yaml", "./folder2/service-definition2"]'
+    required: true
+runs:
+  using: node20
+  main: dist/index.js
