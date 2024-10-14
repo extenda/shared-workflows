@@ -87,7 +87,7 @@ runs:
     - name: Run e2e tests
       id: e2e-test
       if: ${{ inputs.RUN_E2E_TESTS == 'true' && steps.stage-deployment.outputs.success == 'true' }}
-      uses: ../e2e-test
+      uses: extenda/actions/frontend-generic/e2e-test@v0
 
     - uses: extenda/actions/setup-gcloud@v0
       with:
