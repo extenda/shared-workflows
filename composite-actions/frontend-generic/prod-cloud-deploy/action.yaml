@@ -79,8 +79,8 @@ runs:
       if: ${{ inputs.DEPLOY_TO_STAGE == 'true' }}
       uses: extenda/actions/cloud-deploy@v0
       with:
-        secrets-account-key: ${{ secrets.SECRET_AUTH }}
-        service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
+        secrets-account-key: ${{ inputs.SECRET_AUTH }}
+        service-account-key: ${{ inputs.GCLOUD_AUTH_STAGING }}
         update-dns: always
         image: ${{ env.IMAGE_NAME }}:${{ github.sha }}
   
