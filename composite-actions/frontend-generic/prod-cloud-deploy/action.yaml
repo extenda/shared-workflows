@@ -18,6 +18,12 @@ inputs:
   IMAGE:
     description: "Image name for the service (without tag)"
     required: true
+  DEPLOY_TO_STAGE:
+    description: "Deploy to staging"
+    required: false
+  RUN_E2E_TESTS:
+    description: "Run e2e tests"
+    required: false
 
 runs:
   using: "composite"
@@ -59,15 +65,39 @@ runs:
       with:
         node-version: 20
 
+    - name: Auth to Nexus npm registry
+      uses: extenda/actions/nexus-auth-npm@v0
+      with:
+        service-account-key: ${{ inputs.SECRET_AUTH }}
+
+    - uses: extenda/actions/setup-gcloud@v0
+      with:
+        service-account-key: ${{ inputs.GCLOUD_AUTH_STAGING }}
+
+    - name: Deploy to staging
+      id: stage-deployment
+      if: ${{ inputs.DEPLOY_TO_STAGE == 'true' }}
+      uses: extenda/actions/cloud-deploy@v0
+      with:
+        secrets-account-key: ${{ secrets.SECRET_AUTH }}
+        service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
+        update-dns: always
+        image: ${{ env.IMAGE_NAME }}:${{ github.sha }}
+  
+    - name: Run e2e tests
+      id: e2e-test
+      if: ${{ inputs.RUN_E2E_TESTS == 'true' && steps.stage-deployment.outputs.success == 'true' }}
+      uses: ../e2e-test
+
+    - uses: extenda/actions/setup-gcloud@v0
+      with:
+        service-account-key: ${{ inputs.GCLOUD_AUTH_PROD }}
+
     - name: Create release
       uses: extenda/actions/conventional-release@v0
       id: release
       env:
         GITHUB_TOKEN: ${{ inputs.GITHUB_TOKEN }}
-
-    - uses: extenda/actions/setup-gcloud@v0
-      with:
-        service-account-key: ${{ inputs.GCLOUD_AUTH_PROD }}
 
     - name: Add tag in GCR
       shell: bash
@@ -75,11 +105,6 @@ runs:
         gcloud container images add-tag \
             ${{ inputs.image }}:${{ github.sha }} \
             ${{ inputs.image }}:${{ steps.release.outputs.release-tag }}
-
-    - name: Auth to Nexus npm registry
-      uses: extenda/actions/nexus-auth-npm@v0
-      with:
-        service-account-key: ${{ inputs.SECRET_AUTH }}
 
     - uses: extenda/actions/conventional-version@v0
       id: semver
@@ -90,6 +115,7 @@ runs:
         service-account-key: ${{ inputs.GCLOUD_AUTH_PROD }}
 
     - name: Deploy to production
+      if: ${{ inputs.DEPLOY_TO_STAGE != 'true' || (inputs.DEPLOY_TO_STAGE == 'true' && steps.stage-deployment.outcome == 'success' && (inputs.RUN_E2E_TESTS != 'true' || steps.e2e-test.outcome == 'success' || steps.e2e-test.outcome == 'skipped')) }}
       uses: extenda/actions/cloud-deploy@v0
       with:
         secrets-account-key: ${{ inputs.SECRET_AUTH }}
