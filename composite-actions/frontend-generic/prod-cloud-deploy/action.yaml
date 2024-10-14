@@ -87,7 +87,7 @@ runs:
     - name: Run e2e tests
       id: e2e-test
       if: ${{ inputs.RUN_E2E_TESTS == 'true' && steps.stage-deployment.outputs.success == 'true' }}
-      uses: extenda/actions/frontend-generic/e2e-test@feat/HII-10426
+      uses: extenda/shared-workflows/composite-actions/frontend-generic/e2e-test@feat/HII-10426
       with:
         GCLOUD_AUTH_STAGING: ${{ inputs.GCLOUD_AUTH_STAGING }}
 
