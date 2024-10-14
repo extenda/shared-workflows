@@ -2,6 +2,11 @@ name: End to end tests
 description: |
   Run end to end tests on a deployed application
 
+inputs:
+  GCLOUD_AUTH_STAGING:
+    description: "GCP Auth (staging)"
+    required: true
+
 runs:
   using: composite
   steps:
@@ -15,7 +20,7 @@ runs:
 
       - uses: extenda/actions/gcp-secret-manager@v0
         with:
-          service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
+          service-account-key: ${{ inputs.GCLOUD_AUTH_STAGING }}
           secrets: |
             E2E_REGULAR_APP_URL: e2e-regular-app-url
             E2E_EMBEDDED_APP_URL: e2e-embedded-app-url
@@ -51,5 +56,5 @@ runs:
           text: |
             ❗️Staging E2E tests failed for ${{ github.repository }}❗️
             Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
-          service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
+          service-account-key: ${{ inputs.GCLOUD_AUTH_STAGING }}
           channel: alerts-frontend
