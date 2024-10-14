@@ -11,8 +11,3 @@ This is typical action, to test e2e testing on staging environment, it should be
   with:
     GCLOUD_AUTH_STAGING: ${{ inputs.GCLOUD_AUTH_STAGING }}
 ```
-
-### Requirements
-
-- You have to have valid `Dockerfile`, in the root of your project.
-- You have to have valid `cloud-deploy.yaml` file in the root of your project.
