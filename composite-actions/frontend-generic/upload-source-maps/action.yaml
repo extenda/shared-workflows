@@ -30,7 +30,7 @@ runs:
       uses: actions/checkout@v3
       with:
         repository: extenda/shared-workflows
-        ref: feat/HII-10367
+        ref: master
         path: shared-workflows
         fetch-depth: 0
 
