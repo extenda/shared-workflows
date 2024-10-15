@@ -1,0 +1,93 @@
+name: End to end tests
+description: |
+  Run end to end tests on a deployed application
+
+inputs:
+  GCLOUD_AUTH_STAGING:
+    description: "GCP Auth (staging)"
+    required: true
+  BUILD_TOOL:
+    description: "Build tool"
+    required: false
+
+runs:
+  using: composite
+  steps:
+    - name: Cache node_modules
+      uses: actions/cache@v4
+      if: inputs.BUILD_TOOL == 'npm'
+      id: cache-npm-node-modules
+      env:
+        cache-name: cache-node-modules
+      with:
+        path: node_modules
+        key: ${{ runner.os }}-node-modules-${{ hashFiles('**/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-node-modules
+
+    - name: Cache node_modules
+      uses: actions/cache@v4
+      if: inputs.BUILD_TOOL != 'npm'
+      id: cache-yarn-node-modules
+      env:
+        cache-name: cache-node-modules
+      with:
+        path: node_modules
+        key: ${{ runner.os }}-node-modules-${{ hashFiles('**/yarn.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-node-modules
+
+    - name: Install dependencies - npm
+      shell: bash
+      if: steps.cache-npm-node-modules.outputs.cache-hit != 'true' && inputs.BUILD_TOOL == 'npm'
+      run: npm ci
+
+    - name: Install dependencies - yarn
+      shell: bash
+      if: steps.cache-yarn-node-modules.outputs.cache-hit != 'true' && inputs.BUILD_TOOL != 'npm'
+      run: yarn install --frozen-lockfile
+
+    - name: Install Playwright Browsers
+      shell: bash
+      run: npx playwright install --with-deps
+
+    - uses: extenda/actions/gcp-secret-manager@v0
+      with:
+        service-account-key: ${{ inputs.GCLOUD_AUTH_STAGING }}
+        secrets: |
+          E2E_REGULAR_APP_URL: e2e-regular-app-url
+          E2E_EMBEDDED_APP_URL: e2e-embedded-app-url
+          E2E_STANDALONE_USER_EMAIL: e2e-standalone-user-email
+          E2E_STANDALONE_USER_PASSWORD: e2e-standalone-user-password
+          E2E_FEDERATED_USER_EMAIL: e2e-federated-user-email
+          E2E_FEDERATED_USER_PASSWORD: e2e-federated-user-password
+          E2E_IDENTITY_PROVIDER_NAME: e2e-identity-provider-name
+
+    - name: Run Playwright tests
+      id: e2e_run
+      shell: bash
+      run: npx playwright test --pass-with-no-tests
+
+    - uses: actions/upload-artifact@v4
+      if: steps.e2e_run.outcome != 'failure'
+      with:
+        name: playwright-report
+        path: playwright-report/
+        retention-days: 1
+
+    - uses: actions/upload-artifact@v4
+      if: steps.e2e_run.outcome == 'failure'
+      with:
+        name: playwright-report
+        path: playwright-report/
+        retention-days: 5
+
+    - name: Notify Slack if E2E tests failed
+      if: steps.e2e_run.outcome == 'failure'
+      uses: extenda/actions/slack-notify@v0
+      with:
+        text: |
+          ❗️Staging E2E tests failed for ${{ github.repository }}❗️
+          Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+        service-account-key: ${{ inputs.GCLOUD_AUTH_STAGING }}
+        channel: alerts-frontend
