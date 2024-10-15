@@ -24,6 +24,9 @@ inputs:
   RUN_E2E_TESTS:
     description: "Run e2e tests"
     required: false
+  BUILD_TOOL:
+    description: "Build tool"
+    required: false
 
 runs:
   using: "composite"
@@ -90,6 +93,7 @@ runs:
       uses: extenda/shared-workflows/composite-actions/frontend-generic/e2e-test@feat/HII-10426
       with:
         GCLOUD_AUTH_STAGING: ${{ inputs.GCLOUD_AUTH_STAGING }}
+        BUILD_TOOL: ${{ inputs.BUILD_TOOL }}
 
     - uses: extenda/actions/setup-gcloud@v0
       with:
