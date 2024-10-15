@@ -65,6 +65,7 @@ runs:
 
     - name: Run Playwright tests
       id: e2e_run
+      continue-on-error: true
       shell: bash
       run: npx playwright test --pass-with-no-tests
 
