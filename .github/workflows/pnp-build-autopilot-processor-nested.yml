@@ -155,12 +155,12 @@ jobs:
           service-account-key: ${{ secrets.SECRET_AUTH }}
           working-directory: ${{ inputs.working-directory || '.' }}
 
-      - name: Analyze with Sonar
-        uses: extenda/actions/sonar-scanner@v0
-        with:
-          sonar-host: https://sonarcloud.io
-          service-account-key: ${{ secrets.SECRET_AUTH }}
-          working-directory: './${{ inputs.working-directory }}'
+#      - name: Analyze with Sonar
+#        uses: extenda/actions/sonar-scanner@v0
+#        with:
+#          sonar-host: https://sonarcloud.io
+#          service-account-key: ${{ secrets.SECRET_AUTH }}
+#          working-directory: './${{ inputs.working-directory }}'
 
       - uses: graalvm/setup-graalvm@v1
         if: ${{ inputs.native-image == true && github.ref == 'refs/heads/master' }}
