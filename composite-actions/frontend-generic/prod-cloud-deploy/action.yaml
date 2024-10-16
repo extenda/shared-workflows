@@ -121,7 +121,7 @@ runs:
         service-account-key: ${{ inputs.GCLOUD_AUTH_PROD }}
 
     - name: Deploy to production
-      if: ${{ inputs.DEPLOY_TO_STAGE != 'true' || (inputs.DEPLOY_TO_STAGE == 'true' && steps.stage-deployment.outcome == 'success' && (inputs.RUN_E2E_TESTS != 'true' || steps.e2e-test.outcome == 'success' || steps.e2e-test.outcome == 'skipped')) }}
+      if: ${{ inputs.DEPLOY_TO_STAGE != 'true' || (inputs.DEPLOY_TO_STAGE == 'true' && steps.stage-deployment.outcome == 'success' && (inputs.RUN_E2E_TESTS != 'true' || !steps.e2e-test.outputs.e2e_test_failed || steps.e2e-test.outcome == 'skipped')) }}
       uses: extenda/actions/cloud-deploy@v0
       with:
         secrets-account-key: ${{ inputs.SECRET_AUTH }}
