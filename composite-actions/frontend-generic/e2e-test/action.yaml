@@ -10,6 +10,11 @@ inputs:
     description: "Build tool"
     required: false
 
+outputs:
+  e2e_test_failed:
+    description: "Whether e2e tests failed or not"
+    value: ${{steps.e2e_run.outcome == 'failure' }}
+
 runs:
   using: composite
   steps:
