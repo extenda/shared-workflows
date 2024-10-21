@@ -1,5 +1,11 @@
-const fs = require("fs");
-const path = require("path");
+import fs from 'fs';
+import path from 'path';
+import fetch from 'node-fetch';
+import FormData from 'form-data';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const BUILD_DIR = process.env.BUILD_DIR;
 const SERVICE_NAME = process.env.SERVICE_NAME;
