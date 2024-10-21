@@ -11,6 +11,9 @@ inputs:
   BUILD_DIR:
     description: "Build directory containing source maps"
     required: true
+  PREFIX:
+    description: "Prefix for source maps"
+    required: true
   SECRET_AUTH:
     description: "Service account key for authentication"
     required: true

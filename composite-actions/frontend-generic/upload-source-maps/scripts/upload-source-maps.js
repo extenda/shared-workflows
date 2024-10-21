@@ -1,13 +1,14 @@
-import fs from 'fs';
-import path from 'path';
-import fetch from 'node-fetch';
-import FormData from 'form-data';
-import { fileURLToPath } from 'url';
+import fs from "fs";
+import path from "path";
+import fetch from "node-fetch";
+import FormData from "form-data";
+import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const BUILD_DIR = process.env.BUILD_DIR;
+const PREFIX = process.env.PREFIX;
 const SERVICE_NAME = process.env.SERVICE_NAME;
 const SERVICE_VERSION = process.env.SERVICE_VERSION;
 
@@ -85,7 +86,7 @@ async function uploadSourceMap(sourceMapsToUpload) {
         fs.readFileSync(path.join(BUILD_DIR, mapFileName))
       );
       formData.append("service_version", SERVICE_VERSION);
-      formData.append("bundle_filepath", `/recon/${jsFileName}`);
+      formData.append("bundle_filepath", `/${PREFIX}/${jsFileName}`);
       formData.append("service_name", SERVICE_NAME);
 
       try {
@@ -122,7 +123,7 @@ async function uploadSourceMap(sourceMapsToUpload) {
           ({ body }) =>
             body.serviceName === SERVICE_NAME &&
             body.serviceVersion === SERVICE_VERSION &&
-            body.bundleFilepath.startsWith("/recon/")
+            body.bundleFilepath.startsWith(`/${PREFIX}/`)
         )
         .map(({ id }) => id);
 
