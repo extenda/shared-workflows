@@ -2,6 +2,19 @@
 
 This is a shared action for a frontend application: uploading source maps to Elasticsearch.
 
+### Inputs
+
+This action accepts the following inputs:
+
+| Key Name            | Description                                                         |
+| ------------------- | ------------------------------------------------------------------- |
+| SERVICE_NAME        | Service name for the source maps                                    |
+| SERVICE_VERSION     | Service version                                                     |
+| BUILD_DIR           | Build directory containing source maps. Example: dist/assets, dist/ |
+| PREFIX              | Prefix for source maps. Example: recon, console-ui, etc.            |
+| SECRET_AUTH         | Service account key for authentication                              |
+| GCLOUD_AUTH_STAGING | GCP Auth for staging                                                |
+
 ### Example
 
 ```yaml
