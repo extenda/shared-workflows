@@ -11,6 +11,7 @@ This is a shared action for a frontend application: uploading source maps to Ela
     SERVICE_NAME: "your-service-name"
     SERVICE_VERSION: "your-service-version"
     BUILD_DIR: "dist"
+    PREFIX: "your-prefix"
     SECRET_AUTH: ${{ secrets.SECRET_AUTH }}
     GCLOUD_AUTH_STAGING: ${{ secrets.GCLOUD_AUTH_STAGING }}
 ```
