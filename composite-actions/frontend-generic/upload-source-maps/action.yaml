@@ -70,3 +70,4 @@ runs:
         SERVICE_NAME: ${{ inputs.SERVICE_NAME }}
         SERVICE_VERSION: ${{ inputs.SERVICE_VERSION }}
         BUILD_DIR: ${{ inputs.BUILD_DIR }}
+        PREFIX: ${{ inputs.PREFIX }}
