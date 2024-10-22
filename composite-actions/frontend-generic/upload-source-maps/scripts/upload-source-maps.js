@@ -86,7 +86,7 @@ async function uploadSourceMap(sourceMapsToUpload) {
         fs.readFileSync(path.join(BUILD_DIR, mapFileName))
       );
       formData.append("service_version", SERVICE_VERSION);
-      formData.append("bundle_filepath", `/${PREFIX}/${jsFileName}`);
+      formData.append("bundle_filepath", `${PREFIX}${jsFileName}`);
       formData.append("service_name", SERVICE_NAME);
 
       try {
