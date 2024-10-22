@@ -1,4 +1,4 @@
-# Deploy upload-source-maps action
+# Upload source maps action
 
 This is a shared action for a frontend application: uploading source maps to Elasticsearch.
 
