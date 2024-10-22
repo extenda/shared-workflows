@@ -123,7 +123,7 @@ async function uploadSourceMap(sourceMapsToUpload) {
           ({ body }) =>
             body.serviceName === SERVICE_NAME &&
             body.serviceVersion === SERVICE_VERSION &&
-            body.bundleFilepath.startsWith(`/${PREFIX}/`)
+            body.bundleFilepath.startsWith(PREFIX)
         )
         .map(({ id }) => id);
 
