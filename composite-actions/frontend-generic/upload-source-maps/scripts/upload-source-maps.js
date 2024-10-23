@@ -1,157 +1,187 @@
-import fs from "fs";
-import path from "path";
-import fetch from "node-fetch";
-import FormData from "form-data";
-import { fileURLToPath } from "url";
+// Detect module system and import libraries dynamically
+(async () => {
+  let fs, path, fetch, FormData, fileURLToPath;
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const BUILD_DIR = process.env.BUILD_DIR;
-const PREFIX = process.env.PREFIX;
-const SERVICE_NAME = process.env.SERVICE_NAME;
-const SERVICE_VERSION = process.env.SERVICE_VERSION;
-
-const ELASTICSEARCH_URL = process.env.ELASTICSEARCH_URL;
-const ELASTICSEARCH_API_KEY = process.env.ELASTICSEARCH_API_KEY;
-
-// Helper function to get existing source maps from Elasticsearch
-async function getExistingSourceMaps() {
   try {
-    const response = await fetch(ELASTICSEARCH_URL, {
-      method: "GET",
-      headers: {
-        Authorization: `ApiKey ${ELASTICSEARCH_API_KEY}`,
-        "Content-Type": "multipart/form-data",
-      },
-    });
-    if (!response.ok)
-      throw new Error(`Failed to fetch source maps: ${response.statusText}`);
-    return await response.json();
-  } catch (error) {
-    throw new Error(`Error fetching source maps: ${error.message}`);
-  }
-}
-
-// Function to get source maps from the build directory
-function getBuildSourceMaps() {
-  try {
-    const files = fs.readdirSync(BUILD_DIR);
-
-    return files
-      .filter((file) => file.endsWith(".map"))
-      .map((file) => ({
-        mapFileName: file,
-        jsFileName: file.replace(".map", ""),
-      }));
-  } catch (error) {
-    console.error(`Error reading build directory: ${error.message}`);
-    process.exit(1);
-  }
-}
-
-// Helper function to delete a source map from Elasticsearch
-async function deleteSourceMaps(sourceMapsToDelete) {
-  const deletePromises = sourceMapsToDelete.map(async (artifactId) => {
-    try {
-      const headers = {
-        Authorization: `ApiKey ${ELASTICSEARCH_API_KEY}`,
-        "KBN-XSRF": "True",
-      };
-      const response = await fetch(`${ELASTICSEARCH_URL}/${artifactId}`, {
-        method: "DELETE",
-        headers: headers,
-      });
-      return {
-        artifactId,
-        success: response.ok,
-        statusText: response.statusText,
-      };
-    } catch (error) {
-      return { artifactId, success: false, error: error.message };
+    if (typeof require !== "undefined") {
+      // CommonJS environment
+      fs = require("fs");
+      path = require("path");
+      fetch = require("node-fetch");
+      FormData = require("form-data");
+    } else {
+      // ES Module environment
+      fs = (await import("fs")).promises;
+      path = await import("path");
+      fetch = (await import("node-fetch")).default;
+      FormData = (await import("form-data")).default;
     }
-  });
 
-  return await Promise.all(deletePromises);
-}
+    // Handle __dirname and __filename for ES Modules
+    let __dirname, __filename;
+    if (typeof __dirname === "undefined") {
+      const { fileURLToPath } = await import("url");
+      __filename = fileURLToPath(import.meta.url);
+      __dirname = path.dirname(__filename);
+    }
 
-// Helper function to upload a new source map to Elasticsearch
-async function uploadSourceMap(sourceMapsToUpload) {
-  const uploadPromises = sourceMapsToUpload.map(
-    async ({ jsFileName, mapFileName }) => {
-      const formData = new FormData();
+    // Environment Variables
+    const BUILD_DIR = process.env.BUILD_DIR;
+    const PREFIX = process.env.PREFIX;
+    const SERVICE_NAME = process.env.SERVICE_NAME;
+    const SERVICE_VERSION = process.env.SERVICE_VERSION;
 
-      formData.append(
-        "sourcemap",
-        fs.readFileSync(path.join(BUILD_DIR, mapFileName))
-      );
-      formData.append("service_version", SERVICE_VERSION);
-      formData.append("bundle_filepath", `${PREFIX}${jsFileName}`);
-      formData.append("service_name", SERVICE_NAME);
+    const ELASTICSEARCH_URL = process.env.ELASTICSEARCH_URL;
+    const ELASTICSEARCH_API_KEY = process.env.ELASTICSEARCH_API_KEY;
 
+    // Helper function to get existing source maps from Elasticsearch
+    async function getExistingSourceMaps() {
       try {
-        const headers = {
-          Authorization: `ApiKey ${ELASTICSEARCH_API_KEY}`,
-          "kbn-xsrf": true,
-        };
         const response = await fetch(ELASTICSEARCH_URL, {
-          method: "POST",
-          headers: headers,
-          body: formData,
+          method: "GET",
+          headers: {
+            Authorization: `ApiKey ${ELASTICSEARCH_API_KEY}`,
+            "Content-Type": "multipart/form-data",
+          },
         });
-        return {
-          mapFileName,
-          success: response.ok,
-          statusText: response.statusText,
-        };
+        if (!response.ok)
+          throw new Error(
+            `Failed to fetch source maps: ${response.statusText}`
+          );
+        return await response.json();
       } catch (error) {
-        return { mapFileName, success: false, error: error.message };
-      }
-    }
-  );
-
-  return await Promise.all(uploadPromises);
-}
-
-(async function manageSourceMaps() {
-  try {
-    const { artifacts } = await getExistingSourceMaps();
-
-    if (artifacts.length) {
-      const sourceMapsToDelete = artifacts
-        .filter(
-          ({ body }) =>
-            body.serviceName === SERVICE_NAME &&
-            body.serviceVersion === SERVICE_VERSION &&
-            body.bundleFilepath.startsWith(PREFIX)
-        )
-        .map(({ id }) => id);
-
-      const deleteResults = await deleteSourceMaps(sourceMapsToDelete);
-      const failedDeletes = deleteResults.filter(({ success }) => !success);
-
-      if (failedDeletes.length) {
-        throw new Error(
-          `Error deleting source maps: ${JSON.stringify(
-            failedDeletes,
-            null,
-            2
-          )}`
-        );
+        throw new Error(`Error fetching source maps: ${error.message}`);
       }
     }
 
-    const sourceMapsToUpload = getBuildSourceMaps();
-    const uploadResults = await uploadSourceMap(sourceMapsToUpload);
-    const failedUploads = uploadResults.filter(({ success }) => !success);
+    // Function to get source maps from the build directory
+    function getBuildSourceMaps() {
+      try {
+        const files = fs.readdirSync(BUILD_DIR);
 
-    if (failedUploads.length) {
-      throw new Error(
-        `Error uploading source maps: ${JSON.stringify(failedUploads, null, 2)}`
+        return files
+          .filter((file) => file.endsWith(".map"))
+          .map((file) => ({
+            mapFileName: file,
+            jsFileName: file.replace(".map", ""),
+          }));
+      } catch (error) {
+        console.error(`Error reading build directory: ${error.message}`);
+        process.exit(1);
+      }
+    }
+
+    // Helper function to delete a source map from Elasticsearch
+    async function deleteSourceMaps(sourceMapsToDelete) {
+      const deletePromises = sourceMapsToDelete.map(async (artifactId) => {
+        try {
+          const headers = {
+            Authorization: `ApiKey ${ELASTICSEARCH_API_KEY}`,
+            "KBN-XSRF": "True",
+          };
+          const response = await fetch(`${ELASTICSEARCH_URL}/${artifactId}`, {
+            method: "DELETE",
+            headers: headers,
+          });
+          return {
+            artifactId,
+            success: response.ok,
+            statusText: response.statusText,
+          };
+        } catch (error) {
+          return { artifactId, success: false, error: error.message };
+        }
+      });
+
+      return await Promise.all(deletePromises);
+    }
+
+    // Helper function to upload a new source map to Elasticsearch
+    async function uploadSourceMap(sourceMapsToUpload) {
+      const uploadPromises = sourceMapsToUpload.map(
+        async ({ jsFileName, mapFileName }) => {
+          const formData = new FormData();
+
+          formData.append(
+            "sourcemap",
+            fs.readFileSync(path.join(BUILD_DIR, mapFileName))
+          );
+          formData.append("service_version", SERVICE_VERSION);
+          formData.append("bundle_filepath", `${PREFIX}${jsFileName}`);
+          formData.append("service_name", SERVICE_NAME);
+
+          try {
+            const headers = {
+              Authorization: `ApiKey ${ELASTICSEARCH_API_KEY}`,
+              "kbn-xsrf": true,
+            };
+            const response = await fetch(ELASTICSEARCH_URL, {
+              method: "POST",
+              headers: headers,
+              body: formData,
+            });
+            return {
+              mapFileName,
+              success: response.ok,
+              statusText: response.statusText,
+            };
+          } catch (error) {
+            return { mapFileName, success: false, error: error.message };
+          }
+        }
       );
+
+      return await Promise.all(uploadPromises);
     }
+
+    (async function manageSourceMaps() {
+      try {
+        const { artifacts } = await getExistingSourceMaps();
+
+        if (artifacts.length) {
+          const sourceMapsToDelete = artifacts
+            .filter(
+              ({ body }) =>
+                body.serviceName === SERVICE_NAME &&
+                body.serviceVersion === SERVICE_VERSION &&
+                body.bundleFilepath.startsWith(PREFIX)
+            )
+            .map(({ id }) => id);
+
+          const deleteResults = await deleteSourceMaps(sourceMapsToDelete);
+          const failedDeletes = deleteResults.filter(({ success }) => !success);
+
+          if (failedDeletes.length) {
+            throw new Error(
+              `Error deleting source maps: ${JSON.stringify(
+                failedDeletes,
+                null,
+                2
+              )}`
+            );
+          }
+        }
+
+        const sourceMapsToUpload = getBuildSourceMaps();
+        const uploadResults = await uploadSourceMap(sourceMapsToUpload);
+        const failedUploads = uploadResults.filter(({ success }) => !success);
+
+        if (failedUploads.length) {
+          throw new Error(
+            `Error uploading source maps: ${JSON.stringify(
+              failedUploads,
+              null,
+              2
+            )}`
+          );
+        }
+      } catch (error) {
+        console.error(error.message);
+        process.exit(1);
+      }
+    })();
   } catch (error) {
-    console.error(error.message);
+    console.error(`Failed to detect module type: ${error.message}`);
     process.exit(1);
   }
 })();
