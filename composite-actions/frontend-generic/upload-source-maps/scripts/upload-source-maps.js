@@ -11,7 +11,7 @@
       FormData = require("form-data");
     } else {
       // ES Module environment
-      fs = (await import("fs")).promises;
+      fs = await import("fs");
       path = await import("path");
       fetch = (await import("node-fetch")).default;
       FormData = (await import("form-data")).default;
@@ -47,9 +47,9 @@
     }
 
     // Function to get source maps from the build directory
-    async function getBuildSourceMaps() {
+    function getBuildSourceMaps() {
       try {
-        const files = await fs.readdir(BUILD_DIR);
+        const files = fs.readdirSync(BUILD_DIR);
 
         return files
           .filter((file) => file.endsWith(".map"))
@@ -96,7 +96,7 @@
 
           formData.append(
             "sourcemap",
-            await fs.readFile(path.join(BUILD_DIR, mapFileName))
+            fs.readFileSync(path.join(BUILD_DIR, mapFileName))
           );
           formData.append("service_version", SERVICE_VERSION);
           formData.append("bundle_filepath", `${PREFIX}${jsFileName}`);
