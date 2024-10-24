@@ -47,9 +47,9 @@
     }
 
     // Function to get source maps from the build directory
-    function getBuildSourceMaps() {
+    async function getBuildSourceMaps() {
       try {
-        const files = fs.readdirSync(BUILD_DIR);
+        const files = await fs.readdir(BUILD_DIR);
 
         return files
           .filter((file) => file.endsWith(".map"))
@@ -96,7 +96,7 @@
 
           formData.append(
             "sourcemap",
-            fs.readFileSync(path.join(BUILD_DIR, mapFileName))
+            await fs.readFile(path.join(BUILD_DIR, mapFileName))
           );
           formData.append("service_version", SERVICE_VERSION);
           formData.append("bundle_filepath", `${PREFIX}${jsFileName}`);
