@@ -1,6 +1,6 @@
 // Detect module system and import libraries dynamically
 (async () => {
-  let fs, path, fetch, FormData, fileURLToPath;
+  let fs, path, fetch, FormData;
 
   try {
     if (typeof require !== "undefined") {
@@ -11,18 +11,10 @@
       FormData = require("form-data");
     } else {
       // ES Module environment
-      fs = (await import("fs")).promises;
+      fs = await import("fs");
       path = await import("path");
       fetch = (await import("node-fetch")).default;
       FormData = (await import("form-data")).default;
-    }
-
-    // Handle __dirname and __filename for ES Modules
-    let __dirname, __filename;
-    if (typeof __dirname === "undefined") {
-      const { fileURLToPath } = await import("url");
-      __filename = fileURLToPath(import.meta.url);
-      __dirname = path.dirname(__filename);
     }
 
     // Environment Variables
