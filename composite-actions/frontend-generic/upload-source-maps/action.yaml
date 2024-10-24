@@ -33,7 +33,7 @@ runs:
       uses: actions/checkout@v3
       with:
         repository: extenda/shared-workflows
-        ref: refactor/remove-dead-code
+        ref: master
         path: shared-workflows
         fetch-depth: 0
 
