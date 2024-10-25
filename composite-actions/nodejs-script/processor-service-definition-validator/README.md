@@ -30,7 +30,7 @@ jobs:
           node-version: '20'
 
       - name: Validate service definition files
-        uses: extenda/shared-workflows/composite-actions/nodejs-script/processor-service-definition-validator@master
+        uses: extenda/shared-workflows/composite-actions/nodejs-script/processor-service-definition-validator@v0
         with:
           service-definitions : ${{ inputs.service-definitions }}
         env:
