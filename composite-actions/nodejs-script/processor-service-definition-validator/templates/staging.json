@@ -1,6 +1,77 @@
 [
   {
-    "keySuffix": "REPLICATION_FACTOR",
-    "value": "3"
+    "keySuffix": "KAFKA_APPLICATION_ID"
+  },
+  {
+    "keySuffix": "KAFKA_PRODUCER_COMPRESSION_TYPE",
+    "value": "sm://*/kafka_producer_compression_type"
+  },
+  {
+    "keySuffix": "KAFKA_PRODUCER_ENABLE_IDEMPOTENCE",
+    "value": "sm://*/kafka_producer_enable_idempotence"
+  },
+  {
+    "keySuffix": "KAFKA_REPLICATION_FACTOR",
+    "value": "sm://*/kafka_replication_factor"
+  },
+  {
+    "keySuffix": "KAFKA_CONSUMER_POLL_MS",
+    "value": "sm://*/kafka_consumer_poll_ms"
+  },
+  {
+    "keySuffix": "KAFKA_PRODUCER_BATCH_SIZE",
+    "value": "'5000'"
+  },
+  {
+    "keySuffix": "KAFKA_PRODUCER_LINGER_MS",
+    "value": "'10'"
+  },
+  {
+    "keySuffix": "KAFKA_CONSUMER_AUTO_OFFSET_RESET",
+    "value": "sm://*/kafka_consumer_auto_offset_reset"
+  },
+  {
+    "keySuffix": "KAFKA_BOOTSTRAP_SERVERS",
+    "value": "sm://*/kafka_stream_cluster_bootstrap_server"
+  },
+  {
+    "keySuffix": "KAFKA_SASL_JAAS_CONFIG",
+    "value": "sm://*/kafka_sasl_jaas_config"
+  },
+  {
+    "keySuffix": "KAFKA_BASIC_AUTH_USER_INFO",
+    "value": "sm://*/kafka_schema_registry_basic_auth_user_info"
+  },
+  {
+    "keySuffix": "KAFKA_SCHEMA_REGISTRY_URL",
+    "value": "sm://*/kafka_schema_registry_url"
+  },
+  {
+    "keySuffix": "KAFKA_SSL_ENDPOINT_IDENTIFICATION_ALGORITHM",
+    "value": "https"
+  },
+  {
+    "keySuffix": "KAFKA_SASL_MECHANISM",
+    "value": "PLAIN"
+  },
+  {
+    "keySuffix": "KAFKA_SECURITY_PROTOCOL",
+    "value": "SASL_SSL"
+  },
+  {
+    "keySuffix": "KAFKA_BASIC_AUTH_CREDENTIALS_SOURCE",
+    "value": "USER_INFO"
+  },
+  {
+    "keySuffix": "KAFKA_TOPOLOGY_OPTIMIZATION",
+    "value": "all"
+  },
+  {
+    "keySuffix": "KAFKA_MAX_REQUEST_SIZE",
+    "value": "'4194304'"
+  },
+  {
+    "keySuffix": "KAFKA_MAX_POLL_INTERVAL_MS",
+    "value": "'900000'"
   }
 ]
