@@ -1,0 +1,16 @@
+name: Service Definition Validator
+description: Validates the service definition files to contain the required environment variables.
+inputs:
+  service-definitions:
+    description: 'List of service definition file paths provided as a JSON array string. For example: ["./folder1/service-definition1.yaml", "./folder2/service-definition2"]'
+    required: true
+  service-type:
+    description: 'Type of the service.'
+    required: true
+    options:
+      - 'PROCESSOR'
+      - 'INPUT_API'
+      - 'QUERY_API'
+runs:
+  using: node20
+  main: dist/index.js

@@ -1,6 +1,6 @@
-# processor-service-definition-validator
+# service-definition-validator
 
-This GitHub Action can be used to validate the service definition files of Kafka Stream processors against predefined templates and identify deviations.
+This GitHub Action can be used to validate the Cloud Deploy service definition files against predefined templates and identify deviations.
 
 ### Inputs
 
@@ -30,7 +30,7 @@ jobs:
           node-version: '20'
 
       - name: Validate service definition files
-        uses: extenda/shared-workflows/composite-actions/nodejs-script/processor-service-definition-validator@v0
+        uses: extenda/shared-workflows/composite-actions/nodejs-script/service-definition-validator@v0
         with:
           service-definitions : ${{ inputs.service-definitions }}
         env:

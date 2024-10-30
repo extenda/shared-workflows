@@ -1,7 +1,7 @@
 {
-  "name": "processor-service-definition-validator",
+  "name": "service-definition-validator",
   "version": "1.0.0-local",
-  "description": "An application that validates the service definition of Kafka Streams applications.",
+  "description": "An application that validates the Cloud Deploy service definition files.",
   "type": "module",
   "private": true,
   "main": "dist/index.js",
