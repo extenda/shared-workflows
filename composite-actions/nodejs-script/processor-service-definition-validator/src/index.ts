@@ -32,170 +32,6 @@ interface ParsedYaml {
   };
 }
 
-async function run(): Promise<void> {
-  try {
-    // Retrieve inputs
-    const filesInput = core.getInput("service-definitions", { required: true });
-    let serviceDefinitionPaths: string[];
-    try {
-      serviceDefinitionPaths = JSON.parse(filesInput);
-      if (!Array.isArray(serviceDefinitionPaths)) {
-        throw new Error("The 'service-definitions' input must be a JSON array of file paths.");
-      }
-    } catch (parseError: any) {
-      core.setFailed(`Invalid 'service-definitions' input. Ensure it's a valid JSON array.\nError: ${parseError.message}`);
-      return;
-    }
-
-    const templatesDir = path.join(process.cwd(), "templates");
-
-    // Define template paths
-    const stagingTemplatePath = path.join(templatesDir, "staging.json");
-    const productionTemplatePath = path.join(templatesDir, "production.json");
-
-    // Load templates
-    const templates: Record<string, EnvVarTemplate[]> = {
-      staging: await loadTemplate(stagingTemplatePath, "staging"),
-      production: await loadTemplate(productionTemplatePath, "production"),
-    };
-
-    const validationResults: ValidationResult[] = [];
-
-    // Iterate through each YAML file
-    for (const filePath of serviceDefinitionPaths) {
-      let parsedYaml: ParsedYaml;
-
-      try {
-        const fileContent = await fs.readFile(filePath, "utf8");
-        parsedYaml = yaml.load(fileContent) as ParsedYaml;
-
-        // If parsedYaml is undefined or null, treat it as a parsing failure
-        if (!parsedYaml) {
-          throw new Error("Parsed YAML content is empty.");
-        }
-
-        core.info(`✅ YAML lint passed and parsed successfully for file: ${filePath}`);
-      } catch (error: any) {
-        core.setFailed(`❌ Failed to validate or parse YAML file: ${filePath}\nError: ${error.message}`);
-        return;
-      }
-
-      if (!parsedYaml.environments) {
-        core.warning(`⚠️ No 'environments' section found in file: ${filePath}`);
-        continue;
-      }
-
-      // Validate each environment
-      for (const [envName, templateVars] of Object.entries(templates)) {
-        const envSection = parsedYaml.environments[envName]?.env;
-
-        if (!envSection) {
-          core.warning(`⚠️ No 'env' section found for environment '${envName}' in file: ${filePath}`);
-          continue;
-        }
-
-        const { missingVars, mismatchedVars } = validateEnvVars(envSection, templateVars);
-
-        validationResults.push({
-          filePath,
-          environment: envName,
-          missingVars,
-          mismatchedVars,
-        });
-      }
-    }
-
-    // Generate and post Markdown report
-    const markdownReport = generateMarkdownReport(validationResults);
-    await postOrUpdatePRComment(markdownReport);
-
-    core.info("🎉 Validation results have been posted to the PR.");
-  } catch (error: any) {
-    core.setFailed(`Unexpected error: ${error.message}`);
-  }
-}
-
-/**
- * Loads and parses a JSON template file.
- * @param templatePath - Path to the template JSON file.
- * @param environment - Name of the environment (used for error messages).
- * @returns An array of EnvVarTemplate objects.
- */
-async function loadTemplate(templatePath: string, environment: string): Promise<EnvVarTemplate[]> {
-  try {
-    const templateContent = await fs.readFile(templatePath, "utf8");
-    const parsedTemplate = JSON.parse(templateContent);
-    if (!Array.isArray(parsedTemplate)) {
-      throw new Error("Template JSON must be an array of objects.");
-    }
-    // Validate template structure
-    parsedTemplate.forEach((item, index) => {
-      if (typeof item.keySuffix !== "string" || typeof item.value !== "string") {
-        throw new Error(`Invalid template at index ${index} in ${environment} template.`);
-      }
-    });
-    return parsedTemplate;
-  } catch (error: any) {
-    core.setFailed(`❌ Failed to load ${environment} template from ${templatePath}\nError: ${error.message}`);
-    throw error; // Rethrow to halt execution
-  }
-}
-
-/**
- * Validates environment variables against their templates.
- * @param serviceDefinitionEnvVars - The environment variables from the YAML file.
- * @param templateEnvVars - The template environment variables to validate against.
- * @returns An object containing arrays of missing and mismatched env variables.
- */
-function validateEnvVars(serviceDefinitionEnvVars: { [key: string]: string }, templateEnvVars: EnvVarTemplate[]): { missingVars: string[]; mismatchedVars: MismatchedVar[] } {
-  const missingVars: string[] = [];
-  const mismatchedVars: MismatchedVar[] = [];
-
-  // Preprocess serviceDefinitionEnvVars to map endings to variable names and values
-  const envVarMap: Record<string, { variableName: string; value: string }[]> = {};
-
-  for (const [serviceDefEnvVarName, value] of Object.entries(serviceDefinitionEnvVars)) {
-    for (const templateEnvVar of templateEnvVars) {
-      const suffix = templateEnvVar.keySuffix.toUpperCase();
-      if (serviceDefEnvVarName.toUpperCase().endsWith(suffix)) {
-        if (!envVarMap[suffix]) {
-          envVarMap[suffix] = [];
-        }
-        envVarMap[suffix].push({ variableName: serviceDefEnvVarName, value });
-      }
-    }
-  }
-
-  // Validate each template variable
-  for (const templateEnvVar of templateEnvVars) {
-    const suffixUpper = templateEnvVar.keySuffix.toUpperCase();
-
-    const matchedVars = envVarMap[suffixUpper];
-
-    if (!matchedVars || matchedVars.length === 0) {
-      missingVars.push(templateEnvVar.keySuffix);
-      continue;
-    }
-
-    matchedVars.forEach(({ variableName, value }) => {
-      // If the the template parameter value is not set, skip the check
-      if (!templateEnvVar.value) {
-        return;
-      }
-
-      if (value !== templateEnvVar.value) {
-        mismatchedVars.push({
-          variableName,
-          expectedValue: templateEnvVar.value,
-          actualValue: value,
-        });
-      }
-    });
-  }
-
-  return { missingVars, mismatchedVars };
-}
-
 /**
  * Generates a Markdown report based on validation results.
  * @param results - The array of ValidationResult objects.
@@ -207,7 +43,7 @@ function generateMarkdownReport(results: ValidationResult[]): string {
 `;
 
   if (results.length === 0) {
-    markdown += `🔍 No validation results to display.`;
+    markdown += "🔍 No validation results to display.";
     return markdown;
   }
 
@@ -310,6 +146,170 @@ async function postOrUpdatePRComment(markdown: string): Promise<void> {
 }
 
 /**
+ * Loads and parses a JSON template file.
+ * @param templatePath - Path to the template JSON file.
+ * @param environment - Name of the environment (used for error messages).
+ * @returns An array of EnvVarTemplate objects.
+ */
+async function loadTemplate(templatePath: string, environment: string): Promise<EnvVarTemplate[]> {
+  try {
+    const templateContent = await fs.readFile(templatePath, "utf8");
+    const parsedTemplate = JSON.parse(templateContent);
+    if (!Array.isArray(parsedTemplate)) {
+      throw new Error("Template JSON must be an array of objects.");
+    }
+    // Validate template structure
+    parsedTemplate.forEach((item, index) => {
+      if (typeof item.keySuffix !== "string" || typeof item.value !== "string") {
+        throw new Error(`Invalid template at index ${index} in ${environment} template.`);
+      }
+    });
+    return parsedTemplate;
+  } catch (error: any) {
+    core.setFailed(`❌ Failed to load ${environment} template from ${templatePath}\nError: ${error.message}`);
+    throw error; // Rethrow to halt execution
+  }
+}
+
+/**
+ * Validates environment variables against their templates.
+ * @param serviceDefinitionEnvVars - The environment variables from the YAML file.
+ * @param templateEnvVars - The template environment variables to validate against.
+ * @returns An object containing arrays of missing and mismatched env variables.
+ */
+function validateEnvVars(serviceDefinitionEnvVars: { [key: string]: string }, templateEnvVars: EnvVarTemplate[])
+  : { missingVars: string[]; mismatchedVars: MismatchedVar[] } {
+  const missingVars: string[] = [];
+  const mismatchedVars: MismatchedVar[] = [];
+
+  // Preprocess serviceDefinitionEnvVars to map endings to variable names and values
+  const envVarMap: Record<string, { variableName: string; value: string }[]> = {};
+
+  for (const [serviceDefEnvVarName, value] of Object.entries(serviceDefinitionEnvVars)) {
+    for (const templateEnvVar of templateEnvVars) {
+      const suffix = templateEnvVar.keySuffix.toUpperCase();
+      if (serviceDefEnvVarName.toUpperCase().endsWith(suffix)) {
+        if (!envVarMap[suffix]) {
+          envVarMap[suffix] = [];
+        }
+        envVarMap[suffix].push({ variableName: serviceDefEnvVarName, value });
+      }
+    }
+  }
+
+  // Validate each template variable
+  for (const templateEnvVar of templateEnvVars) {
+    const suffixUpper = templateEnvVar.keySuffix.toUpperCase();
+
+    const matchedVars = envVarMap[suffixUpper];
+
+    if (!matchedVars || matchedVars.length === 0) {
+      missingVars.push(templateEnvVar.keySuffix);
+      continue;
+    }
+
+    matchedVars.forEach(({ variableName, value }) => {
+      // If the the template parameter value is not set, skip the check
+      if (!templateEnvVar.value) {
+        return;
+      }
+
+      if (value !== templateEnvVar.value) {
+        mismatchedVars.push({
+          variableName,
+          expectedValue: templateEnvVar.value,
+          actualValue: value,
+        });
+      }
+    });
+  }
+
+  return { missingVars, mismatchedVars };
+}
+
+async function run(): Promise<void> {
+  try {
+    // Retrieve inputs
+    const filesInput = core.getInput("service-definitions", { required: true });
+    let serviceDefinitionPaths: string[];
+    try {
+      serviceDefinitionPaths = JSON.parse(filesInput) as string[];
+      if (!Array.isArray(serviceDefinitionPaths)) {
+        throw new Error("The 'service-definitions' input must be a JSON array of file paths.");
+      }
+    } catch (parseError: any) {
+      core.setFailed(`Invalid 'service-definitions' input. Ensure it's a valid JSON array.\nError: ${parseError.message}`);
+      return;
+    }
+
+    const templatesDir = path.join(process.cwd(), "templates");
+
+    // Define template paths
+    const stagingTemplatePath = path.join(templatesDir, "staging.json");
+    const productionTemplatePath = path.join(templatesDir, "production.json");
+
+    // Load templates
+    const templates: Record<string, EnvVarTemplate[]> = {
+      staging: await loadTemplate(stagingTemplatePath, "staging"),
+      production: await loadTemplate(productionTemplatePath, "production"),
+    };
+
+    const validationResults: ValidationResult[] = [];
+
+    // Iterate through each YAML file
+    for (const filePath of serviceDefinitionPaths) {
+      let parsedYaml: ParsedYaml;
+
+      try {
+        const fileContent = await fs.readFile(filePath, "utf8");
+        parsedYaml = yaml.load(fileContent) as ParsedYaml;
+
+        // If parsedYaml is undefined or null, treat it as a parsing failure
+        if (!parsedYaml) {
+          throw new Error("Parsed YAML content is empty.");
+        }
+
+        core.info(`✅ YAML lint passed and parsed successfully for file: ${filePath}`);
+      } catch (error: any) {
+        core.setFailed(`❌ Failed to validate or parse YAML file: ${filePath}\nError: ${error.message}`);
+        return;
+      }
+
+      if (!parsedYaml.environments) {
+        core.warning(`⚠️ No 'environments' section found in file: ${filePath}`);
+        continue;
+      }
+
+      // Validate each environment
+      for (const [envName, templateVars] of Object.entries(templates)) {
+        const envSection = parsedYaml.environments[envName]?.env;
+
+        if (envSection) {
+          const { missingVars, mismatchedVars } = validateEnvVars(envSection, templateVars);
+
+          validationResults.push({
+            filePath,
+            environment: envName,
+            missingVars,
+            mismatchedVars,
+          });
+        } else {
+          core.warning(`⚠️ No 'env' section found for environment '${envName}' in file: ${filePath}`);
+        }
+      }
+    }
+
+    // Generate and post Markdown report
+    const markdownReport = generateMarkdownReport(validationResults);
+    await postOrUpdatePRComment(markdownReport);
+
+    core.info("🎉 Validation results have been posted to the PR.");
+  } catch (error: any) {
+    core.setFailed(`Unexpected error: ${error.message}`);
+  }
+}
+
+/**
  * Capitalizes the first letter of a given string.
  * @param text - The string to capitalize.
  * @returns The capitalized string.
@@ -319,4 +319,4 @@ function capitalize(text: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
-run();
+await run();
