@@ -32,6 +32,23 @@ interface ParsedYaml {
   };
 }
 
+// Mapping from service-type options to their corresponding folder names
+const serviceTypeToFolderMap: Record<string, string> = {
+  PROCESSOR: "processor",
+  QUERY_API: "query-api",
+  INPUT_API: "input-api",
+};
+
+/**
+ * Capitalizes the first letter of a given string.
+ * @param text - The string to capitalize.
+ * @returns The capitalized string.
+ */
+function capitalize(text: string): string {
+  if (!text) return text;
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
 /**
  * Generates a Markdown report based on validation results.
  * @param results - The array of ValidationResult objects.
@@ -47,7 +64,7 @@ function generateMarkdownReport(results: ValidationResult[]): string {
     return markdown;
   }
 
-  for (const result of results) {
+  results.forEach((result) => {
     markdown += `### 📄 File: \`${result.filePath}\` - Environment: **${capitalize(result.environment)}**
 
 `;
@@ -56,7 +73,7 @@ function generateMarkdownReport(results: ValidationResult[]): string {
       markdown += `✅ All environment variables are valid.
 
 `;
-      continue;
+      return;
     }
 
     if (result.missingVars.length > 0) {
@@ -72,14 +89,15 @@ ${result.missingVars.map((v) => `- \`${v}\``).join("\n")}
 | Variable | Expected | Actual |
 |----------|----------|--------|
 `;
-      for (const mismatch of result.mismatchedVars) {
+      result.mismatchedVars.forEach((mismatch) => {
         markdown += `| \`${mismatch.variableName}\` | \`${mismatch.expectedValue}\` | \`${mismatch.actualValue}\` |
 `;
-      }
+      });
       markdown += `
+
 `;
     }
-  }
+  });
 
   return markdown;
 }
@@ -116,7 +134,7 @@ async function postOrUpdatePRComment(markdown: string): Promise<void> {
     });
 
     // Define a unique identifier for the comment (to allow updates)
-    const commentIdentifier = "## 🛡️ YAML Environment Variables Validation Results";
+    const commentIdentifier = "## 🛡️ Definition File(s) Environment Variables Validation Results";
 
     // Find existing comment by this action
     const existingComment = comments.find((comment) => comment.body?.startsWith(commentIdentifier));
@@ -140,8 +158,12 @@ async function postOrUpdatePRComment(markdown: string): Promise<void> {
       });
       core.info("📝 New PR comment posted with validation results.");
     }
-  } catch (error: any) {
-    core.warning(`⚠️ Failed to post or update PR comment. Error: ${error.message}`);
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      core.warning(`⚠️ Failed to post or update PR comment. Error: ${error.message}`);
+    } else {
+      core.warning("⚠️ Failed to post or update PR comment. Unknown error.");
+    }
   }
 }
 
@@ -164,10 +186,15 @@ async function loadTemplate(templatePath: string, environment: string): Promise<
         throw new Error(`Invalid template at index ${index} in ${environment} template.`);
       }
     });
-    return parsedTemplate;
-  } catch (error: any) {
-    core.setFailed(`❌ Failed to load ${environment} template from ${templatePath}\nError: ${error.message}`);
-    throw error; // Rethrow to halt execution
+    return parsedTemplate as EnvVarTemplate[];
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      core.setFailed(`❌ Failed to load ${environment} template from ${templatePath}\nError: ${error.message}`);
+      throw error; // Rethrow to halt execution
+    } else {
+      core.setFailed(`❌ Failed to load ${environment} template from ${templatePath}\nUnknown error.`);
+      throw new Error("Unknown error occurred while loading template.");
+    }
   }
 }
 
@@ -177,16 +204,18 @@ async function loadTemplate(templatePath: string, environment: string): Promise<
  * @param templateEnvVars - The template environment variables to validate against.
  * @returns An object containing arrays of missing and mismatched env variables.
  */
-function validateEnvVars(serviceDefinitionEnvVars: { [key: string]: string }, templateEnvVars: EnvVarTemplate[])
-  : { missingVars: string[]; mismatchedVars: MismatchedVar[] } {
+function validateEnvVars(
+  serviceDefinitionEnvVars: { [key: string]: string },
+  templateEnvVars: EnvVarTemplate[],
+): { missingVars: string[]; mismatchedVars: MismatchedVar[] } {
   const missingVars: string[] = [];
   const mismatchedVars: MismatchedVar[] = [];
 
   // Preprocess serviceDefinitionEnvVars to map endings to variable names and values
   const envVarMap: Record<string, { variableName: string; value: string }[]> = {};
 
-  for (const [serviceDefEnvVarName, value] of Object.entries(serviceDefinitionEnvVars)) {
-    for (const templateEnvVar of templateEnvVars) {
+  Object.entries(serviceDefinitionEnvVars).forEach(([serviceDefEnvVarName, value]) => {
+    templateEnvVars.forEach((templateEnvVar) => {
       const suffix = templateEnvVar.keySuffix.toUpperCase();
       if (serviceDefEnvVarName.toUpperCase().endsWith(suffix)) {
         if (!envVarMap[suffix]) {
@@ -194,22 +223,22 @@ function validateEnvVars(serviceDefinitionEnvVars: { [key: string]: string }, te
         }
         envVarMap[suffix].push({ variableName: serviceDefEnvVarName, value });
       }
-    }
-  }
+    });
+  });
 
   // Validate each template variable
-  for (const templateEnvVar of templateEnvVars) {
+  templateEnvVars.forEach((templateEnvVar) => {
     const suffixUpper = templateEnvVar.keySuffix.toUpperCase();
 
     const matchedVars = envVarMap[suffixUpper];
 
     if (!matchedVars || matchedVars.length === 0) {
       missingVars.push(templateEnvVar.keySuffix);
-      continue;
+      return;
     }
 
     matchedVars.forEach(({ variableName, value }) => {
-      // If the the template parameter value is not set, skip the check
+      // If the template parameter value is not set, skip the check
       if (!templateEnvVar.value) {
         return;
       }
@@ -222,7 +251,7 @@ function validateEnvVars(serviceDefinitionEnvVars: { [key: string]: string }, te
         });
       }
     });
-  }
+  });
 
   return { missingVars, mismatchedVars };
 }
@@ -231,92 +260,129 @@ async function run(): Promise<void> {
   try {
     // Retrieve inputs
     const filesInput = core.getInput("service-definitions", { required: true });
+    const serviceTypeInput = core.getInput("service-type", { required: true });
+
     let serviceDefinitionPaths: string[];
     try {
       serviceDefinitionPaths = JSON.parse(filesInput) as string[];
       if (!Array.isArray(serviceDefinitionPaths)) {
         throw new Error("The 'service-definitions' input must be a JSON array of file paths.");
       }
-    } catch (parseError: any) {
-      core.setFailed(`Invalid 'service-definitions' input. Ensure it's a valid JSON array.\nError: ${parseError.message}`);
+    } catch (parseError: unknown) {
+      if (parseError instanceof Error) {
+        core.setFailed(`Invalid 'service-definitions' input. Ensure it's a valid JSON array.\nError: ${parseError.message}`);
+      } else {
+        core.setFailed("Invalid 'service-definitions' input. Ensure it's a valid JSON array.");
+      }
       return;
     }
 
-    const templatesDir = path.join(process.cwd(), "templates");
+    const serviceType = serviceTypeInput.trim();
+    const validServiceTypes = ["PROCESSOR", "QUERY_API", "INPUT_API"];
+    if (!validServiceTypes.includes(serviceType)) {
+      core.setFailed(`Invalid 'service-type' input. Allowed values are: ${validServiceTypes.join(", ")}.`);
+      return;
+    }
 
-    // Define template paths
+    const mappedFolderName = serviceTypeToFolderMap[serviceType];
+    if (!mappedFolderName) {
+      core.setFailed(`No folder mapping found for service-type '${serviceType}'.`);
+      return;
+    }
+
+    const templatesDir = path.join(process.cwd(), "templates", mappedFolderName);
+
+    // Define template paths based on service-type folder
     const stagingTemplatePath = path.join(templatesDir, "staging.json");
     const productionTemplatePath = path.join(templatesDir, "production.json");
 
-    // Load templates
+    // Check if template files exist
+    try {
+      await Promise.all([
+        fs.access(stagingTemplatePath),
+        fs.access(productionTemplatePath),
+      ]);
+    } catch {
+      core.setFailed(`❌ Template files not found in folder '${mappedFolderName}'. 
+        Ensure that 'staging.json' and 'production.json' exist.`);
+      return;
+    }
+
+    // Load templates concurrently
+    const [stagingTemplate, productionTemplate] = await Promise.all([
+      loadTemplate(stagingTemplatePath, "staging"),
+      loadTemplate(productionTemplatePath, "production"),
+    ]);
+
     const templates: Record<string, EnvVarTemplate[]> = {
-      staging: await loadTemplate(stagingTemplatePath, "staging"),
-      production: await loadTemplate(productionTemplatePath, "production"),
+      staging: stagingTemplate,
+      production: productionTemplate,
     };
 
     const validationResults: ValidationResult[] = [];
 
-    // Iterate through each YAML file
-    for (const filePath of serviceDefinitionPaths) {
-      let parsedYaml: ParsedYaml;
+    // Process all service definition files concurrently
+    await Promise.all(
+      serviceDefinitionPaths.map(async (filePath) => {
+        let parsedYaml: ParsedYaml;
 
-      try {
-        const fileContent = await fs.readFile(filePath, "utf8");
-        parsedYaml = yaml.load(fileContent) as ParsedYaml;
+        try {
+          const fileContent = await fs.readFile(filePath, "utf8");
+          const parsed = yaml.load(fileContent);
 
-        // If parsedYaml is undefined or null, treat it as a parsing failure
-        if (!parsedYaml) {
-          throw new Error("Parsed YAML content is empty.");
+          if (!parsed || typeof parsed !== "object") {
+            throw new Error("Parsed YAML content is empty or invalid.");
+          }
+
+          parsedYaml = parsed as ParsedYaml;
+
+          core.info(`✅ YAML lint passed and parsed successfully for file: ${filePath}`);
+        } catch (error: unknown) {
+          if (error instanceof Error) {
+            core.setFailed(`❌ Failed to validate or parse YAML file: ${filePath}\nError: ${error.message}`);
+          } else {
+            core.setFailed(`❌ Failed to validate or parse YAML file: ${filePath}\nUnknown error.`);
+          }
+          return;
         }
 
-        core.info(`✅ YAML lint passed and parsed successfully for file: ${filePath}`);
-      } catch (error: any) {
-        core.setFailed(`❌ Failed to validate or parse YAML file: ${filePath}\nError: ${error.message}`);
-        return;
-      }
-
-      if (!parsedYaml.environments) {
-        core.warning(`⚠️ No 'environments' section found in file: ${filePath}`);
-        continue;
-      }
-
-      // Validate each environment
-      for (const [envName, templateVars] of Object.entries(templates)) {
-        const envSection = parsedYaml.environments[envName]?.env;
-
-        if (envSection) {
-          const { missingVars, mismatchedVars } = validateEnvVars(envSection, templateVars);
-
-          validationResults.push({
-            filePath,
-            environment: envName,
-            missingVars,
-            mismatchedVars,
-          });
-        } else {
-          core.warning(`⚠️ No 'env' section found for environment '${envName}' in file: ${filePath}`);
+        if (!parsedYaml.environments) {
+          core.warning(`⚠️ No 'environments' section found in file: ${filePath}`);
+          return;
         }
-      }
-    }
+
+        // Validate each environment
+        Object.entries(templates).forEach(([envName, templateVars]) => {
+          const envSection = parsedYaml.environments?.[envName]?.env;
+
+          if (envSection) {
+            const { missingVars, mismatchedVars } = validateEnvVars(envSection, templateVars);
+
+            validationResults.push({
+              filePath,
+              environment: envName,
+              missingVars,
+              mismatchedVars,
+            });
+          } else {
+            core.warning(`⚠️ No 'env' section found for environment '${envName}' in file: ${filePath}`);
+          }
+        });
+      }),
+    );
 
     // Generate and post Markdown report
     const markdownReport = generateMarkdownReport(validationResults);
     await postOrUpdatePRComment(markdownReport);
 
     core.info("🎉 Validation results have been posted to the PR.");
-  } catch (error: any) {
-    core.setFailed(`Unexpected error: ${error.message}`);
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      core.setFailed(`Unexpected error: ${error.message}`);
+    } else {
+      core.setFailed("Unexpected error occurred.");
+    }
   }
-}
-
-/**
- * Capitalizes the first letter of a given string.
- * @param text - The string to capitalize.
- * @returns The capitalized string.
- */
-function capitalize(text: string): string {
-  if (!text) return text;
-  return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 await run();
