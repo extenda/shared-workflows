@@ -182,7 +182,8 @@ async function loadTemplate(templatePath: string, environment: string): Promise<
     }
     // Validate template structure
     parsedTemplate.forEach((item, index) => {
-      if (typeof item.keySuffix !== "string" || typeof item.value !== "string") {
+      if (!item || typeof item.keySuffix !== "string"
+        || (item.value !== undefined && typeof item.value !== "string")) {
         throw new Error(`Invalid template at index ${index} in ${environment} template.`);
       }
     });
@@ -385,4 +386,8 @@ async function run(): Promise<void> {
   }
 }
 
-await run();
+(async () => {
+  await run();
+})().catch((error) => {
+  core.setFailed(`Unhandled error: ${error}`);
+});
