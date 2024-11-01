@@ -13,6 +13,11 @@
     "@actions/github": "^6.0.0",
     "js-yaml": "^4.1.0"
   },
+  "//dependencies": {
+    "@actions/core": "GitHub Actions core library.",
+    "@actions/github": "GitHub Actions GitHub library.",
+    "js-yaml": "YAML parser and serializer."
+  },
   "devDependencies": {
     "@babel/core": "^7.26.0",
     "@babel/preset-env": "^7.26.0",
@@ -28,16 +33,37 @@
     "eslint-plugin-import": "^2.27.5",
     "fork-ts-checker-webpack-plugin": "^9.0.2",
     "ts-loader": "^9.5.1",
+    "ts-node": "^10.9.2",
     "typescript": "^4.9.5",
     "webpack": "^5.96.1",
     "webpack-cli": "^5.1.4",
-    "webpack-node-externals": "^3.0.0",
-    "ts-node": "^10.9.2"
+    "webpack-node-externals": "^3.0.0"
+  },
+  "//devDependencies": {
+    "@babel/core": "Babel compiler for transpiling JavaScript and TypeScript",
+    "@babel/preset-env": "Babel preset to compile modern JavaScript based on target environments",
+    "@babel/preset-typescript": "Babel preset for transpiling TypeScript to JavaScript",
+    "@types/js-yaml": "Type definitions for the js-yaml package",
+    "@typescript-eslint/eslint-plugin": "ESLint plugin with TypeScript-specific linting rules",
+    "@typescript-eslint/parser": "ESLint parser for parsing TypeScript code",
+    "babel-loader": "Webpack loader to integrate Babel with Webpack for transpiling files",
+    "eslint": "Static code analysis tool for identifying and fixing problematic patterns",
+    "eslint-config-airbnb-base": "Airbnb's base ESLint configuration without React",
+    "eslint-config-airbnb-typescript": "Airbnb's TypeScript-specific ESLint configuration",
+    "eslint-import-resolver-typescript": "ESLint resolver to handle TypeScript path aliases",
+    "eslint-plugin-import": "ESLint plugin to validate and manage ES6+ import/export syntax",
+    "fork-ts-checker-webpack-plugin": "Webpack plugin to run TypeScript type checker in a separate process",
+    "ts-loader": "Webpack loader to transpile TypeScript files using TypeScript compiler",
+    "typescript": "TypeScript language compiler for static type checking",
+    "webpack": "Module bundler for JavaScript applications",
+    "webpack-cli": "Command-line interface for interacting with Webpack",
+    "webpack-node-externals": "Webpack plugin to exclude node_modules from the bundle for Node.js",
+    "ts-node": "Execution environment for running TypeScript files directly in Node.js"
   },
   "scripts": {
     "build": "webpack --config webpack.config.js",
     "start": "node --loader ts-node/esm dist/index.js",
-    "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
-    "lint:fix": "eslint . --ext .js,.jsx,.ts,.tsx --fix"
+    "lint": "eslint . --ext .ts,.tsx",
+    "lint:fix": "eslint . --ext .ts,.tsx --fix"
   }
 }
