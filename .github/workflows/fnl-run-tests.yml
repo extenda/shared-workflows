@@ -1,6 +1,6 @@
 name: Run tests
 
-on: 
+on:
   workflow_call:
     secrets:
       SECRET_AUTH:
