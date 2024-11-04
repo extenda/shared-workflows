@@ -1,12 +1,21 @@
 import * as core from "@actions/core";
 import * as github from "@actions/github";
 import { promises as fs } from "fs";
-import * as path from "path";
 import * as yaml from "js-yaml";
+
+// Import JSON templates
+import inputApiStaging from "../templates/input-api/staging.json" with { type: "json" };
+import inputApiProduction from "../templates/input-api/production.json" with { type: "json" };
+
+import processorStaging from "../templates/processor/staging.json" with { type: "json" };
+import processorProduction from "../templates/processor/production.json" with { type: "json" };
+
+import queryApiStaging from "../templates/query-api/staging.json" with { type: "json" };
+import queryApiProduction from "../templates/query-api/production.json" with { type: "json" };
 
 interface EnvVarTemplate {
   keySuffix: string;
-  value: string;
+  value?: string;
 }
 
 interface MismatchedVar {
@@ -17,7 +26,7 @@ interface MismatchedVar {
 
 interface ValidationResult {
   filePath: string;
-  environment: string;
+  environment: Environment;
   missingVars: string[];
   mismatchedVars: MismatchedVar[];
 }
@@ -32,11 +41,28 @@ interface ParsedYaml {
   };
 }
 
-// Mapping from service-type options to their corresponding folder names
-const serviceTypeToFolderMap: Record<string, string> = {
-  PROCESSOR: "processor",
-  QUERY_API: "query-api",
-  INPUT_API: "input-api",
+interface ServiceTemplates {
+  staging: EnvVarTemplate[];
+  production: EnvVarTemplate[];
+}
+
+type Environment = "staging" | "production";
+type ServiceType = "INPUT_API" | "PROCESSOR" | "QUERY_API";
+
+// Mapping from service-type options to their corresponding templates
+const serviceTypeToTemplatesMap: Record<ServiceType, ServiceTemplates> = {
+  PROCESSOR: {
+    staging: processorStaging,
+    production: processorProduction,
+  },
+  QUERY_API: {
+    staging: queryApiStaging,
+    production: queryApiProduction,
+  },
+  INPUT_API: {
+    staging: inputApiStaging,
+    production: inputApiProduction,
+  },
 };
 
 /**
@@ -77,7 +103,7 @@ function generateMarkdownReport(results: ValidationResult[]): string {
     }
 
     if (result.missingVars.length > 0) {
-      markdown += `#### ⚠️ Missing Environment Variables:
+      markdown += `#### ⚠️  Missing Environment Variables:
 ${result.missingVars.map((v) => `- \`${v}\``).join("\n")}
 
 `;
@@ -174,47 +200,28 @@ async function postOrUpdatePRComment(markdown: string): Promise<void> {
 }
 
 /**
- * Loads and parses a JSON template file.
- * @param templatePath - Path to the template JSON file.
- * @param environment - Name of the environment (used for error messages).
- * @returns An array of EnvVarTemplate objects.
+ * Validates the structure of an EnvVarTemplate array.
+ * @param template - The template array to validate.
+ * @param environment - The environment name for error messages.
  */
-async function loadTemplate(
-  templatePath: string,
-  environment: string,
-): Promise<EnvVarTemplate[]> {
-  try {
-    const templateContent = await fs.readFile(templatePath, "utf8");
-    const parsedTemplate = JSON.parse(templateContent);
-    if (!Array.isArray(parsedTemplate)) {
-      throw new Error("Template JSON must be an array of objects.");
-    }
-    // Validate template structure
-    parsedTemplate.forEach((item, index) => {
-      if (
-        !item
-        || typeof item.keySuffix !== "string"
-        || (item.value !== undefined && typeof item.value !== "string")
-      ) {
-        throw new Error(
-          `Invalid template at index ${index} in ${environment} template.`,
-        );
-      }
-    });
-    return parsedTemplate as EnvVarTemplate[];
-  } catch (error: unknown) {
-    if (error instanceof Error) {
-      core.setFailed(
-        `❌ Failed to load ${environment} template from ${templatePath}\nError: ${error.message}`,
-      );
-      throw error; // Rethrow to halt execution
-    } else {
-      core.setFailed(
-        `❌ Failed to load ${environment} template from ${templatePath}\nUnknown error.`,
-      );
-      throw new Error("Unknown error occurred while loading template.");
-    }
+function validateTemplate(template: EnvVarTemplate[], environment: Environment): void {
+  if (!Array.isArray(template)) {
+    core.setFailed(`Template JSON for '${environment}' must be an array of objects.`);
+    throw new Error(`Invalid template structure for '${environment}'`);
   }
+
+  template.forEach((item, index) => {
+    if (
+      !item
+      || typeof item.keySuffix !== "string"
+      || (item.value !== undefined && typeof item.value !== "string")
+    ) {
+      core.setFailed(
+        `❌ Invalid template at index ${index} in '${environment}' template.`,
+      );
+      throw new Error(`Invalid template data at index ${index} in '${environment}'`);
+    }
+  });
 }
 
 /**
@@ -304,49 +311,29 @@ async function run(): Promise<void> {
       return;
     }
 
-    const serviceType = serviceTypeInput.trim();
-    const validServiceTypes = ["PROCESSOR", "QUERY_API", "INPUT_API"];
+    const serviceType = serviceTypeInput.trim() as ServiceType;
+    const validServiceTypes: ServiceType[] = ["PROCESSOR", "QUERY_API", "INPUT_API"];
     if (!validServiceTypes.includes(serviceType)) {
-      core.setFailed(`Invalid 'service-type' input. Allowed values are: ${validServiceTypes.join(", ")}.`);
-      return;
-    }
-
-    const mappedFolderName = serviceTypeToFolderMap[serviceType];
-    if (!mappedFolderName) {
       core.setFailed(
-        `No folder mapping found for service-type '${serviceType}'.`,
+        `Invalid 'service-type' input. Allowed values are: ${validServiceTypes.join(", ")}.`,
       );
       return;
     }
 
-    const templatesDir = path.join(process.cwd(), "templates", mappedFolderName);
-
-    // Define template paths based on service-type folder
-    const stagingTemplatePath = path.join(templatesDir, "staging.json");
-    const productionTemplatePath = path.join(templatesDir, "production.json");
-
-    // Check if template files exist
-    try {
-      await Promise.all([
-        fs.access(stagingTemplatePath),
-        fs.access(productionTemplatePath),
-      ]);
-    } catch {
-      core.setFailed(`❌ Template files not found in folder '${mappedFolderName}'. 
-        Ensure that 'staging.json' and 'production.json' exist.`);
+    // Retrieve templates based on service type
+    const templates: Record<Environment, EnvVarTemplate[]> = serviceTypeToTemplatesMap[serviceType];
+    if (!templates) {
+      core.setFailed(
+        `No templates found for service-type '${serviceType}'.`,
+      );
       return;
     }
 
-    // Load templates concurrently
-    const [stagingTemplate, productionTemplate] = await Promise.all([
-      loadTemplate(stagingTemplatePath, "staging"),
-      loadTemplate(productionTemplatePath, "production"),
-    ]);
+    const { staging, production } = templates;
 
-    const templates: Record<string, EnvVarTemplate[]> = {
-      staging: stagingTemplate,
-      production: productionTemplate,
-    };
+    // Validate the templates
+    validateTemplate(staging, "staging");
+    validateTemplate(production, "production");
 
     const validationResults: ValidationResult[] = [];
 
@@ -389,7 +376,8 @@ async function run(): Promise<void> {
         }
 
         // Validate each environment
-        Object.entries(templates).forEach(([envName, templateVars]) => {
+        (["staging", "production"] as Environment[]).forEach((envName) => {
+          const templateVars = templates[envName];
           const envSection = parsedYaml.environments?.[envName]?.env;
 
           if (envSection) {

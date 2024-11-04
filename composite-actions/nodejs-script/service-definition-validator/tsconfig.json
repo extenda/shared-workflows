@@ -9,7 +9,8 @@
     "moduleResolution": "node",                 // Module resolution strategy
     "esModuleInterop": true,                    // Enables emit interoperability between CommonJS and ES Modules
     "skipLibCheck": true,                       // Skip type checking of declaration files
-    "forceConsistentCasingInFileNames": true    // Ensure consistent casing in imports
+    "forceConsistentCasingInFileNames": true,   // Ensure consistent casing in imports
+    "resolveJsonModule": true,                  // Enable importing JSON modules
   },
   "include": ["src"],
   "exclude": ["node_modules", "dist"]

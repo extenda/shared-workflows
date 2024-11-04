@@ -11,7 +11,7 @@
     "project": "./tsconfig.json",
     "tsconfigRootDir": "."
   },
-  "ignorePatterns": ["webpack.config.js", "dist/"],
+  "ignorePatterns": ["webpack.config.js", "dist/", "babel.config.js"],
   "extends": [
     "airbnb-base",
     "airbnb-typescript/base",
