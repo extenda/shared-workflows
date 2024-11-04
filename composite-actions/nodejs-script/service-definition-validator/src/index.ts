@@ -132,9 +132,8 @@ ${result.missingVars.map((v) => `- \`${v}\``).join("\n")}
  * Posts a new comment on the PR or updates the existing one with the given Markdown content.
  * @param markdown - The Markdown content to post.
  */
-async function postOrUpdatePRComment(markdown: string): Promise<void> {
-  const token = process.env.GITHUB_TOKEN as string;
-  const octokit = github.getOctokit(token);
+async function postOrUpdatePRComment(markdown: string, githubToken: string): Promise<void> {
+  const octokit = github.getOctokit(githubToken);
 
   const { context } = github;
   const pr = context.payload.pull_request;
@@ -289,6 +288,7 @@ async function run(): Promise<void> {
     // Retrieve inputs
     const filesInput = core.getInput("service-definitions", { required: true });
     const serviceTypeInput = core.getInput("service-type", { required: true });
+    const githubToken = core.getInput("github-token");
 
     let serviceDefinitionPaths: string[];
     try {
@@ -400,7 +400,7 @@ async function run(): Promise<void> {
 
     // Generate and post Markdown report
     const markdownReport = generateMarkdownReport(validationResults);
-    await postOrUpdatePRComment(markdownReport);
+    await postOrUpdatePRComment(markdownReport, githubToken);
 
     core.info("🎉 Validation results have been posted to the PR.");
   } catch (error: unknown) {
