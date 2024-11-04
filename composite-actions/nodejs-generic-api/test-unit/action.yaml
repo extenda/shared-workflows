@@ -10,6 +10,8 @@ inputs:
   QODANA_TOKEN:
     description: "QODANA_TOKEN"
     required: true
+  GITHUB_TOKEN:
+    description: "GH token to comment on pr"
   slack-channel:
     description: Name of the channel to notify failing action
     required: false
@@ -100,8 +102,10 @@ runs:
       with:
         post-pr-comment: true
         args: --coverage-dir,.coverage,--baseline,qodana.sarif.json
+        github-token: ${{ inputs.GITHUB_TOKEN }}
       env:
         QODANA_TOKEN: ${{ inputs.QODANA_TOKEN }}
+        
 
     - name: Notify Slack if failed
       if: ${{ github.ref == 'refs/heads/master' && failure() && inputs.notify-slack-on-fail }}
