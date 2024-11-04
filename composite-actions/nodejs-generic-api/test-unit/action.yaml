@@ -7,6 +7,9 @@ inputs:
   GCLOUD_AUTH:
     description: "GCP Auth (staging)"
     required: false
+  QODANA_TOKEN:
+    description: "QODANA_TOKEN"
+    required: true
   slack-channel:
     description: Name of the channel to notify failing action
     required: false
@@ -104,7 +107,7 @@ runs:
       with:
         args: --coverage-dir,.coverage,--baseline,qodana.sarif.json
       env:
-        QODANA_TOKEN: ${{ secrets.QODANA_TOKEN }}
+        QODANA_TOKEN: ${{ inputs.QODANA_TOKEN }}
 
     - name: Notify Slack if failed
       if: ${{ github.ref == 'refs/heads/master' && failure() && inputs.notify-slack-on-fail }}
