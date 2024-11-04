@@ -11,6 +11,10 @@ inputs:
       - 'PROCESSOR'
       - 'INPUT_API'
       - 'QUERY_API'
+  github-token:
+    description: A GitHub token with write access to the repository.
+    required: false
+    default: ${{ github.token }}
 runs:
   using: node20
   main: dist/index.js
