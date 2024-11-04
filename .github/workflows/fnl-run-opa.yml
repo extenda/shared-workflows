@@ -1,0 +1,35 @@
+name: Run opa tests
+
+on:
+  workflow_call:
+    secrets:
+      SECRET_AUTH:
+        required: true
+      STYRA_TOKEN:
+        required: true
+    inputs:
+      permission-prefix:
+        type: string
+        required: true
+      service-name:
+        type: string
+        required: true
+
+jobs:
+  test-opa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: extenda/actions/gcp-secret-manager@v0
+        with:
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+          secrets: |
+            STYRA_TOKEN: styra-das-token
+
+      - name: OPA/Rego unit tests
+        uses: extenda/actions/styra-das-test@v0
+        with:
+          permission-prefix: ${{ inputs.permission-prefix }}
+          service-name: ${{ inputs.service-name }}
+          styra-das-token: ${{ secrets.STYRA_TOKEN }}
