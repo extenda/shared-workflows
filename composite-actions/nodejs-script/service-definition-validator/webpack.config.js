@@ -1,6 +1,5 @@
 import path from "path";
 import { fileURLToPath } from "url";
-import nodeExternals from "webpack-node-externals";
 import ForkTsCheckerWebpackPlugin from "fork-ts-checker-webpack-plugin";
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -15,7 +14,7 @@ const webpackConfig = {
   entry: "./src/index.ts",
 
   // Enable source maps for debugging
-  devtool: "source-map",
+  // devtool: "source-map",
 
   // Output configuration
   output: {
@@ -32,15 +31,6 @@ const webpackConfig = {
   experiments: {
     outputModule: true,
   },
-
-  // Exclude node_modules from the bundle
-  externals: [
-    nodeExternals({
-      importType: "module",
-      // allowlist: [],
-      // Do not externals specific modules if necessary
-    }),
-  ],
 
   // Resolve extensions so imports don't need extensions
   resolve: {

@@ -118,7 +118,11 @@ async function postOrUpdatePRComment(markdown: string): Promise<void> {
     return;
   }
 
-  const { number: prNumber, repo, owner } = {
+  const {
+    number: prNumber,
+    repo,
+    owner,
+  } = {
     number: pr.number,
     repo: context.repo.repo,
     owner: context.repo.owner,
@@ -160,7 +164,9 @@ async function postOrUpdatePRComment(markdown: string): Promise<void> {
     }
   } catch (error: unknown) {
     if (error instanceof Error) {
-      core.warning(`⚠️ Failed to post or update PR comment. Error: ${error.message}`);
+      core.warning(
+        `⚠️ Failed to post or update PR comment. Error: ${error.message}`,
+      );
     } else {
       core.warning("⚠️ Failed to post or update PR comment. Unknown error.");
     }
@@ -173,7 +179,10 @@ async function postOrUpdatePRComment(markdown: string): Promise<void> {
  * @param environment - Name of the environment (used for error messages).
  * @returns An array of EnvVarTemplate objects.
  */
-async function loadTemplate(templatePath: string, environment: string): Promise<EnvVarTemplate[]> {
+async function loadTemplate(
+  templatePath: string,
+  environment: string,
+): Promise<EnvVarTemplate[]> {
   try {
     const templateContent = await fs.readFile(templatePath, "utf8");
     const parsedTemplate = JSON.parse(templateContent);
@@ -182,18 +191,27 @@ async function loadTemplate(templatePath: string, environment: string): Promise<
     }
     // Validate template structure
     parsedTemplate.forEach((item, index) => {
-      if (!item || typeof item.keySuffix !== "string"
-        || (item.value !== undefined && typeof item.value !== "string")) {
-        throw new Error(`Invalid template at index ${index} in ${environment} template.`);
+      if (
+        !item
+        || typeof item.keySuffix !== "string"
+        || (item.value !== undefined && typeof item.value !== "string")
+      ) {
+        throw new Error(
+          `Invalid template at index ${index} in ${environment} template.`,
+        );
       }
     });
     return parsedTemplate as EnvVarTemplate[];
   } catch (error: unknown) {
     if (error instanceof Error) {
-      core.setFailed(`❌ Failed to load ${environment} template from ${templatePath}\nError: ${error.message}`);
+      core.setFailed(
+        `❌ Failed to load ${environment} template from ${templatePath}\nError: ${error.message}`,
+      );
       throw error; // Rethrow to halt execution
     } else {
-      core.setFailed(`❌ Failed to load ${environment} template from ${templatePath}\nUnknown error.`);
+      core.setFailed(
+        `❌ Failed to load ${environment} template from ${templatePath}\nUnknown error.`,
+      );
       throw new Error("Unknown error occurred while loading template.");
     }
   }
@@ -215,17 +233,19 @@ function validateEnvVars(
   // Preprocess serviceDefinitionEnvVars to map endings to variable names and values
   const envVarMap: Record<string, { variableName: string; value: string }[]> = {};
 
-  Object.entries(serviceDefinitionEnvVars).forEach(([serviceDefEnvVarName, value]) => {
-    templateEnvVars.forEach((templateEnvVar) => {
-      const suffix = templateEnvVar.keySuffix.toUpperCase();
-      if (serviceDefEnvVarName.toUpperCase().endsWith(suffix)) {
-        if (!envVarMap[suffix]) {
-          envVarMap[suffix] = [];
+  Object.entries(serviceDefinitionEnvVars).forEach(
+    ([serviceDefEnvVarName, value]) => {
+      templateEnvVars.forEach((templateEnvVar) => {
+        const suffix = templateEnvVar.keySuffix.toUpperCase();
+        if (serviceDefEnvVarName.toUpperCase().endsWith(suffix)) {
+          if (!envVarMap[suffix]) {
+            envVarMap[suffix] = [];
+          }
+          envVarMap[suffix].push({ variableName: serviceDefEnvVarName, value });
         }
-        envVarMap[suffix].push({ variableName: serviceDefEnvVarName, value });
-      }
-    });
-  });
+      });
+    },
+  );
 
   // Validate each template variable
   templateEnvVars.forEach((templateEnvVar) => {
@@ -267,13 +287,19 @@ async function run(): Promise<void> {
     try {
       serviceDefinitionPaths = JSON.parse(filesInput) as string[];
       if (!Array.isArray(serviceDefinitionPaths)) {
-        throw new Error("The 'service-definitions' input must be a JSON array of file paths.");
+        throw new Error(
+          "The 'service-definitions' input must be a JSON array of file paths.",
+        );
       }
     } catch (parseError: unknown) {
       if (parseError instanceof Error) {
-        core.setFailed(`Invalid 'service-definitions' input. Ensure it's a valid JSON array.\nError: ${parseError.message}`);
+        core.setFailed(
+          `Invalid 'service-definitions' input. Ensure it's a valid JSON array.\nError: ${parseError.message}`,
+        );
       } else {
-        core.setFailed("Invalid 'service-definitions' input. Ensure it's a valid JSON array.");
+        core.setFailed(
+          "Invalid 'service-definitions' input. Ensure it's a valid JSON array.",
+        );
       }
       return;
     }
@@ -287,7 +313,9 @@ async function run(): Promise<void> {
 
     const mappedFolderName = serviceTypeToFolderMap[serviceType];
     if (!mappedFolderName) {
-      core.setFailed(`No folder mapping found for service-type '${serviceType}'.`);
+      core.setFailed(
+        `No folder mapping found for service-type '${serviceType}'.`,
+      );
       return;
     }
 
@@ -337,18 +365,26 @@ async function run(): Promise<void> {
 
           parsedYaml = parsed as ParsedYaml;
 
-          core.info(`✅ YAML lint passed and parsed successfully for file: ${filePath}`);
+          core.info(
+            `✅ YAML lint passed and parsed successfully for file: ${filePath}`,
+          );
         } catch (error: unknown) {
           if (error instanceof Error) {
-            core.setFailed(`❌ Failed to validate or parse YAML file: ${filePath}\nError: ${error.message}`);
+            core.setFailed(
+              `❌ Failed to validate or parse YAML file: ${filePath}\nError: ${error.message}`,
+            );
           } else {
-            core.setFailed(`❌ Failed to validate or parse YAML file: ${filePath}\nUnknown error.`);
+            core.setFailed(
+              `❌ Failed to validate or parse YAML file: ${filePath}\nUnknown error.`,
+            );
           }
           return;
         }
 
         if (!parsedYaml.environments) {
-          core.warning(`⚠️ No 'environments' section found in file: ${filePath}`);
+          core.warning(
+            `⚠️ No 'environments' section found in file: ${filePath}`,
+          );
           return;
         }
 
@@ -366,7 +402,9 @@ async function run(): Promise<void> {
               mismatchedVars,
             });
           } else {
-            core.warning(`⚠️ No 'env' section found for environment '${envName}' in file: ${filePath}`);
+            core.warning(
+              `⚠️ No 'env' section found for environment '${envName}' in file: ${filePath}`,
+            );
           }
         });
       }),

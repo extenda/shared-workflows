@@ -35,8 +35,7 @@
     "ts-loader": "^9.5.1",
     "typescript": "^4.9.5",
     "webpack": "^5.96.1",
-    "webpack-cli": "^5.1.4",
-    "webpack-node-externals": "^3.0.0"
+    "webpack-cli": "^5.1.4"
   },
   "//devDependencies": {
     "@babel/core": "Babel compiler for transpiling JavaScript and TypeScript",
@@ -55,8 +54,7 @@
     "ts-loader": "Webpack loader to transpile TypeScript files using TypeScript compiler",
     "typescript": "TypeScript language compiler for static type checking",
     "webpack": "Module bundler for JavaScript applications",
-    "webpack-cli": "Command-line interface for interacting with Webpack",
-    "webpack-node-externals": "Webpack plugin to exclude node_modules from the bundle for Node.js"
+    "webpack-cli": "Command-line interface for interacting with Webpack"
   },
   "scripts": {
     "build": "webpack --config webpack.config.js",
