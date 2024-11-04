@@ -98,6 +98,7 @@ runs:
     - name: 'Qodana Scan'
       uses: JetBrains/qodana-action@v2024.2
       with:
+        post-pr-comment: true
         args: --coverage-dir,.coverage,--baseline,qodana.sarif.json
       env:
         QODANA_TOKEN: ${{ inputs.QODANA_TOKEN }}
