@@ -95,13 +95,6 @@ runs:
       shell: bash
       run: npm run test:cov
 
-    - name: Analyze with SonarCloud
-      uses: extenda/actions/sonar-scanner@v0
-      with:
-        sonar-host: https://sonarcloud.io
-        service-account-key: ${{ inputs.SECRET_AUTH }}
-        sonar-scanner: node
-
     - name: 'Qodana Scan'
       uses: JetBrains/qodana-action@v2024.2
       with:
