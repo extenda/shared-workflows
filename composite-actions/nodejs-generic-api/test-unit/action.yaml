@@ -99,6 +99,13 @@ runs:
         service-account-key: ${{ inputs.SECRET_AUTH }}
         sonar-scanner: node
 
+    - name: 'Qodana Scan'
+      uses: JetBrains/qodana-action@v2024.2
+      with:
+        args: --coverage-dir,src,--baseline,qodana.sarif.json
+      env:
+        QODANA_TOKEN: ${{ secrets.QODANA_TOKEN }}
+
     - name: Notify Slack if failed
       if: ${{ github.ref == 'refs/heads/master' && failure() && inputs.notify-slack-on-fail }}
       uses: extenda/actions/slack-notify@v0
