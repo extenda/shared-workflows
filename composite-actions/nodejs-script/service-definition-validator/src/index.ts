@@ -1,7 +1,9 @@
 import * as core from "@actions/core";
 import * as github from "@actions/github";
+import type { WebhookPayload } from "@actions/github/lib/interfaces.js";
 import { promises as fs } from "fs";
 import * as yaml from "js-yaml";
+import { getPullRequestInfo } from "./getPullRequestInfo.ts";
 
 // Import JSON templates
 import inputApiStaging from "../templates/input-api/staging.json" with { type: "json" };
@@ -136,10 +138,10 @@ async function postOrUpdatePRComment(markdown: string, githubToken: string): Pro
   const octokit = github.getOctokit(githubToken);
 
   const { context } = github;
-  const pr = context.payload.pull_request;
+  const pr = await getPullRequestInfo(githubToken) as WebhookPayload["pull_request"];
 
   if (!pr) {
-    core.setFailed("🔴 This action must run on pull request events.");
+    core.setFailed("🔴 Failed to fetch the pull request information.");
     return;
   }
 
