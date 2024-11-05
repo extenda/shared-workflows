@@ -1,1 +1,48 @@
-[]
+[
+  {
+    "keySuffix": "KAFKA__CLIENT_ID"
+  },
+  {
+    "keySuffix": "KAFKA__CLUSTER_BOOTSTRAP_SERVERS",
+    "value": "sm://*/kafka_cluster_bootstrap_server"
+  },
+  {
+    "keySuffix": "KAFKA__CLUSTER_API_KEY",
+    "value": "sm://*/kafka_cluster_api_key"
+  },
+  {
+    "keySuffix": "KAFKA__CLUSTER_API_SECRET",
+    "value": "sm://*/kafka_cluster_api_secret"
+  },
+  {
+    "keySuffix": "KAFKA__SCHEMA_REGISTRY_URL",
+    "value": "sm://*/kafka_schema_registry_url"
+  },
+  {
+    "keySuffix": "KAFKA__SCHEMA_REGISTRY_KEY",
+    "value": "sm://*/kafka_schema_registry_key"
+  },
+  {
+    "keySuffix": "KAFKA__SCHEMA_REGISTRY_SECRET",
+    "value": "sm://*/kafka_schema_registry_secret"
+  },
+  {
+    "keySuffix": "ASPNETCORE_ENVIRONMENT",
+    "value": "sm://*/ASPNETCORE_ENVIRONMENT"
+  },
+  {
+    "keySuffix": "ELASTIC_APM_SERVER_URL",
+    "value": "sm://*/apm_https_endpoint"
+  },
+  {
+    "keySuffix": "ELASTIC_APM_SECRET_TOKEN",
+    "value": "sm://*/apm_secret_token"
+  },
+  {
+    "keySuffix": "ELASTIC_APM_ENVIRONMENT",
+    "value": "sm://apm_environment"
+  },
+  {
+    "keySuffix": "ELASTIC_APM_SERVICE_NAME"
+  }
+]

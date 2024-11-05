@@ -9,8 +9,11 @@ import { getPullRequestInfo } from "./getPullRequestInfo.ts";
 import inputApiStaging from "../templates/input-api/staging.json" with { type: "json" };
 import inputApiProduction from "../templates/input-api/production.json" with { type: "json" };
 
-import processorStaging from "../templates/processor/staging.json" with { type: "json" };
-import processorProduction from "../templates/processor/production.json" with { type: "json" };
+import statefulProcessorStaging from "../templates/stateful-processor/staging.json" with { type: "json" };
+import statefulProcessorProduction from "../templates/stateful-processor/production.json" with { type: "json" };
+
+import statelessProcessorStaging from "../templates/stateless-processor/staging.json" with { type: "json" };
+import statelessProcessorProduction from "../templates/stateless-processor/production.json" with { type: "json" };
 
 import queryApiStaging from "../templates/query-api/staging.json" with { type: "json" };
 import queryApiProduction from "../templates/query-api/production.json" with { type: "json" };
@@ -49,13 +52,17 @@ interface ServiceTemplates {
 }
 
 type Environment = "staging" | "production";
-type ServiceType = "INPUT_API" | "PROCESSOR" | "QUERY_API";
+type ServiceType = "INPUT_API" | "STATEFUL_PROCESSOR" | "STATELESS_PROCESSOR" | "QUERY_API";
 
 // Mapping from service-type options to their corresponding templates
 const serviceTypeToTemplatesMap: Record<ServiceType, ServiceTemplates> = {
-  PROCESSOR: {
-    staging: processorStaging,
-    production: processorProduction,
+  STATEFUL_PROCESSOR: {
+    staging: statefulProcessorStaging,
+    production: statefulProcessorProduction,
+  },
+  STATELESS_PROCESSOR: {
+    staging: statelessProcessorStaging,
+    production: statelessProcessorProduction,
   },
   QUERY_API: {
     staging: queryApiStaging,
@@ -348,7 +355,7 @@ async function run(): Promise<void> {
     }
 
     const serviceType = serviceTypeInput.trim() as ServiceType;
-    const validServiceTypes: ServiceType[] = ["PROCESSOR", "QUERY_API", "INPUT_API"];
+    const validServiceTypes: ServiceType[] = ["STATEFUL_PROCESSOR", "STATELESS_PROCESSOR", "QUERY_API", "INPUT_API"];
     if (!validServiceTypes.includes(serviceType)) {
       core.setFailed(
         `Invalid 'service-type' input. Allowed values are: ${validServiceTypes.join(", ")}.`,
