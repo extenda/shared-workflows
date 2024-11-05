@@ -83,48 +83,82 @@ function capitalize(text: string): string {
  * @returns A string containing the Markdown report.
  */
 function generateMarkdownReport(results: ValidationResult[]): string {
-  let markdown = `## 🛡️ Definition File(s) Environment Variables Validation Results
+  // Initialize the Markdown report with the main header and a separator.
+  let markdown = `### ✅ Service Definition File(s) Validation Results
+
+---
 
 `;
 
+  // If there are no validation results, display a corresponding message.
   if (results.length === 0) {
     markdown += "🔍 No validation results to display.";
     return markdown;
   }
 
-  results.forEach((result) => {
-    markdown += `### 📄 File: \`${result.filePath}\` - Environment: **${capitalize(result.environment)}**
-
-`;
-
-    if (result.missingVars.length === 0 && result.mismatchedVars.length === 0) {
-      markdown += `✅ All environment variables are valid.
-
-`;
-      return;
+  // Group the validation results by file path.
+  const fileMap: Map<string, ValidationResult[]> = results.reduce((map, result) => {
+    if (!map.has(result.filePath)) {
+      map.set(result.filePath, []);
     }
+    map.get(result.filePath)!.push(result);
+    return map;
+  }, new Map<string, ValidationResult[]>());
 
-    if (result.missingVars.length > 0) {
-      markdown += `#### ⚠️  Missing Environment Variables:
-${result.missingVars.map((v) => `- \`${v}\``).join("\n")}
-
-`;
-    }
-
-    if (result.mismatchedVars.length > 0) {
-      markdown += `#### ❌ Mismatched Environment Variables:
-
-| Variable | Expected | Actual |
-|----------|----------|--------|
-`;
-      result.mismatchedVars.forEach((mismatch) => {
-        markdown += `| \`${mismatch.variableName}\` | \`${mismatch.expectedValue}\` | \`${mismatch.actualValue}\` |
-`;
-      });
-      markdown += `
+  // Iterate over each file and generate corresponding Markdown sections.
+  fileMap.forEach((fileResults, filePath) => {
+    markdown += `<details>
+  <summary>📄 \`${filePath}\`</summary>
 
 `;
-    }
+
+    // Iterate over each environment within the current file.
+    fileResults.forEach((result) => {
+      const environmentName = capitalize(result.environment);
+      markdown += `  **Environment: ${environmentName}**
+
+`;
+
+      // Check if there are no issues with environment variables.
+      if (result.missingVars.length === 0 && result.mismatchedVars.length === 0) {
+        markdown += `  ✅ All environment variables are valid.
+
+`;
+        return;
+      }
+
+      // Display missing environment variables, if any.
+      if (result.missingVars.length > 0) {
+        markdown += `  - ⚠️ **Missing Environment Variables:**
+`;
+        result.missingVars.forEach((variable) => {
+          markdown += `    - \`${variable}\`
+`;
+        });
+        markdown += `
+`;
+      }
+
+      // Display mismatched environment variables, if any.
+      if (result.mismatchedVars.length > 0) {
+        markdown += `  - ❌ **Mismatched Environment Variables:**
+
+    | Variable | Expected | Actual |
+    |----------|----------|--------|
+`;
+        result.mismatchedVars.forEach((mismatch) => {
+          markdown += `    | \`${mismatch.variableName}\` | \`${mismatch.expectedValue}\` | \`${mismatch.actualValue}\` |
+`;
+        });
+        markdown += `
+`;
+      }
+    });
+
+    markdown += `</details>
+
+---
+`;
   });
 
   return markdown;
