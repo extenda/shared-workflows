@@ -331,7 +331,7 @@ async function run(): Promise<void> {
     // Retrieve inputs
     const filesInput = core.getInput("service-definitions", { required: true });
     const serviceTypeInput = core.getInput("service-type", { required: true });
-    const githubToken = core.getInput("github-token");
+    const githubToken = core.getInput("github-token") || process.env.GITHUB_TOKEN as string;
 
     let serviceDefinitionPaths: string[];
     try {
