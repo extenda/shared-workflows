@@ -8,9 +8,10 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: Copy .env file
+      shell: bash
       run: cp test/example.env .env
 
     - name: Cache Sonar binary
@@ -34,15 +35,19 @@ runs:
         service-account-key: ${{ inputs.SECRET_AUTH }}
 
     - name: Install dependencies
+      shell: bash
       run: npm ci
 
     - name: Check OpenAPI schema updates
+      shell: bash
       run: npm run check-openapi-schema
 
     - name: Lint
+      shell: bash
       run: npm run lint:ci
 
     - name: Run unit tests with coverage
+      shell: bash
       run: npm run test:cov
 
     - name: Analyze with SonarCloud
