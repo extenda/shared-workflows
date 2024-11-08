@@ -1,4 +1,5 @@
 import type { ValidationResult } from "../types/index.ts";
+import { REPORT_COMMENT_IDENTIFIER } from "./Constants.ts";
 
 /**
  * Capitalizes the first letter of a string.
@@ -21,7 +22,8 @@ export function generateMarkdownReport(results: ValidationResult[]): string {
 
   const mainIcon = hasIssues ? "⚠️" : "✅";
 
-  let markdown = `### ${mainIcon} Service Definition File(s) Validation Results
+  let markdown = `${REPORT_COMMENT_IDENTIFIER} \n`;
+  markdown += `### ${mainIcon} Service Definition File(s) Validation Results
 
 ---
 `;

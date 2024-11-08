@@ -1,8 +1,7 @@
 import * as github from "@actions/github";
 import * as core from "@actions/core";
 import type { WebhookPayload } from "@actions/github/lib/interfaces";
-
-const COMMENT_IDENTIFIER = "## 🛡️ Definition File(s) Environment Variables Validation Results";
+import { REPORT_COMMENT_IDENTIFIER } from "./Constants.ts";
 
 /**
  * Fetches the pull request information associated with the current Git reference.
@@ -86,13 +85,8 @@ export async function postOrUpdatePRComment(markdown: string, githubToken: strin
       issue_number: prNumber,
       per_page: 100,
     });
-    core.info(`The number of the PR is: ${prNumber}`);
-    core.info(`🔍 Found ${comments.length} comments on the PR.`);
 
-    const existingComment = comments.find((comment) => comment.body?.startsWith(COMMENT_IDENTIFIER));
-
-    core.info(`The ids of the comments are: ${comments.map((comment) => comment.id).join(", ")}`);
-    core.info(`The existing comment is: ${existingComment?.id}`);
+    const existingComment = comments.find((comment) => comment.body?.includes(REPORT_COMMENT_IDENTIFIER));
 
     if (existingComment) {
       // Update existing comment
