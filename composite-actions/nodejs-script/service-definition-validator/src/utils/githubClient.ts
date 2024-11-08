@@ -79,16 +79,23 @@ export async function postOrUpdatePRComment(markdown: string, githubToken: strin
   };
 
   try {
+    // Fetch existing comments
     const { data: comments } = await octokit.rest.issues.listComments({
       owner,
       repo,
       issue_number: prNumber,
       per_page: 100,
     });
+    core.info(`The number of the PR is: ${prNumber}`);
+    core.info(`🔍 Found ${comments.length} comments on the PR.`);
 
     const existingComment = comments.find((comment) => comment.body?.startsWith(COMMENT_IDENTIFIER));
 
+    core.info(`The ids of the comments are: ${comments.map((comment) => comment.id).join(", ")}`);
+    core.info(`The existing comment is: ${existingComment?.id}`);
+
     if (existingComment) {
+      // Update existing comment
       await octokit.rest.issues.updateComment({
         owner,
         repo,
@@ -97,6 +104,7 @@ export async function postOrUpdatePRComment(markdown: string, githubToken: strin
       });
       core.info("📝 Existing PR comment updated with new validation results.");
     } else {
+      // Create a new comment
       await octokit.rest.issues.createComment({
         owner,
         repo,
