@@ -1,5 +1,5 @@
 import type { ValidationResult } from "../types/index.ts";
-import { REPORT_COMMENT_IDENTIFIER } from "./Constants.ts";
+import { REPORT_COMMENT_IDENTIFIER } from "./constants.ts";
 
 /**
  * Capitalizes the first letter of a string.

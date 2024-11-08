@@ -1,7 +1,7 @@
 import * as github from "@actions/github";
 import * as core from "@actions/core";
 import type { WebhookPayload } from "@actions/github/lib/interfaces";
-import { REPORT_COMMENT_IDENTIFIER } from "./Constants.ts";
+import { REPORT_COMMENT_IDENTIFIER } from "./constants.ts";
 
 /**
  * Fetches the pull request information associated with the current Git reference.
