@@ -65,5 +65,25 @@
   {
     "keySuffix": "BASIC_AUTH_CREDENTIALS_SOURCE",
     "value": "USER_INFO"
+  },
+  {
+    "keySuffix": "STATE_CLEANUP_DELAY_MS",
+    "value": "15778476000"
+  },
+  {
+    "keySuffix": "NUM_STANDBY_REPLICAS",
+    "value": "1"
+  },
+  {
+    "keySuffix": "MAX_WARMUP_REPLICAS",
+    "value": "8"
+  },
+  {
+    "keySuffix": "PROBING_REBALANCE_INTERVAL_MS",
+    "value": "300000"
+  },
+  {
+    "keySuffix": "STATE_DIR",
+    "value": "/data/storage"
   }
 ]
