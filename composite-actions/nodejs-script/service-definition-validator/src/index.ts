@@ -355,13 +355,17 @@ function getComment(
   const overrideSymbol = "<<";
   const mergeEntries = node.items.filter((item) => item.key?.toString() === overrideSymbol);
 
-  for (const mergeEntry of mergeEntries) {
+  const resolvedComment = mergeEntries.reduce<string | undefined>((acc, mergeEntry) => {
+    if (acc) return acc; // If a comment is already found, skip further processing
+
     const merged = mergeEntry.value;
 
     if (isAlias(merged)) {
       // Handle alias merges (e.g., <<: *prod-env)
       const aliasName = merged.source;
-      if (visited.has(aliasName)) continue; // Prevent infinite loops
+      if (visited.has(aliasName)) {
+        return acc; // Prevent infinite loops by skipping already visited aliases
+      }
       visited.add(aliasName);
       const mergedNode = anchorMap[aliasName];
       if (mergedNode) {
@@ -373,40 +377,46 @@ function getComment(
     } else if (isMap(merged)) {
       // Handle inline merged mappings (not common with anchors)
       const mergedMap = merged;
-      const inlineVar = mergedMap.items.find(item => item.key?.toString() === varName);
+
+      // Attempt to find an inline variable with the specified varName and extract its comment
+      const inlineVar = mergedMap.items.find((item) => item.key?.toString() === varName);
       if (inlineVar && isScalar(inlineVar.value) && inlineVar.value.comment) {
         return inlineVar.value.comment.replace(/^#+\s*/, "").trim();
       }
 
-      // If there are further merges within the inline mapping
-      const furtherMergeEntries = mergedMap.items.filter(
-        item => item.key?.toString() === "<<"
-      );
+      // Handle further merges within the inline mapping
+      const furtherComment = mergedMap.items
+        .filter((item) => item.key?.toString() === "<<")
+        .reduce<string | undefined>((innerAcc, furtherMerge) => {
+        if (innerAcc) return innerAcc; // If a comment is already found, skip further processing
 
-      for(const furtherMerge of furtherMergeEntries) {
         const furtherMerged = furtherMerge.value;
         if (isAlias(furtherMerged)) {
           const furtherAliasName = furtherMerged.source;
-          if (visited.has(furtherAliasName)) continue;
+          if (visited.has(furtherAliasName)) {
+            return innerAcc; // Prevent infinite loops
+          }
           visited.add(furtherAliasName);
           const furtherMergedNode = anchorMap[furtherAliasName];
           if (furtherMergedNode) {
-            const comment = getComment(
-              furtherMergedNode,
-              varName,
-              anchorMap,
-              visited
-            );
+            const comment = getComment(furtherMergedNode, varName, anchorMap, visited);
             if (comment) {
-              return comment;
+              return comment; // Return the comment if found
             }
           }
         }
-      };
-    }
-  }
+        return innerAcc;
+      }, undefined);
 
-  return "";
+      if (furtherComment) {
+        return furtherComment; // Return the found comment from further merges
+      }
+    }
+
+    return acc; // Continue if no comment is found in the current mergeEntry
+  }, undefined);
+
+  return !resolvedComment ? "" : resolvedComment;
 }
 
 /**
@@ -611,6 +621,7 @@ async function run(): Promise<void> {
 
     // Flatten the array of arrays into a single array of ValidationResult
     validationResults.push(...fileValidationResults.flat());
+
     // Generate and post Markdown report
     const markdownReport = generateMarkdownReport(validationResults);
     await postOrUpdatePRComment(markdownReport, githubToken);
