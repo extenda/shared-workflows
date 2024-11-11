@@ -4,13 +4,13 @@ This GitHub Action can be used to validate the Cloud Deploy service definition f
 
 By default it will use the GitHub Actions token. To use a different token, set the `github-token` input or pass a `GITHUB_TOKEN` environment variable.
 
-### Inputs
+## Inputs
 
 - `service-definitions` (required): List of service definition file paths provided as a JSON array string. For example: ["./folder1/service-definition1.yaml", "./folder2/service-definition2"]
 - `service-type` (required): The type of the service the validation will run for.
 - `github-token` (optional): A GitHub token with write access to the repository. 
 
-### Environment variables
+## Environment variables
 
 - `GITHUB_TOKEN` (optional): A GitHub token with write access to the repository.
 
