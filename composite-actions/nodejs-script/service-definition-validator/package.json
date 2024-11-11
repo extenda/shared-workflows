@@ -16,14 +16,13 @@
   "//dependencies": {
     "@actions/core": "GitHub Actions core library.",
     "@actions/github": "GitHub Actions GitHub library.",
-    "js-yaml": "YAML parser and serializer."
+    "yaml": "YAML parser and serializer."
   },
   "devDependencies": {
     "@babel/core": "^7.26.0",
     "@babel/plugin-syntax-import-attributes": "^7.26.0",
     "@babel/preset-env": "^7.26.0",
     "@babel/preset-typescript": "^7.26.0",
-    "@types/js-yaml": "^4.0.9",
     "@typescript-eslint/eslint-plugin": "^7.18.0",
     "@typescript-eslint/parser": "^7.18.0",
     "babel-loader": "^9.2.1",
@@ -43,7 +42,6 @@
     "@babel/preset-env": "Babel preset to compile modern JavaScript based on target environments",
     "@babel/preset-typescript": "Babel preset for transpiling TypeScript to JavaScript",
     "@babel/plugin-syntax-import-attributes": "Allow parsing of the module attributes in the import statement",
-    "@types/js-yaml": "Type definitions for the js-yaml package",
     "@typescript-eslint/eslint-plugin": "ESLint plugin with TypeScript-specific linting rules",
     "@typescript-eslint/parser": "ESLint parser for parsing TypeScript code",
     "babel-loader": "Webpack loader to integrate Babel with Webpack for transpiling files",
