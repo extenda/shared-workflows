@@ -43,7 +43,7 @@ runs:
       run: npm ci
 
     - name: Check OpenAPI schema updates
-      if: ${{ inputs.open-api }}
+      if: ${{ inputs.open-api == true }}
       shell: bash
       run: npm run check-openapi-schema
 
