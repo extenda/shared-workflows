@@ -16,17 +16,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Configure Git
-        uses: extenda/actions/setup-git@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Fetch latest changes
-        run: git pull origin ${{ github.ref }}
-
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
