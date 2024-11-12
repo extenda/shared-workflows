@@ -47,7 +47,7 @@ jobs:
           node-version: '20'
 
       - name: Update README & Collect topics, state store names and application ids
-        uses: extenda/shared-workflows/composite-actions/nodejs-script/print-topology@master
+        uses: extenda/shared-workflows/composite-actions/nodejs-script/print-topology@v0
         with:
           topology-file-path : ${{ inputs.topologyFilePath }}
           processor-topics-output-file-path : ${{ inputs.processorTopicsOutputFilePath }}
