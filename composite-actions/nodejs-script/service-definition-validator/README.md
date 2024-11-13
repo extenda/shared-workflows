@@ -45,4 +45,4 @@ jobs:
 To bundle the source files follow these steps:
 1. Open a terminal in the root directory of the GitHub Action.
 2. Install the dependencies via `npm ci` command.
-3. Run `npm run bulid` command.
+3. Run `npm run build` command.
