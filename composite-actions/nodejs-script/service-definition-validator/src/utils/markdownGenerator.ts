@@ -16,11 +16,15 @@ function capitalize(text: string): string {
  * @returns Markdown formatted string.
  */
 export function generateMarkdownReport(results: ValidationResult[]): string {
-  const hasIssues = results.some(
-    (result) => result.missingVars.length > 0 || result.mismatchedVars.length > 0,
-  );
+  const hasMissingVars = results.some((result) => result.missingVars.length > 0);
+  const hasMismatchedVars = results.some((result) => result.mismatchedVars.length > 0);
 
-  const mainIcon = hasIssues ? "⚠️" : "✅";
+  let mainIcon = "✅"; // Default to green check mark
+  if (hasMissingVars) {
+    mainIcon = "❌"; // Error icon if there are missing variables
+  } else if (hasMismatchedVars) {
+    mainIcon = "⚠️"; // Warning icon if there are mismatched variables but no missing variables
+  }
 
   let markdown = `${REPORT_COMMENT_IDENTIFIER} \n`;
   markdown += `### ${mainIcon} Service Definition File(s) Validation Results
