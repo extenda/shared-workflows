@@ -2,7 +2,7 @@ name: Service Definition Validator
 description: Validates the service definition files to contain the required environment variables.
 inputs:
   service-definitions:
-    description: 'List of service definition file paths provided as a JSON array string. For example: ["./folder1/service-definition1.yaml", "./folder2/service-definition2"]'
+    description: 'List of service definition file paths provided as a JSON array string. For example: ["./folder1/service-definition1.yaml", "./folder2/service-definition2.yaml"]'
     required: true
   service-type:
     description: 'The type of the service the validation will run for.'

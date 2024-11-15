@@ -8,7 +8,7 @@ By default it will use the GitHub Actions token. To use a different token, set t
 
 - `service-definitions` (required): List of service definition file paths provided as a JSON array string. For example: ["./folder1/service-definition1.yaml", "./folder2/service-definition2"]
 - `service-type` (required): The type of the service the validation will run for.
-- `github-token` (optional): A GitHub token with write access to the repository. 
+- `github-token` (optional): A GitHub token with write access to the repository.
 
 ## Environment variables
 
@@ -30,12 +30,12 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
 
       - name: Validate service definition files
         uses: extenda/shared-workflows/composite-actions/nodejs-script/service-definition-validator@v0
         with:
-          service-definitions : ${{ inputs.service-definitions }}
+          service-definitions: ${{ inputs.service-definitions }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
@@ -43,6 +43,7 @@ jobs:
 ## Bundling source files
 
 To bundle the source files follow these steps:
+
 1. Open a terminal in the root directory of the GitHub Action.
 2. Install the dependencies via `npm ci` command.
 3. Run `npm run build` command.
