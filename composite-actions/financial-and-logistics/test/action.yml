@@ -45,6 +45,7 @@ runs:
       run: npm ci
 
     - name: Fetch base branch
+      shell: bash
       run: git fetch origin master:refs/remotes/origin/master
 
     - name: Check OpenAPI schema updates
