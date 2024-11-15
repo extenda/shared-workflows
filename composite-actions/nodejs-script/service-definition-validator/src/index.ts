@@ -1,9 +1,10 @@
 import * as core from "@actions/core";
-import { serviceTypeToTemplatesMap } from "./utils/templateLoader.ts";
-import { validateTemplate, validateServiceDefinitionFile } from "./utils/validator.ts";
-import { generateMarkdownReport } from "./utils/markdownGenerator.ts";
-import { postOrUpdatePRComment } from "./utils/githubClient.ts";
 import type { ServiceType, ValidationResult } from "./types";
+import { serviceTypeValues as validServiceTypes } from "./types/index.ts";
+import { postOrUpdatePRComment } from "./utils/githubClient.ts";
+import { generateMarkdownReport } from "./utils/markdownGenerator.ts";
+import { serviceTypeToTemplatesMap } from "./utils/templateLoader.ts";
+import { validateServiceDefinitionFile, validateTemplate } from "./utils/validator.ts";
 
 /**
  * The main function orchestrating the validation and reporting.
@@ -33,12 +34,6 @@ async function run(): Promise<void> {
     }
 
     const serviceType = serviceTypeInput.trim().toUpperCase() as ServiceType;
-    const validServiceTypes: ServiceType[] = [
-      "STATEFUL_PROCESSOR",
-      "STATELESS_PROCESSOR",
-      "QUERY_API",
-      "INPUT_API",
-    ];
     if (!validServiceTypes.includes(serviceType)) {
       core.setFailed(`Invalid 'service-type' input. Allowed values are: ${validServiceTypes.join(", ")}.`);
       return;

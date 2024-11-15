@@ -1,7 +1,14 @@
 import type { YAMLMap } from "yaml";
 
 export type Environment = "staging" | "production";
-export type ServiceType = "INPUT_API" | "STATEFUL_PROCESSOR" | "STATELESS_PROCESSOR" | "QUERY_API";
+export const serviceTypeValues = [
+  "INPUT_API",
+  "STATEFUL_PROCESSOR",
+  "STATELESS_PROCESSOR",
+  "QUERY_API",
+] as const;
+
+export type ServiceType = (typeof serviceTypeValues)[number];
 
 export interface EnvVarTemplate {
   keySuffix: string;
