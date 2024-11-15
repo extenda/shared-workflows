@@ -1,0 +1,52 @@
+{
+  "env": {
+    "es6": true,
+    "node": true,
+    "jest": true
+  },
+  "parser": "@typescript-eslint/parser",
+  "parserOptions": {
+    "ecmaVersion": 2022,
+    "sourceType": "module",
+    "project": "./tsconfig.json",
+    "tsconfigRootDir": "."
+  },
+  "ignorePatterns": ["webpack.config.js", "dist/", "babel.config.js"],
+  "extends": [
+    "airbnb-base",
+    "airbnb-typescript/base",
+    "plugin:@typescript-eslint/recommended",
+    "plugin:@typescript-eslint/recommended-requiring-type-checking"
+  ],
+  "plugins": [
+    "@typescript-eslint"
+  ],
+  "settings": {
+    "import/resolver": {
+      "typescript": {}
+    }
+  },
+  "rules": {
+    "quotes": ["error", "double"],
+    "no-console": "off",
+    "import/no-relative-packages": "off",
+    "max-len": ["warn", { "code": 130 }],
+    "import/extensions": [
+      "error",
+      "always",
+      { "ignorePackages": true }
+    ],
+    "import/no-extraneous-dependencies": [
+      "error",
+      { "devDependencies": true }
+    ],
+    "no-param-reassign": ["error", { "props": false }],
+    
+    // TypeScript-specific rules
+    "@typescript-eslint/no-unsafe-assignment": "warn",
+    "@typescript-eslint/quotes": ["error", "double"],
+    "@typescript-eslint/no-unused-vars": 1,
+    "@typescript-eslint/no-explicit-any": "off",
+    "@typescript-eslint/consistent-type-imports": "warn"
+  }
+}

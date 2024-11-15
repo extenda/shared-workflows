@@ -1,0 +1,31 @@
+name: Validate Service Definition File(s)
+on:
+  workflow_call:
+    inputs:
+      service-type:
+        description: 'Type of the service.'
+        type: string
+        required: true
+      service-definitions:
+        description: 'List of service definition file paths provided as a JSON array string. For example: ["./folder1/service-definition1.yaml", "./folder2/service-definition2"].'
+        type: string
+        required: true
+
+jobs:
+  validate-service-definition:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Validate service definition file(s)
+        uses: extenda/shared-workflows/composite-actions/nodejs-script/service-definition-validator@v0
+        with:
+          service-type: ${{ inputs.service-type }}
+          service-definitions: ${{ inputs.service-definitions }}

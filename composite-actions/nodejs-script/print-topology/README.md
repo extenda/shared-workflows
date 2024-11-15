@@ -1,12 +1,17 @@
-# Print Kafka Stream App Topology
+# print-topology
 
-This is a GitHub Action to print Kafka Stream App topology
+This is a GitHub Action used to visualize a Kafka Stream topology via a Mermaid diagram that is saved in README file. Additionally, it collects information such as topics, state stores etc. and saves it in a file.
 
-This action will generate Mermaid diagram for Kafka Stream App topology defined in 'docs/topology/stream.txt' or supplied in 'inputs.topologyFilePath' and commit it to project's README.md or other file supplied in 'inputs.readmeFilePath'
+### Inputs
+
+- `topology-file-path` (optional, default: 'docs/topology/stream.txt'): Path to the topology file.
+- `processor-topics-output-file-path` (optional, default: 'docs/topics/processor-topics.txt'): Path to the file to save extracted list of topics used in the processor.
+- `readme-file-path` (optional, default: 'README.md'): Path to the README file.
+- `application-ids` (optional, default: '[]'): List of application ids (processor with multiple processing-functions will have many) provided as a JSON array string. For example: ["application-1", "application-2"]
 
 ## Example
 
-This example will generate Mermaid Topology Diagram.
+This example will generate a Mermaid Topology Diagram and create a file with collected topics, state store names and application ids.
 
 ```yaml
 jobs:
@@ -20,18 +25,21 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
 
-      - name: Update README
+      - name: Update README & Collect topics, state store names and application ids
         uses: extenda/shared-workflows/composite-actions/nodejs-script/print-topology@v0
         with:
-          topologyFilePath : ${{ inputs.topologyFilePath }}
-          readmeFilePath : ${{ inputs.readmeFilePath }}
+          topology-file-path: ${{ inputs.topologyFilePath }}
+          processor-topics-output-file-path: ${{ inputs.processorTopicsOutputFilePath }}
+          readme-file-path: ${{ inputs.readmeFilePath }}
+          application-ids: ${{ inputs.applicationIds }}
 ```
 
 ## Bundling source files
 
 To bundle the source files follow these steps:
-1. Open a terminal in the root directory
-2. If you don't have webpack-cli already installed, run `npm install -D webpack-cli`
-3. Run `npx webpack` command
+
+1. Open a terminal in the root directory of the GitHub Action.
+2. Install the dependencies via `npm ci` command.
+3. Run `npm run build` command.

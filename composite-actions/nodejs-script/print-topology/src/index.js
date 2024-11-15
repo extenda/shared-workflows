@@ -59,10 +59,10 @@ async function saveProcessorTopicsAndStoresAsJson(topologyContent, applicationId
 }
 
 async function main() {
-  const topologyFilePath = core.getInput("topologyFilePath") || "docs/topology/stream.txt";
-  const processorTopicsFilePath = core.getInput("processorTopicsOutputFilePath") || "docs/topics/processor-topics.json";
-  const readmeFilePath = core.getInput("readmeFilePath") || "README.md";
-  const applicationIdArrayString = core.getInput("applicationIds") || "[]";
+  const topologyFilePath = core.getInput("topology-file-path") || "docs/topology/stream.txt";
+  const processorTopicsFilePath = core.getInput("processor-topics-output-file-path") || "docs/topics/processor-topics.json";
+  const readmeFilePath = core.getInput("readme-file-path") || "README.md";
+  const applicationIdArrayString = core.getInput("application-ids") || "[]";
 
   if (!applicationIdArrayString) {
     console.error("applicationIds input parameter is required.");

@@ -1,0 +1,29 @@
+[
+  {
+    "keySuffix": "ELASTIC_SERVER_URL",
+    "value": "sm://*/elasticsearch_https_endpoint"
+  },
+  {
+    "keySuffix": "ELASTIC_API_KEY",
+    "value": "sm://*/elasticsearch_api_key_query_apis"
+  },
+  {
+    "keySuffix": "ELASTIC_APM_SERVER_URL",
+    "value": "sm://*/apm_https_endpoint"
+  },
+  {
+    "keySuffix": "ELASTIC_APM_SECRET_TOKEN",
+    "value": "sm://*/apm_secret_token"
+  },
+  {
+    "keySuffix": "ELASTIC_APM_ENVIRONMENT",
+    "value": "sm://*/apm_environment"
+  },
+  {
+    "keySuffix": "ELASTIC_APM_SERVICE_NAME"
+  },
+  {
+    "keySuffix": "ASPNETCORE_ENVIRONMENT",
+    "value": "sm://*/ASPNETCORE_ENVIRONMENT"
+  }
+]
