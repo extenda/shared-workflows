@@ -46,7 +46,7 @@ runs:
       run: |
         dotnet nuget push "${{ inputs.output-path }}/*.nupkg" --source "https://repo.extendaretail.com/repository/nuget-hosted/" --api-key ${{ env.NUGET-API-KEY }}
     
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: nuget-package
         path: ${{ inputs.output-path }}
