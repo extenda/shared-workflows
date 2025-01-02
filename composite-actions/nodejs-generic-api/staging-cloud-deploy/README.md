@@ -5,18 +5,19 @@ This is typical action, to deploy nodejs api application to GKE Autopilot cluste
 ### Example
 
 ```yaml
-  - uses: extenda/shared-workflows/composite-actions/nodejs-generic-api/staging-deploy@master
-    with:
-      SECRET_AUTH: ${{ secrets.SECRET_AUTH }}
-      GCLOUD_AUTH: ${{ secrets.GCLOUD_AUTH_STAGING }}
-      image: ${{ env.IMAGE_NAME }}
-      test-user-tenant-id: <id of staging tenant> # example - testrunner-3z05y
-      service-url: <url of service in staging> # example - https://iam-api.retailsvc.dev
-      api-key-name: <name of the google identity api key in secret manager> # default - iam-test-api-key
-      user-email-name: <name of the user email in secret manager> # default - iam-test-token-email
-      user-password-name: <name of the user password in secret manager> # default - iam-test-token-password
-      update-dns: always # default - if-missing
-      with-component-tests: 'false' # default - 'true'
+- uses: extenda/shared-workflows/composite-actions/nodejs-generic-api/staging-deploy@master
+  with:
+    SECRET_AUTH: ${{ secrets.SECRET_AUTH }}
+    GCLOUD_AUTH: ${{ secrets.GCLOUD_AUTH_STAGING }}
+    image: ${{ env.IMAGE_NAME }}
+    test-user-tenant-id: <id of staging tenant> # example - testrunner-3z05y
+    service-url: <url of service in staging> # example - https://iam-api.retailsvc.dev
+    api-key-name: <name of the google identity api key in secret manager> # default - iam-test-api-key
+    user-email-name: <name of the user email in secret manager> # default - iam-test-token-email
+    user-password-name: <name of the user password in secret manager> # default - iam-test-token-password
+    update-dns: always # default - if-missing
+    with-component-tests: 'false' # default - 'true'
+    service-definition: <path to the service definition file> # default - cloud-deploy.yaml
 ```
 
 ### Requirements
