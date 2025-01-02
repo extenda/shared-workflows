@@ -68,7 +68,7 @@ jobs:
         run: |
           if [[ -n $(git status --porcelain) ]]; then
             git add .
-            git pull origin HEAD:${{ github.ref }}
+            git branch -a
             git -c user.name="Extenda-DevOps-Bot" -c user.email="devops_team@extenda.se" commit -S -m "Update ${{ inputs.readmeFilePath }}  topology"
             git push origin HEAD:${{ github.ref }}
           else
