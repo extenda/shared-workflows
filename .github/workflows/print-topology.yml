@@ -44,7 +44,7 @@ jobs:
       - name: Fetch
         run: |
           git fetch origin HEAD:${{ github.ref }}
-          git reset --hard origin/${{ github.ref }}
+          git reset --hard origin/HEAD:${{ github.ref }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
