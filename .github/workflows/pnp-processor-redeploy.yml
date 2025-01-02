@@ -11,7 +11,7 @@ on:
         required: false
       SECRET_AUTH:
         required: true
-      GCLOUD_AUTH:
+      GCLOUD_AUTH_STAGING:
         required: true
     inputs:
       service-definition:
@@ -45,14 +45,14 @@ jobs:
             - '!${{ inputs.service-definition }}'
 
   redeploy-to-staging:
-    uses: extenda/shared-workflows/.github/workflows/pnp-processor-deploy-autopilot.yml@v0.50.1
+    uses: ./.github/workflows/pnp-processor-deploy-autopilot.yml
     needs: check_changes
     if: needs.check_changes.outputs.proceed-with-redeploy == 'true'
     secrets:
       GCR_image_name: ${{ secrets.GCR_image_name }}
       slack-channel: ${{ secrets.slack-channel }}
       SECRET_AUTH: ${{ secrets.SECRET_AUTH }}
-      GCLOUD_AUTH: ${{ secrets.GCLOUD_AUTH }}
+      GCLOUD_AUTH: ${{ secrets.GCLOUD_AUTH_STAGING }}
     with:
       service-definition: ${{ inputs.service-definition }}
       tag-prefix: ${{ inputs.tag-prefix }}
