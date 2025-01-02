@@ -33,6 +33,11 @@ inputs:
       if the existing entry does not match the load balancer IP for the service.
     required: false
     default: if-missing
+  service-definition:
+    description: |
+      The service YAML specification.
+    required: false
+    default: cloud-deploy.yaml
 
 runs:
   using: "composite"
@@ -73,6 +78,7 @@ runs:
         service-account-key: ${{ inputs.GCLOUD_AUTH }}
         image: ${{ inputs.image }}:${{ github.sha }}
         update-dns: ${{ inputs.update-dns }}
+        service-definition: ${{ inputs.service-definition }}
 
     - name: Notify Slack if failed
       if: ${{ failure() && inputs.notify-slack-on-fail }}
