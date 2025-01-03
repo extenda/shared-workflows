@@ -25,7 +25,7 @@ on:
         default: 'v'
 
 jobs:
-  check_changes:
+  check-changes:
     runs-on: ubuntu-latest
 
     outputs:
@@ -46,8 +46,8 @@ jobs:
 
   redeploy-to-staging:
     uses: ./.github/workflows/pnp-processor-deploy-autopilot.yml
-    needs: check_changes
-    if: needs.check_changes.outputs.proceed-with-redeploy == 'true'
+    needs: check-changes
+    if: needs.check-changes.outputs.proceed-with-redeploy == 'true'
     secrets:
       GCR_image_name: ${{ secrets.GCR_image_name }}
       slack-channel: ${{ secrets.slack-channel }}
