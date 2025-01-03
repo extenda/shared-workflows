@@ -45,7 +45,7 @@ jobs:
             - '!${{ inputs.service-definition }}'
 
   redeploy-to-staging:
-    uses: extenda/shared-workflows/.github/workflows/pnp-processor-deploy-autopilot.yml@v0.71.1
+    uses: extenda/shared-workflows/.github/workflows/pnp-processor-deploy-autopilot.yml@v0
     needs: check-changes
     if: needs.check-changes.outputs.proceed-with-redeploy == 'true'
     secrets:
