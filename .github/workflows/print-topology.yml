@@ -35,16 +35,18 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Configure Git
         uses: extenda/actions/setup-git@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Fetch
-        run: |
-          git fetch origin ${{ github.ref_name }}
-          git reset --hard origin/${{ github.ref_name }}
+      # - name: Fetch
+      #   run: |
+      #     git fetch origin ${{ github.ref_name }}
+      #     git reset --hard origin/${{ github.ref_name }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
