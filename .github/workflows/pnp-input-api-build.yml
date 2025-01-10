@@ -88,7 +88,7 @@ on:
 
 jobs:
   test-opa-policies:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
         with:
@@ -110,7 +110,7 @@ jobs:
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
   test-application:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
         with:
@@ -224,7 +224,7 @@ jobs:
 
   staging:
     if: github.ref == 'refs/heads/master'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs: test-application
     steps:
       - uses: actions/checkout@v4
@@ -307,7 +307,7 @@ jobs:
 
   acceptance:
     if: github.ref == 'refs/heads/master'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs: staging
     steps:
       - uses: actions/checkout@v4
@@ -410,7 +410,7 @@ jobs:
 
   release:
     if: github.ref == 'refs/heads/master'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs: acceptance
     steps:
       - uses: actions/checkout@v4
