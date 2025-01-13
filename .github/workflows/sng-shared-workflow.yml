@@ -109,7 +109,7 @@
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
         with:
@@ -155,7 +155,7 @@ jobs:
 
   pack:
     if: ${{ inputs.models-project-path != '' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs: build
     steps:
       - uses: actions/checkout@v4
@@ -180,7 +180,7 @@ jobs:
 
   docker-build:
     if: github.ref == 'refs/heads/master'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs: build
     steps:
       - uses: actions/checkout@v4
@@ -227,7 +227,7 @@ jobs:
           service-account-key: ${{ secrets.secret-auth }}
 
   staging:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs: docker-build
     steps:
       - uses: actions/checkout@v4
@@ -253,7 +253,7 @@ jobs:
 
   acceptance:
     if: ${{ inputs.use-scanngo-acceptance }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs: staging
     steps:
       - uses: actions/checkout@v4
@@ -286,7 +286,7 @@ jobs:
       (!inputs.release-to-staging-only) &&
       (needs.acceptance.result == 'success' || needs.acceptance.result == 'skipped') &&
       (needs.staging.result == 'success')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs: [acceptance, staging]
     steps:
       - uses: actions/checkout@v4
