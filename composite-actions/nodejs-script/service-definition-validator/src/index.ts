@@ -63,7 +63,7 @@ async function run(): Promise<void> {
     validationResults.push(...fileValidationResults.flat());
 
     // Generate and post Markdown report
-    const markdownReport = generateMarkdownReport(validationResults);
+    const markdownReport = generateMarkdownReport(validationResults, serviceType);
     await postOrUpdatePRComment(markdownReport, githubToken);
 
     core.info("🎉 Validation results have been posted to the PR.");
