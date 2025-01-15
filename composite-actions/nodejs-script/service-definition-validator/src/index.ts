@@ -1,6 +1,7 @@
 import * as core from "@actions/core";
 import type { ServiceType, ValidationResult } from "./types";
 import { serviceTypeValues as validServiceTypes } from "./types/index.ts";
+import { getReportCommentIdentifier } from "./utils/constants.ts";
 import { postOrUpdatePRComment } from "./utils/githubClient.ts";
 import { generateMarkdownReport } from "./utils/markdownGenerator.ts";
 import { serviceTypeToTemplatesMap } from "./utils/templateLoader.ts";
@@ -63,8 +64,9 @@ async function run(): Promise<void> {
     validationResults.push(...fileValidationResults.flat());
 
     // Generate and post Markdown report
-    const markdownReport = generateMarkdownReport(validationResults, serviceType);
-    await postOrUpdatePRComment(markdownReport, githubToken);
+    const reportCommentIdentifier = getReportCommentIdentifier(serviceType);
+    const markdownReport = generateMarkdownReport(validationResults, reportCommentIdentifier, serviceType);
+    await postOrUpdatePRComment(markdownReport, githubToken, reportCommentIdentifier);
 
     core.info("🎉 Validation results have been posted to the PR.");
   } catch (error: unknown) {

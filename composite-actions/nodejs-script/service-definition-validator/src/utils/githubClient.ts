@@ -1,7 +1,6 @@
-import * as github from "@actions/github";
 import * as core from "@actions/core";
+import * as github from "@actions/github";
 import type { WebhookPayload } from "@actions/github/lib/interfaces";
-import { REPORT_COMMENT_IDENTIFIER } from "./constants.ts";
 
 /**
  * Fetches the pull request information associated with the current Git reference.
@@ -59,8 +58,9 @@ export const getPullRequestInfo = async (
  * Posts a new comment or updates an existing one on the PR with the provided Markdown content.
  * @param markdown - The Markdown content to post.
  * @param githubToken - GitHub token for authentication.
+ * @param reportCommentIdentifier - The identifier of the comment containing the report.
  */
-export async function postOrUpdatePRComment(markdown: string, githubToken: string): Promise<void> {
+export async function postOrUpdatePRComment(markdown: string, githubToken: string, reportCommentIdentifier: string): Promise<void> {
   const octokit = github.getOctokit(githubToken);
   const { context } = github;
 
@@ -86,7 +86,7 @@ export async function postOrUpdatePRComment(markdown: string, githubToken: strin
       per_page: 100,
     });
 
-    const existingComment = comments.find((comment) => comment.body?.includes(REPORT_COMMENT_IDENTIFIER));
+    const existingComment = comments.find((comment) => comment.body?.includes(reportCommentIdentifier));
 
     if (existingComment) {
       // Update existing comment
