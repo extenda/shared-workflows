@@ -25,7 +25,7 @@ jobs:
           node-version: '20'
 
       - name: Validate service definition file(s)
-        uses: extenda/shared-workflows/composite-actions/nodejs-script/service-definition-validator@fix/update-service-definition-validator-action-to-generate-a-report-per-service-type
+        uses: extenda/shared-workflows/composite-actions/nodejs-script/service-definition-validator@v0
         with:
           service-type: ${{ inputs.service-type }}
           service-definitions: ${{ inputs.service-definitions }}
