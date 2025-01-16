@@ -1,5 +1,4 @@
 import type { ValidationResult } from "../types/index.ts";
-import { REPORT_COMMENT_IDENTIFIER } from "./constants.ts";
 
 /**
  * Capitalizes the first letter of a string.
@@ -13,9 +12,11 @@ function capitalize(text: string): string {
 /**
  * Generates a Markdown report based on validation results.
  * @param results - Array of ValidationResult objects.
+ * @param reportCommentIdentifier - The identifier of the comment containing the report.
+ * @param serviceType - The type of service.
  * @returns Markdown formatted string.
  */
-export function generateMarkdownReport(results: ValidationResult[]): string {
+export function generateMarkdownReport(results: ValidationResult[], reportCommentIdentifier: string, serviceType: string): string {
   const hasMissingVars = results.some((result) => result.missingVars.length > 0);
   const hasMismatchedVars = results.some((result) => result.mismatchedVars.length > 0);
 
@@ -26,8 +27,8 @@ export function generateMarkdownReport(results: ValidationResult[]): string {
     mainIcon = "⚠️"; // Warning icon if there are mismatched variables but no missing variables
   }
 
-  let markdown = `${REPORT_COMMENT_IDENTIFIER} \n`;
-  markdown += `### ${mainIcon} Service Definition File(s) Validation Results
+  let markdown = `${reportCommentIdentifier}\n`;
+  markdown += `### ${mainIcon} Service Definition(s) Validation Results | ${serviceType.replace("_", " ")}s
 
 ---
 `;

@@ -1,2 +1,2 @@
-export const REPORT_COMMENT_IDENTIFIER: string = "<!-- service-definition-validator-action -->";
-export default REPORT_COMMENT_IDENTIFIER;
+export const getReportCommentIdentifier = (serviceType: string): string => `<!-- service-definition-validator-report-for-${serviceType}-service-type -->`;
+export default getReportCommentIdentifier;
