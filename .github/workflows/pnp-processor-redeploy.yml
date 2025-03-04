@@ -1,4 +1,4 @@
-name: Re-deploy processor to staging
+name: Re-deploy processor to staging on config change
 
 on:
   workflow_call:
@@ -33,16 +33,20 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
       - uses: dorny/paths-filter@v3
+        name: Check config change only
         id: filter
         with:
           predicate-quantifier: 'every'
           filters: |
             config-file-changed:
-            - '${{ inputs.service-definition }}'
+              - '**/*.yml'
+              - '**/*.yaml'
             other-files-changed:
-            - '**'
-            - '!${{ inputs.service-definition }}'
+              - '**'
+              - '!**/*.yml'
+              - '!**/*.yaml'
 
   redeploy-to-staging:
     uses: extenda/shared-workflows/.github/workflows/pnp-processor-deploy-autopilot.yml@v0
