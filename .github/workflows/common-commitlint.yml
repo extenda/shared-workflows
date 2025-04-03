@@ -2,8 +2,8 @@ name: Lint pull request title
 on:
   workflow_call:
     inputs:
-      enable-pr-title-validation:
-        description: 'Enable PR title validation according to conventional commits rules.'
+      require-type-and-scope:
+        description: 'Enable commit validation according to conventional commits format.'
         required: false  
         default: false  
         type: boolean 
@@ -20,7 +20,7 @@ jobs:
         uses: extenda/actions/commitlint@v0
         with:
           message: ${{ github.event.pull_request.title }}
-          enable-pr-title-validation: ${{ inputs.enable-pr-title-validation }}
+          require-type-and-scope: ${{ inputs.require-type-and-scope }}
 
       - name: Lint commit messages
         if: always()
