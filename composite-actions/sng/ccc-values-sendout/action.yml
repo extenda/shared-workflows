@@ -1,0 +1,29 @@
+name: Values sendout
+on:
+  workflow_dispatch:
+    inputs:
+      tenant_ids:
+        type: string
+        description: 'Comma separated list of tenant IDs. If "all" is provided, all tenants will be processed.'
+        required: true
+      kind:
+        type: string
+        required: true
+
+jobs:
+  values-sendout:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: extenda/actions/setup-gcloud@v0
+        id: gcloud
+        with:
+          service-account-key: ${{ secrets.GCLOUD_AUTH_PROD }}
+
+      - run: |
+          json_body=$(node -e "console.log(JSON.stringify({tenantIds: '${{ github.event.inputs.tenant_ids }}'.split(','), kind: '${{ github.event.inputs.kind }}'}))")
+          TOKEN=$(gcloud auth print-identity-token --audiences=ccc.worker)
+          curl -X POST \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/json" \
+            --data $json_body \
+            https://ccc-worker.retailsvc.com/internal/events/sendout-values
