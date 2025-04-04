@@ -3,11 +3,10 @@ on:
   workflow_call:
     inputs:
       require-type-and-scope:
-        description: 'Enable commit validation according to conventional commits format.'
-        required: false  
-        default: false  
-        type: boolean 
-
+        description: 'Require stricter commit message validation enforcing both the type and scope.'
+        required: false
+        default: 'false'
+        type: string
 jobs:
   commitlint:
     runs-on: ubuntu-latest
