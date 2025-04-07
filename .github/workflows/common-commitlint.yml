@@ -1,7 +1,12 @@
 name: Lint pull request title
 on:
   workflow_call:
-
+    inputs:
+      require-type-and-scope:
+        description: 'Require stricter commit message validation enforcing both the type and scope.'
+        required: false
+        default: 'false'
+        type: string
 jobs:
   commitlint:
     runs-on: ubuntu-latest
@@ -14,6 +19,7 @@ jobs:
         uses: extenda/actions/commitlint@v0
         with:
           message: ${{ github.event.pull_request.title }}
+          require-type-and-scope: ${{ inputs.require-type-and-scope }}
 
       - name: Lint commit messages
         if: always()
