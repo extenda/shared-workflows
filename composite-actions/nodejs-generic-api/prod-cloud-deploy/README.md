@@ -15,8 +15,8 @@ This is typical action, to deploy nodejs api application to GKE Autopilot cluste
     image: ${{ env.IMAGE_NAME }}
     slack-channel: <name of the slack channel>
     notify-slack-on-fail: <if true, sends an alert to slack channel>
-    with-opa: <if true, deploys with opa>
     update-dns: always # default if-missing
+    service-definition: <path to the service definition file> # default - cloud-deploy.yaml
 ```
 
 ### Requirements

@@ -1,18 +1,22 @@
 name: Print-Topology
 description: Print Kafka Stream Processor's topology in mermaid format.
 inputs:
-  topologyFilePath:
-    description: 'Path to the topology file'
+  topology-file-path:
+    description: 'Path to the topology file.'
     required: false
     default: 'docs/topology/stream.txt'
-  processorTopicsOutputFilePath:
+  processor-topics-output-file-path:
     description: 'Path to the file to save extracted list of topics used in the processor.'
     required: false
     default: 'docs/topics/processor-topics.txt'
-  readmeFilePath:
-    description: 'Path to the README file'
+  readme-file-path:
+    description: 'Path to the README file.'
     required: false
     default: 'README.md'
+  application-ids:
+    description: 'List of application ids (processor with multiple processing-functions will have many) provided as a JSON array string. For example: ["application-1", "application-2"]'
+    required: false
+    default: '[]'
 runs:
-  using: node16
+  using: node20
   main: dist/index.js

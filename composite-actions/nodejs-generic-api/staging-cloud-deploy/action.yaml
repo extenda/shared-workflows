@@ -16,6 +16,11 @@ inputs:
   service-url:
     description: Public url of a service
     required: true
+  service-definition:
+    description: |
+      The service YAML specification.
+    required: false
+    default: cloud-deploy.yaml
   api-key-name:
     description: Name of the google identity api key in secret manager
     default: iam-test-api-key
@@ -48,7 +53,7 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - uses: extenda/actions/setup-gcloud@v0
       id: gcloud
@@ -83,9 +88,11 @@ runs:
         service-account-key: ${{ inputs.GCLOUD_AUTH }}
         image: ${{ inputs.image }}:${{ github.sha }}
         update-dns: ${{ inputs.update-dns }}
+        service-definition: ${{ inputs.service-definition }}
 
     - name: Get API_KEY
       uses: extenda/actions/gcp-secret-manager@v0
+      if: ${{ inputs.with-component-tests == 'true' }}
       with:
         service-account-key: ${{ inputs.GCLOUD_AUTH }}
         secrets: |
@@ -93,6 +100,7 @@ runs:
 
     - name: Get IAM token
       uses: extenda/actions/iam-test-token@v0
+      if: ${{ inputs.with-component-tests == 'true' }}
       with:
         service-account-key: ${{ inputs.GCLOUD_AUTH }}
         api-key: ${{ env.API_KEY }}

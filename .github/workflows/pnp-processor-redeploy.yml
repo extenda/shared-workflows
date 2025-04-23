@@ -1,0 +1,63 @@
+name: Re-deploy processor to staging on config change
+
+on:
+  workflow_call:
+    secrets:
+      GCR_image_name:
+        description: 'A name of the image to be created in GCR'
+        required: true
+      slack-channel:
+        description: 'A slack channel which needs to be notified in case of failure'
+        required: false
+      SECRET_AUTH:
+        required: true
+      GCLOUD_AUTH_STAGING:
+        required: true
+    inputs:
+      service-definition:
+        description: 'Path to service configuration file.'
+        type: string
+        required: true
+      tag-prefix:
+        description: 'Release tag prefix. Must be provided in case of multiple projects in the same repository. Each project needs to have its own prefix. Use {service-name}-v format.'
+        type: string
+        required: false
+        default: 'v'
+
+jobs:
+  check-changes:
+    runs-on: ubuntu-latest
+
+    outputs:
+      proceed-with-redeploy: ${{ steps.filter.outputs.config-file-changed == 'true' && steps.filter.outputs.other-files-changed == 'false' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        name: Check config change only
+        id: filter
+        with:
+          predicate-quantifier: 'every'
+          filters: |
+            config-file-changed:
+              - '**/*.yml'
+              - '**/*.yaml'
+            other-files-changed:
+              - '**'
+              - '!**/*.yml'
+              - '!**/*.yaml'
+
+  redeploy-to-staging:
+    uses: extenda/shared-workflows/.github/workflows/pnp-processor-deploy-autopilot.yml@v0
+    needs: check-changes
+    if: needs.check-changes.outputs.proceed-with-redeploy == 'true'
+    secrets:
+      GCR_image_name: ${{ secrets.GCR_image_name }}
+      slack-channel: ${{ secrets.slack-channel }}
+      SECRET_AUTH: ${{ secrets.SECRET_AUTH }}
+      GCLOUD_AUTH: ${{ secrets.GCLOUD_AUTH_STAGING }}
+    with:
+      service-definition: ${{ inputs.service-definition }}
+      tag-prefix: ${{ inputs.tag-prefix }}
+      release-version: false

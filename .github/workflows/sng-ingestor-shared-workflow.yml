@@ -25,12 +25,12 @@
         description: |
           Path to Dockerfile
         type: string
-        required: true
+        default: 'Dockerfile'
       system-name:
         description: |
           System name (sng or mcp)
         type: string
-        required: true
+        default: 'sng'
       use-acceptance:
         description: |
           Use acceptance
@@ -40,34 +40,34 @@
         description: |
           Base URL of the service against which to run acceptance tests. Must be set when 'use-acceptance' is 'true'
         type: string
-        required: true
+        required: false
       acceptance-postman-collection-path:
         description: |
           Path to Postman collection. Must be set when 'use-acceptance' is 'true'
         type: string
-        required: true
+        required: false
       acceptance-postman-environment-path:
         description: |
           Path to Postman environment variables. Must be set when 'use-acceptance' is 'true'
         type: string
-        required: true
+        required: false
       acceptance-globals-path:
         description: |
           Path to globals.json. Must be set when 'use-acceptance' is 'true'
         type: string
-        required: true
+        required: false
       release-name:
         type: string
         required: true
       product-name:
         type: string
-        required: true
+        default: 'Scan & Go'
       product-component:
         type: string
-        required: true
+        default: 'scanngo'
       jira-project-key:
         type: string
-        required: true
+        default: 'MCPE'
       release-to-prod:
         type: boolean
         required: false
@@ -77,6 +77,21 @@
       openapi-file-path:
         type: string
         required: false
+      slack-channel:
+        description: Name of the channel to notify failing action
+        required: false
+        default: selfscan-pipeline-notifications
+        type: string
+      code-freeze:
+        description: |
+            Code freeze flag. Use this flag when there is a code freeze and code changes should not be deployed to staging and production environments.
+        type: boolean
+        required: false
+      release-to-staging-only:
+        description: 'A flag to stop deploy to Production after running acceptance tests in Staging'
+        type: boolean
+        required: false
+
 jobs:
   validate:
     runs-on: ubuntu-latest
@@ -89,6 +104,16 @@ jobs:
         with:
           service-account-key: ${{ secrets.gcloud-auth-staging }}
 
+      - name: Notify Slack if validate fails
+        uses: extenda/actions/slack-notify@v0
+        if: failure() && github.ref == 'refs/heads/master'
+        with:
+          text: |
+            *Validate failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            Validate failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{ github.job }}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+          channel: ${{ inputs.slack-channel }}
+          service-account-key: ${{ secrets.secret-auth }}
+
   docker-build:
     if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
@@ -98,12 +123,38 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name:  Code freeze check
+        run: |
+          commit_message=$(cat <<EOF
+          ${{ github.event.head_commit.message }}
+          EOF
+          )
+          if [[ "${{ inputs.code-freeze }}" == "true" && $commit_message != *"[force-deploy]"* ]]; then
+            echo "Code freeze flag is enabled. Skipping deployment.";
+            echo "To trigger a deployment that bypasses the code-freeze input checks, include '[force-deploy]' in the commit message.";
+            exit 1
+          else
+            echo "Code freeze is not enabled. Proceeding with deployment."
+          fi
+
       - name: Build Docker image
         uses: extenda/shared-workflows/composite-actions/docker-build@master
         with:
           gcloud-auth-staging: ${{ secrets.gcloud-auth-staging }}
           dockerfile-path: ${{ inputs.dockerfile-path }}
           gcr-image-name: ${{ inputs.gcr-image-name }}
+
+      - name: Notify Slack if docker-build fails
+        uses: extenda/actions/slack-notify@v0
+        if: |
+            failure() &&
+            (!inputs.code-freeze || contains(github.event.head_commit.message, '[force-deploy]'))
+        with:
+          text: |
+            *Docker build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            Docker build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+          channel: ${{ inputs.slack-channel }}
+          service-account-key: ${{ secrets.secret-auth }}
 
   staging:
     runs-on: ubuntu-latest
@@ -119,6 +170,16 @@ jobs:
           secret-auth: ${{ secrets.secret-auth }}
           gcloud-auth-staging: ${{ secrets.gcloud-auth-staging }}
           gcr-image-name: ${{ inputs.gcr-image-name }}
+
+      - name: Notify Slack if staging fails
+        uses: extenda/actions/slack-notify@v0
+        if: failure()
+        with:
+          text: |
+            *Staging failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            Staging failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{ github.job }}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+          channel: ${{ inputs.slack-channel }}
+          service-account-key: ${{ secrets.secret-auth }}
 
   acceptance:
     if: ${{ inputs.use-acceptance }}
@@ -142,10 +203,21 @@ jobs:
           collection: ${{ inputs.acceptance-postman-collection-path }}
           environment: ${{ inputs.acceptance-postman-environment-path }}
           globals: ${{ inputs.acceptance-globals-path }}
-  
+
+      - name: Notify Slack if acceptance fails
+        uses: extenda/actions/slack-notify@v0
+        if: failure()
+        with:
+          text: |
+            *Acceptance failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            Acceptance failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{ github.job }}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+          channel: ${{ inputs.slack-channel }}
+          service-account-key: ${{ secrets.secret-auth }}
+
   release:
     if: |
       always() &&
+      (!inputs.release-to-staging-only) &&
       (needs.acceptance.result == 'success' || needs.acceptance.result == 'skipped') &&
       (needs.staging.result == 'success')
     runs-on: ubuntu-latest
@@ -167,9 +239,20 @@ jobs:
           product-name: ${{ inputs.product-name }}
           product-component: ${{ inputs.product-component }}
 
+      - name: Notify Slack if release fails
+        uses: extenda/actions/slack-notify@v0
+        if: failure()
+        with:
+          text: |
+            *Release failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            Release failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{ github.job }}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+          channel: ${{ inputs.slack-channel }}
+          service-account-key: ${{ secrets.secret-auth }}
+
   publish-openapi:
     if: |
       always() &&
+      (!inputs.release-to-staging-only) &&
       (needs.acceptance.result == 'success' || needs.acceptance.result == 'skipped') &&
       (needs.release.result == 'success' || needs.release.result == 'skipped') &&
       (needs.staging.result == 'success') &&
@@ -180,12 +263,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          
+
       - uses: extenda/actions/setup-gcloud@v0
         id: gcloud
         with:
           service-account-key: ${{ secrets.gcloud-auth-prod }}
-          
+
       - name: Publish OpenAPI
         uses: extenda/actions/publish-openapi@v0
         with:
@@ -193,3 +276,13 @@ jobs:
           api-name: ${{ inputs.service-name }}
           system-name: ${{ inputs.system-name }}
           release-tag: v1.0.0
+
+      - name: Notify Slack if publish-openapi fails
+        uses: extenda/actions/slack-notify@v0
+        if: failure()
+        with:
+          text: |
+            *OpenAPI publishing failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            OpenAPI publishing on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+          channel: ${{ inputs.slack-channel }}
+          service-account-key: ${{ secrets.secret-auth }}

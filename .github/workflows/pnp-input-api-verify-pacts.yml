@@ -3,16 +3,26 @@ on:
   workflow_call:
     secrets:
       path-to-sln:
-        description: 'Path to the sln file'
+        description: |
+          The path to the solution.
         required: true
       path-to-unit-tests:
-        description: 'Path to sln or unit tests csproj file.'
+        description: |
+          The path to the unit tests project/solution.
         required: true
       slack-channel:
-        description: 'A slack channel which needs to be notified in case of failure'
+        description: |
+          A slack channel which needs to be notified in case of failure.
         required: false
       SECRET_AUTH:
         required: true
+    inputs:
+      dotnet-version:
+        description: |
+          The .NET version.
+        type: number
+        required: false
+        default: 8
 
 jobs:
   verify:
@@ -37,7 +47,6 @@ jobs:
           secrets: |
             NEXUS_PASSWORD: nexus-password
             NEXUS_USERNAME: nexus-username
-            NUGET_API_KEY: nuget-api-key
             PACT_BROKER_PASSWORD: pact-broker-password
             PACT_BROKER_USERNAME: pact-broker-username
 
@@ -50,29 +59,11 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '6.0.x'
-
-      - name: Setup NuGet
-        uses: NuGet/setup-nuget@v1
-        with:
-          nuget-version: 'latest'
+          dotnet-version: '${{ inputs.dotnet-version }}.0.x'
       
-      - name: Setup NuGet sources
-        uses: extenda/actions/setup-nuget-sources@v0
-        with:
-          config-file: src/nuget.config #check this in all of the APIs
-          sources: |
-            [{
-              "name": "nuget.org",
-              "source": "https://api.nuget.org/v3/index.json"
-            },
-            {
-              "name": "Extenda",
-              "source": "https://repo.extendaretail.com/repository/nuget-hosted/index.json",
-              "username": "${{ env.NEXUS_USERNAME }}",
-              "password": "${{ env.NEXUS_PASSWORD }}",
-              "apikey": "${{ env.NUGET_API_KEY }}"
-            }]
+      - name: Register nuget source
+        run: |
+          dotnet nuget add source "https://repo.extendaretail.com/repository/nuget-hosted/" --name "Extenda" --username ${{ env.NEXUS_USERNAME }} --password ${{ env.NEXUS_PASSWORD }} --store-password-in-clear-text
 
       - name: Build dotnet solution
         run: |

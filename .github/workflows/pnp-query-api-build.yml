@@ -3,22 +3,32 @@ on:
   workflow_call:
     secrets:
       GCR_image_name:
-        description: 'A name of the image to be created in GCR'
+        description: |
+          The name of the image to be created in GCR.
         required: true
       path-to-sln:
-        description: 'Path to the sln file'
+        description: |
+          The path to the solution.
         required: true
       path-to-unit-tests:
-        description: 'Path to sln or unit tests csproj file.'
+        description: |
+          The path to the unit tests project/solution.'
         required: true
+      path-to-nuget-config:
+        description: |
+          The path to the nuget config file.
+        required: false
       path-to-dockerfile:
-        description: 'Path to dockerfile which builds the API.'
+        description: |
+          The path to the dockerfile which builds the API.
         required: true
       staging-service-base-url:
-        description: 'A url of the service in staging'
+        description: 
+          The base url of the service in staging.
         required: false
       slack-channel:
-        description: 'A slack channel which needs to be notified in case of failure'
+        description: |
+          The slack channel which needs to be notified in case of failure.
         required: false
       SECRET_AUTH:
         required: true
@@ -26,33 +36,38 @@ on:
         required: true
     inputs:
       has-k6-tests:
-        description: 'If true runs k6 tests for this API. Requires "k6-tests-root-folder" and "k6-tests-file-names" to run k6 tests'     
+        description: |
+          If true, runs k6 tests for this API. Requires "k6-tests-root-folder" and "k6-tests-file-names" to run k6 tests.  
         type: boolean
         required: true
       k6-node-version:
-        description: 'Node version needed for k6'
+        description: |
+          Node version needed for k6 tests.
         type: number
         required: false
-        default: 14
+        default: 18
       k6-tests-root-folder:
-        description: 'k6 tests root folder'
+        description: |
+          k6 tests root folder.
         type: string
         required: false
         default: 'test/k6'
       k6-tests-file-names:
-        description: 'The k6 tests file names. Should follow the JSON string array format.'
+        description: |
+          The k6 tests file names. Should follow the JSON string array format.
         type: string
         required: false
         default: '["dist/api-tests-v1.js", "dist/api-tests-v2.js"]'
       dotnet-version:
-        description: '.NET version'
+        description: |
+          The .NET version.
         type: number
         required: false
-        default: 6
+        default: 8
 
 jobs:
   test-opa-policies:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
         with:
@@ -74,7 +89,7 @@ jobs:
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
   test-application:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
         with:
@@ -86,14 +101,14 @@ jobs:
           secrets: |
             NEXUS_PASSWORD: nexus-password
             NEXUS_USERNAME: nexus-username
-            NUGET_API_KEY: nuget-api-key                           
+            NUGET_API_KEY: nuget-api-key                      
         
       - name: Determine version
         uses: extenda/actions/conventional-version@v0
         id: semver
         with:
           build-number: ${{ github.run_number }}
-      
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
@@ -103,11 +118,11 @@ jobs:
         uses: NuGet/setup-nuget@v1
         with:
           nuget-version: 'latest'
-
+  
       - name: Setup NuGet sources
         uses: extenda/actions/setup-nuget-sources@v0
         with:
-          config-file: src/nuget.config
+          config-file: ${{ secrets.path-to-nuget-config || 'src/nuget.config' }}
           sources: |
             [{
               "name": "nuget.org",
@@ -127,6 +142,7 @@ jobs:
           sonar-host: https://sonarcloud.io
           sonar-scanner: dotnet
           service-account-key: ${{ secrets.SECRET_AUTH }}
+          dotnet-args: /d:sonar.scanner.scanAll=false
 
       - name: Build dotnet solution
         run: |
@@ -156,7 +172,7 @@ jobs:
   staging:
     needs: test-application
     if: github.ref == 'refs/heads/master'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
 
@@ -176,7 +192,7 @@ jobs:
       - name: Setup NuGet sources
         uses: extenda/actions/setup-nuget-sources@v0
         with:
-          config-file: src/nuget.config
+          config-file: ${{ secrets.path-to-nuget-config || 'src/nuget.config' }}
           sources: |
             [{
               "name": "nuget.org",
@@ -228,7 +244,7 @@ jobs:
   acceptance:
     needs: staging
     if: ${{ github.ref == 'refs/heads/master' && inputs.has-k6-tests == true }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     strategy:
       matrix:
         k6-test-file-name: ${{ fromJSON(inputs.k6-tests-file-names) }}
@@ -282,7 +298,7 @@ jobs:
       github.ref == 'refs/heads/master' &&
       needs.staging.result == 'success' &&
       (inputs.has-k6-tests == false || needs.acceptance.result == 'success')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
         with:

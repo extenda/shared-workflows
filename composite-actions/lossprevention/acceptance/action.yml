@@ -8,14 +8,18 @@ inputs:
   gcloud-auth:
     description: 'GCLOUD_AUTH_STAGING/GCLOUD_AUTH_PROD value from secrets based on the environment'
     required: true
-  collection:
-    description: 'Collection to use'
+  collections_folder:
+    description: 'Folder to use collections'
     required: false
-    default: './slp/tests/acceptance/integration_test.postman_collection.json'
+    default: './slp/tests/acceptance/'
   environment:
     description: 'Environment to use'
     required: false
     default: './slp/tests/acceptance/integration_test.staging.postman_environment.json'
+  service-account-name:
+    description: 'service account name to use'
+    required: false
+    default: 'basketauditfrontend'
 
 runs:
   using: 'composite'
@@ -43,13 +47,17 @@ runs:
       uses: extenda/actions/identity-token@v0
       with:
         service-account-key: ${{ inputs.gcloud-auth }}
-        service-account: basketauditfrontend@${{ steps.gcloud.outputs.project-id }}.iam.gserviceaccount.com
-        audiences: basketauditfrontend
+        service-account: ${{ inputs.service-account-name }}@${{ steps.gcloud.outputs.project-id }}.iam.gserviceaccount.com
+        audiences: ${{ inputs.service-account-name }}
 
     - name: Acceptance tests
       shell: bash
       run: |
-          npm install newman --no-save --silent
-          npx newman run ${{ inputs.collection }} \
+        npm install newman --no-save --silent
+        readarray -t COLLECTIONS_ARRAY <<< "$(find "${{ inputs.collections_folder }}" -name '*.postman_collection.json' -type f)"
+        for collection in "${COLLECTIONS_ARRAY[@]}"; do
+          echo "Running tests for collection: $collection"
+          npx newman run "$collection" \
             --environment ${{ inputs.environment }} \
             --env-var iamToken=$IDENTITY_TOKEN
+        done

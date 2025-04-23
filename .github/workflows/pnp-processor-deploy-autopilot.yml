@@ -15,7 +15,7 @@ on:
         required: true
       dora-component:
         description: 'Dora component name'
-        required: true
+        required: false
       pact-application-id:
         required: false
     inputs:
@@ -94,7 +94,7 @@ jobs:
           workflow-env-vars: ${{ inputs.workflow-env-vars }}
 
       - name: Dora Component
-        if: ${{ inputs.release-version == true }}
+        if: ${{ inputs.release-version == true && inputs.dora-component != ''}}
         uses: extenda/actions/dora-metrics@v0
         with:
           product-name: Product And Price

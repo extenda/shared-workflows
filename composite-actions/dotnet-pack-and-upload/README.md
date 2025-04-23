@@ -23,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: NuGet Pack
         uses: extenda/shared-workflows/composite-actions/dotnet-pack-and-upload@master

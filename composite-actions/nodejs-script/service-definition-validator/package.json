@@ -1,0 +1,65 @@
+{
+  "name": "service-definition-validator",
+  "version": "1.0.0-local",
+  "description": "An application that validates the Cloud Deploy service definition files.",
+  "type": "module",
+  "private": true,
+  "main": "dist/index.js",
+  "engines": {
+    "node": ">=20.11.0"
+  },
+  "scripts": {
+    "build": "webpack --config webpack.config.js",
+    "start": "node dist/index.js",
+    "lint": "eslint . --ext .ts,.tsx",
+    "lint:fix": "eslint . --ext .ts,.tsx --fix"
+  },
+  "dependencies": {
+    "@actions/core": "^1.10.0",
+    "@actions/github": "^6.0.0",
+    "yaml": "^2.6.0"
+  },
+  "//dependencies": {
+    "@actions/core": "GitHub Actions core library.",
+    "@actions/github": "GitHub Actions GitHub library.",
+    "yaml": "YAML parser and serializer."
+  },
+  "devDependencies": {
+    "@babel/core": "^7.26.0",
+    "@babel/plugin-syntax-import-attributes": "^7.26.0",
+    "@babel/preset-env": "^7.26.0",
+    "@babel/preset-typescript": "^7.26.0",
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0",
+    "babel-loader": "^9.2.1",
+    "eslint": "^8.45.0",
+    "eslint-config-airbnb-base": "^15.0.0",
+    "eslint-config-airbnb-typescript": "^18.0.0",
+    "eslint-import-resolver-typescript": "^3.6.3",
+    "eslint-plugin-import": "^2.27.5",
+    "fork-ts-checker-webpack-plugin": "^9.0.2",
+    "ts-loader": "^9.5.1",
+    "typescript": "^5.6.3",
+    "webpack": "^5.96.1",
+    "webpack-cli": "^5.1.4"
+  },
+  "//devDependencies": {
+    "@babel/core": "Babel compiler for transpiling JavaScript and TypeScript",
+    "@babel/preset-env": "Babel preset to compile modern JavaScript based on target environments",
+    "@babel/preset-typescript": "Babel preset for transpiling TypeScript to JavaScript",
+    "@babel/plugin-syntax-import-attributes": "Allow parsing of the module attributes in the import statement",
+    "@typescript-eslint/eslint-plugin": "ESLint plugin with TypeScript-specific linting rules",
+    "@typescript-eslint/parser": "ESLint parser for parsing TypeScript code",
+    "babel-loader": "Webpack loader to integrate Babel with Webpack for transpiling files",
+    "eslint": "Static code analysis tool for identifying and fixing problematic patterns",
+    "eslint-config-airbnb-base": "Airbnb's base ESLint configuration without React",
+    "eslint-config-airbnb-typescript": "Airbnb's TypeScript-specific ESLint configuration",
+    "eslint-import-resolver-typescript": "ESLint resolver to handle TypeScript path aliases",
+    "eslint-plugin-import": "ESLint plugin to validate and manage ES6+ import/export syntax",
+    "fork-ts-checker-webpack-plugin": "Webpack plugin to run TypeScript type checker in a separate process",
+    "ts-loader": "Webpack loader to transpile TypeScript files using TypeScript compiler",
+    "typescript": "TypeScript language compiler for static type checking",
+    "webpack": "Module bundler for JavaScript applications",
+    "webpack-cli": "Command-line interface for interacting with Webpack"
+  }
+}

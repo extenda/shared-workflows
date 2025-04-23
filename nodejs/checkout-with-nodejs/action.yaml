@@ -1,0 +1,21 @@
+name: Checkout and setup Node.js
+description: Checkout the code and setup Node.js
+inputs:
+  fetch-depth:
+    description: The checkout fetch depth to use.
+    required: false
+    default: '0'
+  node-version-file:
+    description: The location of the node version file.
+    required: false
+    default: .nvmrc
+runs:
+  using: composite
+  steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: ${{ inputs.fetch-depth }}
+
+    - uses: actions/setup-node@v4
+      with:
+        node-version-file: ${{ inputs.node-version-file }}

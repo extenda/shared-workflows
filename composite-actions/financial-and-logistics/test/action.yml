@@ -1,0 +1,69 @@
+name: Run tests
+description: Action for running test for financial and logistics clan
+
+inputs:
+  SECRET_AUTH:
+    required: true
+  open-api:
+    required: false
+    default: true
+    type: boolean
+
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Copy .env file
+      shell: bash
+      run: cp test/example.env .env
+
+    - name: Cache Sonar binary
+      uses: actions/cache@v3
+      env:
+        cache-name: cache-sonar-binary
+      with:
+        path: /home/runner/.sonar/native-sonar-scanner
+        key: ${{ runner.os }}-cache-sonar-binary
+        restore-keys: |
+          ${{ runner.os }}-build-${{ env.cache-name }}
+
+    - name: Install Node
+      uses: actions/setup-node@v3
+      with:
+        node-version: 22
+
+    - name: Auth to Nexus npm registry
+      uses: extenda/actions/nexus-auth-npm@v0
+      with:
+        service-account-key: ${{ inputs.SECRET_AUTH }}
+
+    - name: Install dependencies
+      shell: bash
+      run: npm ci
+
+    - name: Fetch base branch
+      shell: bash
+      run: git fetch origin master:refs/remotes/origin/master
+
+    - name: Check OpenAPI schema updates
+      if: ${{ inputs.open-api == true }}
+      shell: bash
+      run: npm run check-openapi-schema
+
+    - name: Lint
+      shell: bash
+      run: npm run lint:ci
+
+    - name: Run unit tests with coverage
+      shell: bash
+      run: npm run test:cov
+
+    - name: Analyze with SonarCloud
+      uses: extenda/actions/sonar-scanner@v0
+      with:
+        sonar-host: https://sonarcloud.io
+        service-account-key: ${{ inputs.SECRET_AUTH }}
+        sonar-scanner: node

@@ -3,7 +3,7 @@ description: 'deploy prod'
 inputs:
   SECRET_AUTH:
     description: 'GCP Auth'
-    required: true 
+    required: true
   GCLOUD_AUTH:
     description: 'GCP Auth (staging)'
     required: true
@@ -35,7 +35,7 @@ inputs:
 runs:
   using: "composite"
   steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 

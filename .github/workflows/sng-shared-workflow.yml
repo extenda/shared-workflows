@@ -42,7 +42,7 @@
         default: "sng"
       use-scanngo-acceptance:
         description: |
-          Use scanngo acceptance action
+          Use acceptance action
         type: boolean
         required: false
       acceptance-username:
@@ -50,31 +50,21 @@
           Acceptance username. Must be set when 'use-scanngo-acceptance' is 'true'
         type: string
         required: false
-      use-mcpe-acceptance:
-        description: |
-          Use mcpe acceptance action
-        type: boolean
+      acceptance-postman-collection-path:
+        description: 'Path to Postman collection'
         required: false
-      acceptance-mcpe-base-url:
-        description: |
-          Base URL of the service against which to run acceptance tests. Must be set when 'use-mcpe-acceptance' is 'true'
         type: string
+        default: './mcpe-common/tests/acceptance/scanngo-acceptance.postman_collection.json'
+      acceptance-postman-environment-path:
+        description: 'Path to Postman environment variables'
         required: false
-      acceptance-mcpe-postman-collection-path:
-        description: |
-          Path to Postman collection. Must be set when 'use-mcpe-acceptance' is 'true'
         type: string
+        default: './mcpe-common/tests/acceptance/scanngo-acceptance.postman_environment.json'
+      acceptance-globals-path:
+        description: 'Path to globals.json'
         required: false
-      acceptance-mcpe-postman-environment-path:
-        description: |
-          Path to Postman environment variables. Must be set when 'use-mcpe-acceptance' is 'true'
         type: string
-        required: false
-      acceptance-mcpe-globals-path:
-        description: |
-          Path to globals.json. Must be set when 'use-mcpe-acceptance' is 'true'
-        type: string
-        required: false
+        default: './mcpe-common/tests/acceptance/globals.json'
       models-project-path:
         description: |
           Path to *.csproj file which contains the models. Must be set when 'pack-models' is 'true'
@@ -102,10 +92,24 @@
         type: boolean
         required: false
         default: true
+      slack-channel:
+        description: Name of the channel to notify failing action
+        required: false
+        default: selfscan-pipeline-notifications
+        type: string
+      code-freeze:
+        description: |
+            Code freeze flag. Use this flag when there is a code freeze and code changes should not be deployed to staging and production environments.
+        type: boolean
+        required: false
+      release-to-staging-only:
+        description: 'A flag to stop deploy to Production after running acceptance tests in Staging'
+        type: boolean
+        required: false
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
         with:
@@ -139,9 +143,19 @@ jobs:
         shell: bash
         run: docker stop sql-server
 
+      - name: Notify Slack if build fails
+        uses: extenda/actions/slack-notify@v0
+        if: failure() && github.ref == 'refs/heads/master'
+        with:
+          text: |
+            *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+          channel: ${{ inputs.slack-channel }}
+          service-account-key: ${{ secrets.secret-auth }}
+
   pack:
     if: ${{ inputs.models-project-path != '' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs: build
     steps:
       - uses: actions/checkout@v4
@@ -154,21 +168,45 @@ jobs:
           secret-auth: ${{ secrets.secret-auth }}
           csproj-path: ${{ inputs.models-project-path }}
 
+      - name: Notify Slack if pack fails
+        uses: extenda/actions/slack-notify@v0
+        if: failure() && github.ref == 'refs/heads/master'
+        with:
+          text: |
+            *Pack failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            Pack failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+          channel: ${{ inputs.slack-channel }}
+          service-account-key: ${{ secrets.secret-auth }}
+
   docker-build:
     if: github.ref == 'refs/heads/master'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs: build
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
+      - name:  Code freeze check
+        run: |
+          commit_message=$(cat <<EOF
+          ${{ github.event.head_commit.message }}
+          EOF
+          )
+          if [[ "${{ inputs.code-freeze }}" == "true" && $commit_message != *"[force-deploy]"* ]]; then
+            echo "Code freeze flag is enabled. Skipping deployment.";
+            echo "To trigger a deployment that bypasses the code-freeze input checks, include '[force-deploy]' in the commit message.";
+            exit 1
+          else
+            echo "Code freeze is not enabled. Proceeding with deployment."
+          fi
+
       - name: NuGet config
         if: ${{ inputs.config-nuget }}
         uses: extenda/shared-workflows/composite-actions/dotnet-nuget-config@master
         with:
           secret-auth: ${{ secrets.secret-auth }}
-      
+
       - name: Build Docker image
         uses: extenda/shared-workflows/composite-actions/docker-build@master
         with:
@@ -176,8 +214,20 @@ jobs:
           dockerfile-path: ${{ inputs.dockerfile-path }}
           gcr-image-name: ${{ inputs.gcr-image-name }}
 
+      - name: Notify Slack if docker-build fails
+        uses: extenda/actions/slack-notify@v0
+        if: |
+            failure() &&
+            (!inputs.code-freeze || contains(github.event.head_commit.message, '[force-deploy]'))
+        with:
+          text: |
+            *Docker build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            Docker build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+          channel: ${{ inputs.slack-channel }}
+          service-account-key: ${{ secrets.secret-auth }}
+
   staging:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs: docker-build
     steps:
       - uses: actions/checkout@v4
@@ -191,9 +241,19 @@ jobs:
           gcloud-auth-staging: ${{ secrets.gcloud-auth-staging }}
           gcr-image-name: ${{ inputs.gcr-image-name }}
 
+      - name: Notify Slack if staging fails
+        uses: extenda/actions/slack-notify@v0
+        if: failure()
+        with:
+          text: |
+            *Staging failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            Staging failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+          channel: ${{ inputs.slack-channel }}
+          service-account-key: ${{ secrets.secret-auth }}
+
   acceptance:
-    if: ${{ inputs.use-scanngo-acceptance || inputs.use-mcpe-acceptance }}
-    runs-on: ubuntu-latest
+    if: ${{ inputs.use-scanngo-acceptance }}
+    runs-on: ubuntu-22.04
     needs: staging
     steps:
       - uses: actions/checkout@v4
@@ -201,29 +261,32 @@ jobs:
           fetch-depth: 0
 
       - name: Acceptance
-        if: ${{ inputs.use-scanngo-acceptance }}
         uses: extenda/shared-workflows/composite-actions/sng/acceptance@master
         with:
           secret-auth: ${{ secrets.secret-auth }}
           gcloud-auth-staging: ${{ secrets.gcloud-auth-staging }}
           acceptance-username: ${{ inputs.acceptance-username }}
+          acceptance-postman-collection-path: ${{ inputs.acceptance-postman-collection-path }}
+          acceptance-postman-environment-path: ${{ inputs.acceptance-postman-environment-path }}
+          acceptance-globals-path: ${{ inputs.acceptance-globals-path }}
 
-      - name: Acceptance MCPE
-        if: ${{ inputs.use-mcpe-acceptance }}
-        uses: extenda/shared-workflows/composite-actions/sng/acceptance-mcpe@master
+      - name: Notify Slack if acceptance fails
+        uses: extenda/actions/slack-notify@v0
+        if: failure()
         with:
-          gcloud-auth-staging: ${{ secrets.gcloud-auth-staging }}
-          acceptance-mcpe-base-url: ${{ inputs.acceptance-mcpe-base-url }}
-          acceptance-mcpe-postman-collection-path: ${{ inputs.acceptance-mcpe-postman-collection-path }}
-          acceptance-mcpe-postman-environment-path: ${{ inputs.acceptance-mcpe-postman-environment-path }}
-          acceptance-mcpe-globals-path: ${{ inputs.acceptance-mcpe-globals-path }}
+          text: |
+            *Acceptance failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            Acceptance failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+          channel: ${{ inputs.slack-channel }}
+          service-account-key: ${{ secrets.secret-auth }}
 
   production:
     if: |
       always() &&
+      (!inputs.release-to-staging-only) &&
       (needs.acceptance.result == 'success' || needs.acceptance.result == 'skipped') &&
       (needs.staging.result == 'success')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs: [acceptance, staging]
     steps:
       - uses: actions/checkout@v4
@@ -241,3 +304,13 @@ jobs:
           release-name: ${{ inputs.release-name }}
           product-name: ${{ inputs.product-name }}
           product-component: ${{ inputs.product-component }}
+
+      - name: Notify Slack if production fails
+        uses: extenda/actions/slack-notify@v0
+        if: failure()
+        with:
+          text: |
+            *Production failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            Production failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+          channel: ${{ inputs.slack-channel }}
+          service-account-key: ${{ secrets.secret-auth }}
