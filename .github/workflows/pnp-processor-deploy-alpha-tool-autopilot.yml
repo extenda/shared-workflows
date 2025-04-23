@@ -38,6 +38,10 @@ on:
         type: string
         required: false
         default: 'v'
+      workflow-env-vars:
+        description: 'key/value pairs separated by commas to pass as deploy environment variables'
+        type: string
+        required: false
 jobs:
   deploy:
     if: github.ref == 'refs/heads/master'
@@ -46,7 +50,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
+      
       - uses: extenda/actions/gcp-secret-manager@v0
         with:
           service-account-key: ${{ secrets.SECRET_AUTH }}
@@ -56,7 +60,7 @@ jobs:
             PACT_BROKER_PASSWORD: pact-broker-password
             JIRA_USERNAME: jira-username
             JIRA_PASSWORD: jira-password
-
+      
       - name: Determine version
         uses: extenda/actions/conventional-version@v0
         id: semver
@@ -75,6 +79,8 @@ jobs:
           service-definition: ${{ inputs.service-definition }}
           image: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.semver.outputs.release-version }}
           update-dns: always
+          workflow-env-vars: ${{ inputs.workflow-env-vars }}
+
 
       - name: Deploy to Autopilot prod
         if: ${{ inputs.release-version == true }}
@@ -85,6 +91,7 @@ jobs:
           service-definition: ${{ inputs.service-definition }}
           image: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.semver.outputs.release-version }}
           update-dns: always
+          workflow-env-vars: ${{ inputs.workflow-env-vars }}
 
       - name: Dora Component
         if: ${{ inputs.release-version == true && inputs.dora-component != ''}}
@@ -96,7 +103,7 @@ jobs:
           jira-password: ${{ env.JIRA_PASSWORD }}
           jira-project-key: EA
 
-      - name: PACT record deployment
+      - name: PACT record deployment 
         if: ${{ inputs.do-pact-consumer-tests == true }}
         uses: extenda/actions/pact-record-deployment@v0
         with:
