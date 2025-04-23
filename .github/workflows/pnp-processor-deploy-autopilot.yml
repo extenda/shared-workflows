@@ -72,7 +72,7 @@ jobs:
 
       - name: Deploy to Autopilot staging
         if: ${{ inputs.release-version == false }}
-        uses: extenda/actions/cloud-deploy@feat/EA-2106
+        uses: extenda/actions/cloud-deploy@feat/EA-2107
         with:
           secrets-account-key: ${{ secrets.SECRET_AUTH }}
           service-account-key: ${{ secrets.GCLOUD_AUTH }}
@@ -84,7 +84,7 @@ jobs:
 
       - name: Deploy to Autopilot prod
         if: ${{ inputs.release-version == true }}
-        uses: extenda/actions/cloud-deploy@feat/EA-2106
+        uses: extenda/actions/cloud-deploy@feat/EA-2107
         with:
           secrets-account-key: ${{ secrets.SECRET_AUTH }}
           service-account-key: ${{ secrets.GCLOUD_AUTH }}
@@ -120,5 +120,3 @@ jobs:
             Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
           channel: ${{ secrets.slack-channel }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
-      
- 
