@@ -1,4 +1,4 @@
-name: deploy-k8s-service
+name: Deploy Alpha Maintenance Tool
 
 on:
   workflow_call:
