@@ -38,7 +38,10 @@ inputs:
       The service YAML specification.
     required: false
     default: cloud-deploy.yaml
-
+outputs:
+  release-tag:
+    description: "Conventional Release tag for the deployed image"
+    value: ${{ steps.release.outputs.release-tag }}
 runs:
   using: "composite"
   steps:
