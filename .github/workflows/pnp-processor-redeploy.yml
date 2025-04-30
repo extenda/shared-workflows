@@ -25,33 +25,8 @@ on:
         default: 'v'
 
 jobs:
-  check-changes:
-    runs-on: ubuntu-latest
-
-    outputs:
-      proceed-with-redeploy: ${{ steps.filter.outputs.config-file-changed == 'true' && steps.filter.outputs.other-files-changed == 'false' }}
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: dorny/paths-filter@v3
-        name: Check config change only
-        id: filter
-        with:
-          predicate-quantifier: 'every'
-          filters: |
-            config-file-changed:
-              - '**/*.yml'
-              - '**/*.yaml'
-            other-files-changed:
-              - '**'
-              - '!**/*.yml'
-              - '!**/*.yaml'
-
   redeploy-to-staging:
     uses: extenda/shared-workflows/.github/workflows/pnp-processor-deploy-autopilot.yml@v0
-    needs: check-changes
-    if: needs.check-changes.outputs.proceed-with-redeploy == 'true'
     secrets:
       GCR_image_name: ${{ secrets.GCR_image_name }}
       slack-channel: ${{ secrets.slack-channel }}
