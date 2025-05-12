@@ -38,6 +38,10 @@ on:
         type: string
         required: false
         default: 'v'
+      version:
+        description: 'Deploy this version'
+        type: string
+        required: true
 jobs:
   deploy:
     if: github.ref == 'refs/heads/master'
@@ -56,15 +60,6 @@ jobs:
             PACT_BROKER_PASSWORD: pact-broker-password
             JIRA_USERNAME: jira-username
             JIRA_PASSWORD: jira-password
-      
-      - name: Determine version
-        uses: extenda/actions/conventional-version@v0
-        id: semver
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          build-number: ${{ github.run_number }}
-          tag-prefix: ${{ inputs.tag-prefix }}
 
       - name: Deploy to Autopilot staging
         if: ${{ inputs.release-version == false }}
@@ -73,7 +68,7 @@ jobs:
           secrets-account-key: ${{ secrets.SECRET_AUTH }}
           service-account-key: ${{ secrets.GCLOUD_AUTH }}
           service-definition: ${{ inputs.service-definition }}
-          image: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.semver.outputs.release-version }}
+          image: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ inputs.version }}
           update-dns: always
 
       - name: Deploy to Autopilot prod
@@ -83,7 +78,7 @@ jobs:
           secrets-account-key: ${{ secrets.SECRET_AUTH }}
           service-account-key: ${{ secrets.GCLOUD_AUTH }}
           service-definition: ${{ inputs.service-definition }}
-          image: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.semver.outputs.release-version }}
+          image: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ inputs.version }}
           update-dns: always
 
       - name: Dora Component
