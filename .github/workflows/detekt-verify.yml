@@ -1,6 +1,9 @@
 name: Verify with Detekt
 on:
   workflow_call:
+    secrets:
+      SECRET_AUTH:
+        required: true
     inputs:
       java-version:
         description: |
