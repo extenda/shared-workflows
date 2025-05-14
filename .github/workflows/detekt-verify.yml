@@ -1,0 +1,57 @@
+name: Verify with Detekt
+on:
+  workflow_call:
+    inputs:
+      java-version:
+        description: |
+          The Java version.
+        type: number
+        required: false
+        default: 21
+      jdk-distribution:
+        description: |
+          The JDK distribution.
+        type: string
+        required: false
+        default: temurin
+jobs:
+  detekt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: extenda/actions/gcp-secret-manager@v0
+        with:
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+          secrets: |
+            GITHUB-TOKEN: github-token
+            NEXUS_PASSWORD: nexus-password
+            NEXUS_USERNAME: nexus-username
+
+      - name: Set up JDK
+        uses: actions/setup-java@v3
+        with:
+          distribution: ${{ inputs.jdk-distribution }}
+          java-version: ${{ inputs.java-version }}
+          cache: maven
+
+      - name: Verify with Maven
+        uses: extenda/actions/maven@v0
+        with:
+          args: build -s settings.xml
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+
+      - name: Download Detekt CLI
+        run: |
+          curl -sLo detekt-cli.jar \
+            https://github.com/detekt/detekt/releases/download/v1.23.8/detekt-cli-1.23.8-all.jar
+
+      - name: Verify with Detekt
+        run: |
+          java -jar detekt-cli.jar \
+            --input src/main/kotlin \
+            --config .github/configs/detekt.yml
+            --report xml:detekt-report.xml \
+            --report html:detekt-report.html

@@ -145,6 +145,19 @@ jobs:
           version: ${{ steps.semver.outputs.version }}-SNAPSHOT
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
+      - name: Download Detekt CLI
+        run: |
+          curl -sLo detekt-cli.jar \
+            https://github.com/detekt/detekt/releases/download/v1.23.8/detekt-cli-1.23.8-all.jar
+
+      - name: Verify with Detekt
+        run: |
+          java -jar detekt-cli.jar \
+            --input src/main/kotlin \
+            --config .github/configs/detekt.yml
+            --report xml:detekt-report.xml \
+            --report html:detekt-report.html
+
       - name: Analyze with Sonar
         uses: extenda/actions/sonar-scanner@v0
         with:
