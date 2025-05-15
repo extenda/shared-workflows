@@ -43,7 +43,7 @@ jobs:
       - name: Verify with Maven
         uses: extenda/actions/maven@v0
         with:
-          args: build -s settings.xml
+          args: verify -s settings.xml
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
       - name: Get detekt plugin
