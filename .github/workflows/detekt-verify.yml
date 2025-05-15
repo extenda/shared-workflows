@@ -46,6 +46,13 @@ jobs:
           args: build -s settings.xml
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
+      - name: Get detekt plugin
+        uses: extenda/actions/maven@v0
+        with:
+          args: dependency:get -Dartifact=com.retailsvc:pnp-processors-core-common:0.124.0:jar
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+
+
       - name: Download Detekt CLI
         run: |
           curl -sLo detekt-cli.jar \
