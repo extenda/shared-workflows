@@ -21,9 +21,7 @@ jobs:
   detekt:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+      - uses: actions/checkout@v4        
 
       - uses: extenda/actions/gcp-secret-manager@v0
         with:
