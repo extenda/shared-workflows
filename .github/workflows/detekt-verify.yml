@@ -26,9 +26,8 @@ jobs:
           repository: extenda/shared-workflows
           ref: feat/EA-2837
           path: shared_workflows
+          clean: false
 
-      - uses: actions/checkout@v4
-      
       - name: List dir
         run: |
           ls -al 
@@ -68,7 +67,7 @@ jobs:
             https://github.com/detekt/detekt/releases/download/v1.23.8/detekt-cli-1.23.8-all.jar
       - name: List dir
         run: |
-          ls -al 
+          ls -al
           ls -al .github/workflows
           
 
