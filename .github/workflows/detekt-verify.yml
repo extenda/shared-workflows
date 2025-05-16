@@ -42,6 +42,7 @@ jobs:
 
       - name: List dir
         run: |
+          cat detekt.yml
           ls -al
           ls -al .github/configs
                 
