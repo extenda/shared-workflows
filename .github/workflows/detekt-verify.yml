@@ -27,6 +27,11 @@ jobs:
           ref: feat/EA-2837
           path: shared_workflows
 
+      - name: List dir
+        run: |
+          ls -al 
+          
+
       - uses: extenda/actions/gcp-secret-manager@v0
         with:
           service-account-key: ${{ secrets.SECRET_AUTH }}
