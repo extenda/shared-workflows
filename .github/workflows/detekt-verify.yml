@@ -74,4 +74,4 @@ jobs:
             --config detekt.yml
             --report xml:detekt-report.xml \
             --report html:detekt-report.html
-            --plugins ~/.m2/repository/com/retailsvc/pnp-processors-core-common/0.0.1-SNAPSHOT/pnp-processors-core-common-0.0.1-SNAPSHOT.jar
+            --plugins ~/.m2/repository/com/retailsvc/pnp-processors-core-common/0.124.0/pnp-processors-core-common-0.124.0.jar
