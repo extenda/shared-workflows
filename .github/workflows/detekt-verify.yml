@@ -60,8 +60,8 @@ jobs:
       - name: List dir
         run: |
           ls -al 
-          ls -al extenda/shared-workflows/.github
-          ls -al extenda/shared-workflows/.github/configs
+          ls -al .github
+          ls -al .github/configs
 
       - name: Verify with Detekt
         run: |
