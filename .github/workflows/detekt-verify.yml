@@ -38,7 +38,7 @@ jobs:
             -H "Authorization: Bearer $GITHUB-TOKEN" \
             -H "Accept: application/vnd.github.v3.raw" \
             "https://api.github.com/repos/extenda/shared-workflows/contents/.github/configs/detekt.yml?ref=feat/EA-2837" \
-            -o .github/configs/detekt.yml
+            -o detekt.yml
 
       - name: List dir
         run: |
