@@ -60,14 +60,14 @@ jobs:
       - name: List dir
         run: |
           ls -al 
-          ls -al .github
-          ls -al .github/configs
+          ls -al .github/workflows
+          
 
       - name: Verify with Detekt
         run: |
           java -jar detekt-cli.jar \
             --input src/main/kotlin \
-            --config extenda/shared-workflows/.github/configs/detekt.yml
+            --config .github/configs/detekt.yml
             --report xml:detekt-report.xml \
             --report html:detekt-report.html
             --plugins ~/.m2/repository/com/retailsvc/pnp-processors-core-common/0.0.1-SNAPSHOT/pnp-processors-core-common-0.0.1-SNAPSHOT.jar
