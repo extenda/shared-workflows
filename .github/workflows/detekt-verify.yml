@@ -30,7 +30,8 @@ jobs:
             GITHUB_TOKEN: github-token
             NEXUS_PASSWORD: nexus-password
             NEXUS_USERNAME: nexus-username
-      - name: Fetch shared config via curl
+
+      - name: Fetch detekt config file
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -40,11 +41,6 @@ jobs:
             "https://api.github.com/repos/extenda/shared-workflows/contents/.github/configs/detekt.yml?ref=feat/EA-2837" \
             -o detekt.yml
 
-      - name: List dir
-        run: |
-          cat detekt.yml
-          ls -al
-          ls -al .github/configs
                 
       - name: Set up JDK
         uses: actions/setup-java@v3
@@ -70,17 +66,12 @@ jobs:
         run: |
           curl -sLo detekt-cli.jar \
             https://github.com/detekt/detekt/releases/download/v1.23.8/detekt-cli-1.23.8-all.jar
-      - name: List dir
-        run: |
-          ls -al
-          ls -al .github/workflows
-          
 
       - name: Verify with Detekt
         run: |
           java -jar detekt-cli.jar \
             --input src/main/kotlin \
-            --config .github/configs/detekt.yml
+            --config detekt.yml
             --report xml:detekt-report.xml \
             --report html:detekt-report.html
             --plugins ~/.m2/repository/com/retailsvc/pnp-processors-core-common/0.0.1-SNAPSHOT/pnp-processors-core-common-0.0.1-SNAPSHOT.jar
