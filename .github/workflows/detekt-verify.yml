@@ -27,6 +27,8 @@ jobs:
           ref: feat/EA-2837
           path: shared_workflows
 
+      - uses: actions/checkout@v4
+      
       - name: List dir
         run: |
           ls -al 
