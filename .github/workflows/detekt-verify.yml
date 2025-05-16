@@ -27,7 +27,7 @@ jobs:
         with:
           service-account-key: ${{ secrets.SECRET_AUTH }}
           secrets: |
-            GITHUB-TOKEN: github-token
+            GITHUB_TOKEN: github-token
             NEXUS_PASSWORD: nexus-password
             NEXUS_USERNAME: nexus-username
       - name: Fetch shared config via curl
