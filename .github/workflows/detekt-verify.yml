@@ -25,6 +25,7 @@ jobs:
         with:
           repository: extenda/shared-workflows
           ref: feat/EA-2837
+          path: shared_workflows
 
       - uses: extenda/actions/gcp-secret-manager@v0
         with:
