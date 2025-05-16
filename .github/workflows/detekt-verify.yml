@@ -41,7 +41,10 @@ jobs:
             "https://api.github.com/repos/extenda/shared-workflows/contents/.github/configs/detekt.yml?ref=feat/EA-2837" \
             -o detekt.yml
 
-                
+      - name: List detekt.yml
+        run: |
+          cat detekt.yml
+          
       - name: Set up JDK
         uses: actions/setup-java@v3
         with:
@@ -69,6 +72,9 @@ jobs:
           curl -sLo detekt-cli.jar \
             https://github.com/detekt/detekt/releases/download/v1.23.8/detekt-cli-1.23.8-all.jar
 
+      - name: List rulesets
+        run: |
+          java -jar detekt-cli.jar --list-rulesets --plugins ~/.m2/repository/com/retailsvc/pnp-processors-core-common/0.124.0/pnp-processors-core-common-0.124.0.jar
       - name: Verify with Detekt
         run: |
           java -jar detekt-cli.jar \
