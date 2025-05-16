@@ -57,12 +57,17 @@ jobs:
         run: |
           curl -sLo detekt-cli.jar \
             https://github.com/detekt/detekt/releases/download/v1.23.8/detekt-cli-1.23.8-all.jar
+      - name: List dir
+        run: |
+          ls -al 
+          ls -al extenda/shared-workflows/.github
+          ls -al extenda/shared-workflows/.github/configs
 
       - name: Verify with Detekt
         run: |
           java -jar detekt-cli.jar \
             --input src/main/kotlin \
-            --config extenda/shared-workflows/.github/configs/detekt.yml@feat/EA-2837
+            --config extenda/shared-workflows/.github/configs/detekt.yml
             --report xml:detekt-report.xml \
             --report html:detekt-report.html
             --plugins ~/.m2/repository/com/retailsvc/pnp-processors-core-common/0.0.1-SNAPSHOT/pnp-processors-core-common-0.0.1-SNAPSHOT.jar
