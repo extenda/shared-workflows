@@ -44,7 +44,7 @@ jobs:
       - name: List detekt.yml
         run: |
           cat detekt.yml
-          
+
       - name: Set up JDK
         uses: actions/setup-java@v3
         with:
@@ -71,15 +71,12 @@ jobs:
         run: |
           curl -sLo detekt-cli.jar \
             https://github.com/detekt/detekt/releases/download/v1.23.8/detekt-cli-1.23.8-all.jar
-
-      - name: List rulesets
-        run: |
-          java -jar detekt-cli.jar --list-rulesets --plugins ~/.m2/repository/com/retailsvc/pnp-processors-core-common/0.124.0/pnp-processors-core-common-0.124.0.jar
+      
       - name: Verify with Detekt
         run: |
           java -jar detekt-cli.jar \
             --input src/main/kotlin \
-            --config detekt.yml
+            --config detekt.yml \
             --report xml:detekt-report.xml \
-            --report html:detekt-report.html
+            --report html:detekt-report.html \
             --plugins ~/.m2/repository/com/retailsvc/pnp-processors-core-common/0.124.0/pnp-processors-core-common-0.124.0.jar
