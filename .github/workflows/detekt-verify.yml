@@ -21,6 +21,7 @@ jobs:
   detekt:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - uses: extenda/actions/gcp-secret-manager@v0
         with:
           service-account-key: ${{ secrets.SECRET_AUTH }}
