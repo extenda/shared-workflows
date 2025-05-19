@@ -80,4 +80,4 @@ jobs:
               --config /c/temp/detekt/detekt.yml \
               --classpath "$(cat cp.txt)" \
               --plugins ~/.m2/repository/com/retailsvc/pnp-processors-core-common/0.124.0/pnp-processors-core-common-0.1240.0.jar \
-              -- debug
+              --debug
