@@ -65,11 +65,19 @@ jobs:
           curl -sLo detekt-cli.jar \
             https://github.com/detekt/detekt/releases/download/v1.23.8/detekt-cli-1.23.8-all.jar
       
+      - name: Build classpath with Maven
+        uses: extenda/actions/maven@v0
+        with:
+          args: dependency:build-classpath -DincludeScope=runtime -Dmdep.outputFile=cp.txt -q
+          service-account-key: ${{ secrets.SECRET_AUTH }}
       - name: Verify with Detekt
         run: |
-          java -jar detekt-cli.jar \
-            --input src/main/kotlin \
-            --config detekt.yml \
-            --report xml:detekt-report.xml \
-            --report html:detekt-report.html \
-            --plugins ~/.m2/repository/com/retailsvc/pnp-processors-core-common/0.124.0/pnp-processors-core-common-0.124.0.jar
+          cat cp.txt
+          CP="detekt-clir:$(cat cp.txt)"
+          java -cp "$CP" \
+            io.gitlab.arturbosch.detekt.cli.Main \
+              --input src/main/kotlin \
+              --config /c/temp/detekt/detekt.yml \
+              --classpath "$(cat cp.txt)" \
+              --plugins ~/.m2/repository/com/retailsvc/pnp-processors-core-common/0.124.0/pnp-processors-core-common-0.1240.0.jar \
+              -- debug
