@@ -73,7 +73,7 @@ jobs:
       - name: Verify with Detekt
         run: |
           cat cp.txt
-          CP="detekt-clir:$(cat cp.txt)"
+          CP="detekt-cli.jar:$(cat cp.txt)"
           java -cp "$CP" \
             io.gitlab.arturbosch.detekt.cli.Main \
               --input src/main/kotlin \
