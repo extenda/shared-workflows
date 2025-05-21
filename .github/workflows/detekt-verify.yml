@@ -79,7 +79,7 @@ jobs:
 
       - name: Verify with Detekt
         run: |
-          java -cp "target/classes;lib/*" \
+          java -cp "target/classes:lib/*" \
             io.gitlab.arturbosch.detekt.cli.Main \
               --input src/main/kotlin \
               --config detekt.yml \
