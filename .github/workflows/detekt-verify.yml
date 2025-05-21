@@ -1,0 +1,90 @@
+name: Kafka Streams Lint
+on:
+  workflow_call:
+    secrets:
+      SECRET_AUTH:
+        required: true
+    inputs:
+      java-version:
+        description: |
+          The Java version.
+        type: number
+        required: false
+        default: 21
+      jdk-distribution:
+        description: |
+          The JDK distribution.
+        type: string
+        required: false
+        default: temurin
+jobs:
+  detekt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: extenda/actions/gcp-secret-manager@v0
+        with:
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+          secrets: |
+            GITHUB_TOKEN: github-token
+            NEXUS_PASSWORD: nexus-password
+            NEXUS_USERNAME: nexus-username
+
+      - name: Fetch detekt config file
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+            curl -sSL \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github.v3.raw" \
+            "https://api.github.com/repos/extenda/shared-workflows/contents/.github/configs/detekt.yml?ref=feat/EA-2837" \
+            -o detekt.yml
+
+      - name: Set up JDK
+        uses: actions/setup-java@v3
+        with:
+          distribution: ${{ inputs.jdk-distribution }}
+          java-version: ${{ inputs.java-version }}
+          cache: maven
+
+      - name: Verify with Maven
+        uses: extenda/actions/maven@v0
+        with:
+          args: verify -s settings.xml
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+
+      - name: Get detekt plugin for kafka streams
+        uses: extenda/actions/maven@v0
+        with:
+          args: dependency:get -Dartifact=com.retailsvc:pnp-processors-core-common:0.125.0:jar
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+      
+      - name: Build classpath with Maven
+        uses: extenda/actions/maven@v0
+        with:
+          args: dependency:build-classpath -DincludeScope=runtime -Dmdep.outputFile=cp.txt -q
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+
+      - name: Build classpath lib dir with Maven
+        uses: extenda/actions/maven@v0
+        with:
+          args: dependency:copy-dependencies -DoutputDirectory=lib -q
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+
+      - name: Download Detekt CLI
+        run: |
+          curl -sLo lib/detekt-cli.jar \
+            https://github.com/detekt/detekt/releases/download/v1.23.8/detekt-cli-1.23.8-all.jar
+      
+
+
+      - name: Verify with Detekt
+        run: |
+          cat cp.txt
+          CP="detekt-cli.jar:$(cat cp.txt)"
+          java -cp "$CP" \
+            io.gitlab.arturbosch.detekt.cli.Main \
+              --input src/main/kotlin \
+              --config detekt.yml \
+              --classpath "$(cat cp.txt)" \
+              --plugins ~/.m2/repository/com/retailsvc/pnp-processors-core-common/0.125.0/pnp-processors-core-common-0.125.0.jar \
