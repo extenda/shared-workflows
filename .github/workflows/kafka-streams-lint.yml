@@ -56,7 +56,7 @@ jobs:
       - name: Get detekt plugin for kafka streams
         uses: extenda/actions/maven@v0
         with:
-          args: dependency:get -Dartifact=com.retailsvc:pnp-processors-core-common:0.125.0:jar
+          args: dependency:get -Dartifact=com.retailsvc:pnp-processors-core-common:0.126.0:jar
           service-account-key: ${{ secrets.SECRET_AUTH }}
       
       - name: Build classpath with Maven
