@@ -1,0 +1,5 @@
+kafka-stream-rules:
+  UnnamedKafkaStreamsStateStoreRule:
+    active: true
+  UnnamedKafkaStreamRepartitionRule:
+    active: true
