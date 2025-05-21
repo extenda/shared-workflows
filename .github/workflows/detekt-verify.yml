@@ -77,12 +77,9 @@ jobs:
             https://github.com/detekt/detekt/releases/download/v1.23.8/detekt-cli-1.23.8-all.jar
       
 
-
       - name: Verify with Detekt
         run: |
-          cat cp.txt
-          CP="detekt-cli.jar:$(cat cp.txt)"
-          java -cp "$CP" \
+          java -cp "target/classes;lib/*" \
             io.gitlab.arturbosch.detekt.cli.Main \
               --input src/main/kotlin \
               --config detekt.yml \
