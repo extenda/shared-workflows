@@ -20,6 +20,10 @@ inputs:
     description: 'service account name to use'
     required: false
     default: 'basketauditfrontend'
+  repository-source:
+    description: 'base repository to fetch the collection and env'
+    required: false
+    default: 'extenda/selfservice-lossprevention-common'
 
 runs:
   using: 'composite'
@@ -33,7 +37,7 @@ runs:
     - name: Checkout
       uses: actions/checkout@v4
       with:
-        repository: extenda/selfservice-lossprevention-common
+        repository: ${{ inputs.repository-source }}
         path: 'slp'
         token: ${{ env.GITHUB-TOKEN }}
 
