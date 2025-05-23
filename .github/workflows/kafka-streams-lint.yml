@@ -17,9 +17,17 @@ on:
         type: string
         required: false
         default: temurin
+      working-directory:
+        description: 'working directory'
+        required: false
+        type: string
+        default: .
 jobs:
   detekt:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{inputs.working-directory}}
     steps:
       - uses: actions/checkout@v4
       - uses: extenda/actions/gcp-secret-manager@v0
