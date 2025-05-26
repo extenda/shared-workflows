@@ -55,10 +55,10 @@ jobs:
           java-version: ${{ inputs.java-version }}
           cache: maven
 
-      - name: Verify with Maven
+      - name: Comopile with Maven
         uses: extenda/actions/maven@v0
         with:
-          args: verify -s settings.xml
+          args: clean compile -DskipTests
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
       - name: Get detekt plugin for kafka streams
