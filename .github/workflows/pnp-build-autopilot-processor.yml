@@ -150,6 +150,17 @@ jobs:
           version: ${{ steps.semver.outputs.version }}-SNAPSHOT
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
+      - name: Kafka Streams lint - fetch detekt config file
+        if: ${{ inputs.enable-kafka-streams-lint == true }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+            curl -sSL \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github.v3.raw" \
+            "https://api.github.com/repos/extenda/shared-workflows/contents/.github/configs/detekt.yml" \
+            -o detekt.yml
+
       - name: Kafka Streams lint - get Detekt plugin for kafka streams
         if: ${{ inputs.enable-kafka-streams-lint == true }}
         uses: extenda/actions/maven@v0
