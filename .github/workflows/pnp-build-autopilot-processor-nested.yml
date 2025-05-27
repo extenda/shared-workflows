@@ -182,7 +182,7 @@ jobs:
         if: ${{ inputs.enable-kafka-streams-lint == true }}
         uses: extenda/actions/maven@v0
         with:
-          args: dependency:build-classpath -DincludeScope=runtime -Dmdep.outputFile=${{ inputs.working-directory || '.' }}/cp.txt -q
+          args: dependency:build-classpath -DincludeScope=runtime -Dmdep.outputFile=cp.txt -q
           service-account-key: ${{ secrets.SECRET_AUTH }}
           working-directory: ${{ inputs.working-directory || '.' }}
 
