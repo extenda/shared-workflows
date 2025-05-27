@@ -146,7 +146,7 @@ jobs:
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
       - name: Kafka Streams Lint
-        uses: .github/workflows/kafka-streams-lint.yml
+        uses: extenda/shared-workflows/.github/workflows/kafka-streams-lint@v0
         with:
           java-version: ${{ inputs.java-version }}
           jdk-distribution: ${{ inputs.jdk-distribution }}
