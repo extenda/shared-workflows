@@ -186,7 +186,7 @@ jobs:
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
       - name: List CP
-        run: cat ${{ inputs.working-directory || '.' }}/cp.txt
+        run: $(cat ${{ inputs.working-directory || '.' }}/cp.txt)
 
       - name: Kafka Streams lint - build classpath lib dir with maven
         if: ${{ inputs.enable-kafka-streams-lint == true }}
