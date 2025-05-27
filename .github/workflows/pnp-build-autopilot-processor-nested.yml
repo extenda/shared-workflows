@@ -204,7 +204,7 @@ jobs:
       - name: Kafka Streams lint - verify with Detekt
         if: ${{ inputs.enable-kafka-streams-lint == true }}
         run: |
-          java -cp "${{ inputs.working-directory || '.' }}/target/classes:${{ inputs.working-directory || '.' }}lib/*" \
+          java -cp "${{ inputs.working-directory || '.' }}/target/classes:${{ inputs.working-directory || '.' }}/lib/*" \
             io.gitlab.arturbosch.detekt.cli.Main \
               --input src/main/kotlin \
               --config detekt.yml \
