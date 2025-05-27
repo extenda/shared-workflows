@@ -184,9 +184,12 @@ jobs:
         with:
           args: dependency:build-classpath -DincludeScope=runtime -Dmdep.outputFile=${{ inputs.working-directory || '.' }}/cp.txt -q
           service-account-key: ${{ secrets.SECRET_AUTH }}
+          working-directory: ${{ inputs.working-directory || '.' }}
 
       - name: List CP
-        run: $(cat ${{ inputs.working-directory || '.' }}/cp.txt)
+        run: |
+          $(cat ${{ inputs.working-directory || '.' }}/cp.txt)
+          cat ${{ inputs.working-directory || '.' }}/cp.txt
 
       - name: Kafka Streams lint - build classpath lib dir with maven
         if: ${{ inputs.enable-kafka-streams-lint == true }}
