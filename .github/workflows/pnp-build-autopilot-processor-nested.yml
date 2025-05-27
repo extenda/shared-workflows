@@ -184,7 +184,6 @@ jobs:
         with:
           args: dependency:build-classpath -DincludeScope=runtime -Dmdep.outputFile=${{ inputs.working-directory || '.' }}/cp.txt -q
           service-account-key: ${{ secrets.SECRET_AUTH }}
-          working-directory: ${{ inputs.working-directory || '.' }}
 
       - name: Kafka Streams lint - build classpath lib dir with maven
         if: ${{ inputs.enable-kafka-streams-lint == true }}
@@ -192,7 +191,6 @@ jobs:
         with:
           args: dependency:copy-dependencies -DoutputDirectory=${{ inputs.working-directory || '.' }}/lib -q
           service-account-key: ${{ secrets.SECRET_AUTH }}
-          working-directory: ${{ inputs.working-directory || '.' }}
 
       - name: Kafka Streams lint - download Detekt CLI
         if: ${{ inputs.enable-kafka-streams-lint == true }}
