@@ -197,7 +197,7 @@ jobs:
       - name: Kafka Streams lint - download Detekt CLI
         if: ${{ inputs.enable-kafka-streams-lint == true }}
         run: |
-          curl -sLo ${{ inputs.working-directory || '.' }}/lib/detekt-cli.jar \
+          curl -s -L --create-dirs -o ${{ inputs.working-directory || '.' }}/lib/detekt-cli.jar \
             https://github.com/detekt/detekt/releases/download/v1.23.8/detekt-cli-1.23.8-all.jar
       
 
