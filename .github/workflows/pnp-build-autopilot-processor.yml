@@ -145,6 +145,12 @@ jobs:
           version: ${{ steps.semver.outputs.version }}-SNAPSHOT
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
+      - name: Kafka Streams Lint
+        uses: extenda/actions/kafka-streams-lint@v0
+        with:
+          java-version: ${{ inputs.java-version }}
+          jdk-distribution: ${{ inputs.jdk-distribution }}
+          
       - name: Analyze with Sonar
         uses: extenda/actions/sonar-scanner@v0
         with:
