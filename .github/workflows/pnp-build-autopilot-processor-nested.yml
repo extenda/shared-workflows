@@ -188,6 +188,7 @@ jobs:
 
       - name: List CP
         run: |
+          ls -al
           $(cat ${{ inputs.working-directory || '.' }}/cp.txt)
           cat ${{ inputs.working-directory || '.' }}/cp.txt
 
