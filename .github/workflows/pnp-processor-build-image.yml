@@ -137,8 +137,8 @@ jobs:
             curl -sSL \
             -H "Authorization: Bearer $GITHUB_TOKEN" \
             -H "Accept: application/vnd.github.v3.raw" \
-            "https://api.github.com/repos/extenda/shared-workflows/contents/.github/configs/detekt.yml" \
-            -o detekt.yml
+            "https://api.github.com/repos/extenda/shared-workflows/contents/.github/configs/pnp-detekt-plugin.yml" \
+            -o pnp-detekt-plugin.yml
 
       - name: Kafka Streams lint - get Detekt plugin for kafka streams
         if: ${{ inputs.enable-kafka-streams-lint == true }}
@@ -177,7 +177,7 @@ jobs:
           java -cp "target/classes:lib/*" \
             io.gitlab.arturbosch.detekt.cli.Main \
               --input  src/main/kotlin \
-              --config  detekt.yml \
+              --config  pnp-detekt-plugin.yml \
               --classpath "target/classes:$(cat cp.txt)" \
               --plugins ~/.m2/repository/com/retailsvc/pnp-processors-core-common/0.125.0/pnp-processors-core-common-0.125.0.jar \
 

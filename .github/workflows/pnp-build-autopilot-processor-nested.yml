@@ -159,6 +159,7 @@ jobs:
           version: ${{ steps.semver.outputs.version }}-SNAPSHOT
           service-account-key: ${{ secrets.SECRET_AUTH }}
           working-directory: ${{ inputs.working-directory || '.' }}
+      
       - name: Kafka Streams lint - fetch detekt config file
         if: ${{ inputs.enable-kafka-streams-lint == true }}
         env:
@@ -167,8 +168,8 @@ jobs:
             curl -sSL \
             -H "Authorization: Bearer $GITHUB_TOKEN" \
             -H "Accept: application/vnd.github.v3.raw" \
-            "https://api.github.com/repos/extenda/shared-workflows/contents/.github/configs/detekt.yml" \
-            -o ${{ inputs.working-directory || '.' }}/detekt.yml
+            "https://api.github.com/repos/extenda/shared-workflows/contents/.github/configs/pnp-detekt-plugin.yml" \
+            -o ${{ inputs.working-directory || '.' }}/pnp-detekt-plugin.yml
 
       - name: Kafka Streams lint - get Detekt plugin for kafka streams
         if: ${{ inputs.enable-kafka-streams-lint == true }}
@@ -207,7 +208,7 @@ jobs:
           java -cp "${{ inputs.working-directory || '.' }}/target/classes:${{ inputs.working-directory || '.' }}/lib/*" \
             io.gitlab.arturbosch.detekt.cli.Main \
               --input  ${{ inputs.working-directory || '.' }}/src/main/kotlin \
-              --config  ${{ inputs.working-directory || '.' }}/detekt.yml \
+              --config  ${{ inputs.working-directory || '.' }}/pnp-detekt-plugin.yml \
               --classpath "${{ inputs.working-directory || '.' }}/target/classes:$(cat ${{ inputs.working-directory || '.' }}/cp.txt)" \
               --plugins ~/.m2/repository/com/retailsvc/pnp-processors-core-common/0.125.0/pnp-processors-core-common-0.125.0.jar \
 
