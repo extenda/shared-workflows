@@ -180,6 +180,7 @@ jobs:
             io.gitlab.arturbosch.detekt.cli.Main \
               --input  src/main/kotlin \
               --config  pnp-detekt-plugin.yml \
+              --build-upon-default-config \
               --classpath "target/classes:$(cat cp.txt)" \
               --plugins ~/.m2/repository/com/retailsvc/pnp-processors-core-common/0.125.0/pnp-processors-core-common-0.125.0.jar \
 
