@@ -137,7 +137,7 @@ jobs:
             curl -sSL \
             -H "Authorization: Bearer $GITHUB_TOKEN" \
             -H "Accept: application/vnd.github.v3.raw" \
-            "https://api.github.com/repos/extenda/shared-workflows/contents/.github/configs/pnp-detekt-plugin.yml?ref=feat/EA-2837-imnprove" \
+            "https://api.github.com/repos/extenda/shared-workflows/contents/.github/configs/pnp-detekt-plugin.yml" \
             -o pnp-detekt-plugin.yml
 
             cat pnp-detekt-plugin.yml
