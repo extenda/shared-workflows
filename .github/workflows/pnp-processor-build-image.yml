@@ -70,7 +70,11 @@ on:
         type: boolean
         required: false
         default: false
-
+      enable-kafka-streams-lint:
+        description: 'If true runs Kafka Streams Lint'
+        type: boolean
+        required: false
+        default: true
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -124,6 +128,58 @@ jobs:
           args: verify -s settings.xml
           version: ${{ steps.semver.outputs.version }}-SNAPSHOT
           service-account-key: ${{ secrets.SECRET_AUTH }}
+
+      - name: Kafka Streams lint - fetch detekt config file
+        if: ${{ inputs.enable-kafka-streams-lint == true }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+            curl -sSL \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github.v3.raw" \
+            "https://api.github.com/repos/extenda/shared-workflows/contents/.github/configs/detekt.yml" \
+            -o detekt.yml
+
+      - name: Kafka Streams lint - get Detekt plugin for kafka streams
+        if: ${{ inputs.enable-kafka-streams-lint == true }}
+        uses: extenda/actions/maven@v0
+        with:
+          args: dependency:get -Dartifact=com.retailsvc:pnp-processors-core-common:0.125.0:jar
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+          
+      
+      - name: Kafka Streams lint - build classpath with maven
+        if: ${{ inputs.enable-kafka-streams-lint == true }}
+        uses: extenda/actions/maven@v0
+        with:
+          args: dependency:build-classpath -DincludeScope=runtime -Dmdep.outputFile=cp.txt -q
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+          
+
+      - name: Kafka Streams lint - build classpath lib dir with maven
+        if: ${{ inputs.enable-kafka-streams-lint == true }}
+        uses: extenda/actions/maven@v0
+        with:
+          args: dependency:copy-dependencies -DoutputDirectory=lib -q
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+          
+
+      - name: Kafka Streams lint - download Detekt CLI
+        if: ${{ inputs.enable-kafka-streams-lint == true }}
+        run: |
+          curl -s -L --create-dirs -o lib/detekt-cli.jar \
+            https://github.com/detekt/detekt/releases/download/v1.23.8/detekt-cli-1.23.8-all.jar
+      
+
+      - name: Kafka Streams lint - verify with Detekt
+        if: ${{ inputs.enable-kafka-streams-lint == true }}
+        run: |
+          java -cp "target/classes:lib/*" \
+            io.gitlab.arturbosch.detekt.cli.Main \
+              --input  src/main/kotlin \
+              --config  detekt.yml \
+              --classpath "target/classes:$(cat cp.txt)" \
+              --plugins ~/.m2/repository/com/retailsvc/pnp-processors-core-common/0.125.0/pnp-processors-core-common-0.125.0.jar \
 
       - name: Analyze with Sonar
         uses: extenda/actions/sonar-scanner@v0
