@@ -140,6 +140,8 @@ jobs:
             "https://api.github.com/repos/extenda/shared-workflows/contents/.github/configs/pnp-detekt-plugin.yml" \
             -o pnp-detekt-plugin.yml
 
+            cat pnp-detekt-plugin.yml
+
       - name: Kafka Streams lint - get Detekt plugin for kafka streams
         if: ${{ inputs.enable-kafka-streams-lint == true }}
         uses: extenda/actions/maven@v0
