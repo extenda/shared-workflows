@@ -1,0 +1,25 @@
+name: Cloud Deploy Plan
+on:
+  workflow_call:
+    secrets:
+      GCLOUD_AUTH_PROD:
+        required: true
+    inputs:
+      service-definition:
+        description: >
+          The cloud deploy YAML file(s).
+          If you use multiple cloud deploy YAML files, they can be separated by new lines. The service definition can be a glob pattern.
+        type: string
+        required: false
+        default: cloud-deploy.yaml
+
+jobs:
+  plan-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: extenda/actions/cloud-deploy-plan@v0
+        if: github.actor != 'dependabot[bot]'
+        with:
+          service-account-key: ${{ secrets.GCLOUD_AUTH_PROD }}
+          service-definition: ${{ inputs.service-definition }}
