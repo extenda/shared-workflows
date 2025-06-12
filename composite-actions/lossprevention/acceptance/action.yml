@@ -60,8 +60,14 @@ runs:
         npm install newman --no-save --silent
         readarray -t COLLECTIONS_ARRAY <<< "$(find "${{ inputs.collections_folder }}" -name '*.postman_collection.json' -type f)"
         for collection in "${COLLECTIONS_ARRAY[@]}"; do
-          echo "Running tests for collection: $collection"
+        (
+          echo "🔄 Running tests for collection: $collection"
           npx newman run "$collection" \
-            --environment ${{ inputs.environment }} \
-            --env-var iamToken=$IDENTITY_TOKEN
+            --environment "${{ inputs.environment }}" \
+            --env-var iamToken="$IDENTITY_TOKEN"
+          echo "✅ Completed: $collection"
+        ) &
         done
+
+        wait
+
