@@ -61,7 +61,7 @@ runs:
         readarray -t COLLECTIONS_ARRAY <<< "$(find "${{ inputs.collections_folder }}" -name '*.postman_collection.json' -type f)"
         for collection in "${COLLECTIONS_ARRAY[@]}"; do
         (
-          echo "🔄 Running tests for collection: $collection"
+          echo "🔄 Running tests for new collection: $collection"
           npx newman run "$collection" \
             --environment "${{ inputs.environment }}" \
             --env-var iamToken="$IDENTITY_TOKEN"
