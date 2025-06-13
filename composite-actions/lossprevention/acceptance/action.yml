@@ -48,6 +48,7 @@ runs:
         service-account-key: ${{ inputs.gcloud-auth }}
 
     - name: Identity token
+      id: id-token
       uses: extenda/actions/identity-token@v0
       with:
         service-account-key: ${{ inputs.gcloud-auth }}
