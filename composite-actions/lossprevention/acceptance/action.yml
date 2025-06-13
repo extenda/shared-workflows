@@ -65,6 +65,7 @@ runs:
           npx newman run "$collection" \
             --environment "${{ inputs.environment }}" \
             --env-var iamToken="$IDENTITY_TOKEN"
+            --bail "test"
           echo "✅ Completed: $collection"
         ) &
         done
