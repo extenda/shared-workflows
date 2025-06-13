@@ -48,6 +48,7 @@ runs:
         service-account-key: ${{ inputs.gcloud-auth }}
 
     - name: Identity token
+      id: id-token
       uses: extenda/actions/identity-token@v0
       with:
         service-account-key: ${{ inputs.gcloud-auth }}
@@ -58,10 +59,23 @@ runs:
       shell: bash
       run: |
         npm install newman --no-save --silent
+    
+        IDENTITY_TOKEN="${{ steps.id-token.outputs.token }}"
+    
         readarray -t COLLECTIONS_ARRAY <<< "$(find "${{ inputs.collections_folder }}" -name '*.postman_collection.json' -type f)"
+    
+        declare -a pids=()
+    
         for collection in "${COLLECTIONS_ARRAY[@]}"; do
-          echo "Running tests for collection: $collection"
+          echo "🚀 Running tests for collection: $collection"
           npx newman run "$collection" \
-            --environment ${{ inputs.environment }} \
-            --env-var iamToken=$IDENTITY_TOKEN
+            --environment "${{ inputs.environment }}" \
+            --env-var iamToken="$IDENTITY_TOKEN" \
+            --bail &
+          pids+=($!)
+        done
+    
+        # Wait for all parallel jobs to complete and track failures
+        for pid in "${pids[@]}"; do
+          wait $pid || exit 1
         done
