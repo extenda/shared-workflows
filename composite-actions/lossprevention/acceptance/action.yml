@@ -52,23 +52,27 @@ runs:
       with:
         service-account-key: ${{ inputs.gcloud-auth }}
         service-account: ${{ inputs.service-account-name }}@${{ steps.gcloud.outputs.project-id }}.iam.gserviceaccount.com
-        audiences: ${{ inputs.service-account-name }}
-
-    - name: Acceptance tests
-      shell: bash
-      run: |
-        npm install newman --no-save --silent
-        readarray -t COLLECTIONS_ARRAY <<< "$(find "${{ inputs.collections_folder }}" -name '*.postman_collection.json' -type f)"
-        for collection in "${COLLECTIONS_ARRAY[@]}"; do
-        (
-          echo "🔄 Running tests for new collection: $collection"
-          npx newman run "$collection" \
-            --environment "${{ inputs.environment }}" \
-            --env-var iamToken="$IDENTITY_TOKEN"
-            --bail "test"
-          echo "✅ Completed: $collection"
-        ) &
-        done
-
-        wait
+        - name: Acceptance tests
+        shell: bash
+        run: |
+          npm install newman --no-save --silent
+      
+          readarray -t COLLECTIONS_ARRAY <<< "$(find "${{ inputs.collections_folder }}" -name '*.postman_collection.json' -type f)"
+      
+          declare -a pids=()
+      
+          for collection in "${COLLECTIONS_ARRAY[@]}"; do
+            echo "🚀 Running tests for collection sample: $collection"
+            npx newman run "$collection" \
+              --environment ${{ inputs.environment }} \
+              --env-var iamToken=$IDENTITY_TOKEN \
+              --bail &
+      
+            pids+=($!)
+          done
+      
+          # Wait for all parallel jobs to complete and track failures
+          for pid in "${pids[@]}"; do
+            wait $pid || exit 1
+          done
 
