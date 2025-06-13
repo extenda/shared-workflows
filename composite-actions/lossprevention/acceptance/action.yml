@@ -52,6 +52,7 @@ runs:
       with:
         service-account-key: ${{ inputs.gcloud-auth }}
         service-account: ${{ inputs.service-account-name }}@${{ steps.gcloud.outputs.project-id }}.iam.gserviceaccount.com
+        audiences: ${{ inputs.service-account-name }}
     
     - name: Acceptance tests
       shell: bash
