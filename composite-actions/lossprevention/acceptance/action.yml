@@ -64,7 +64,7 @@ runs:
         declare -a pids=()
         
         for collection in "${COLLECTIONS_ARRAY[@]}"; do
-          echo "🚀 Running tests for collection: $collection"
+          echo "🚀 Running tests for collection sample: $collection"
           npx newman run "$collection" \
             --environment ${{ inputs.environment }} \
             --env-var iamToken=$IDENTITY_TOKEN \
