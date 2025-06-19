@@ -107,7 +107,7 @@ runs:
 
     - name: Pact steps
       if: inputs.pact-directory || inputs.pact-webhook-id
-      uses: ../dotnetPact
+      uses: extenda/shared-workflows/composite-actions/lossprevention/pactbroker@chore/SLP-946/AdaptSharedBuildWorkflowForPactConsumerSide
       with:
         secret-auth: ${{ inputs.secret-auth }}
         application-name: ${{ inputs.application-name }}
