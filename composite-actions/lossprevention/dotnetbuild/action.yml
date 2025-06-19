@@ -105,46 +105,16 @@ runs:
         PACT_BROKER_BASEURI: ${{ inputs.pact-broker-baseuri }}
         TestActual: true
 
-    - name: Publish consumer pacts
-      if: inputs.pact-directory
-      uses: extenda/actions/pact-publish@v0
-      with:
-        pacts-directory: ${{ inputs.pact-directory }}
-        service-account-key: ${{ inputs.secret-auth }}
-
-    - name: Create/update Pact broker webhook
-      if: inputs.pact-webhook-id
-      uses: extenda/actions/pact-create-webhook@v0
-      with:
-        service-account-key: ${{ inputs.secret-auth }}
-        application-name: ${{ inputs.application-name }}
-        uuid: ${{ inputs.pact-webhook-id }}
-
-
-    - name: Update pact with current branch
+    - name: Pact steps
       if: inputs.pact-directory || inputs.pact-webhook-id
-      uses: extenda/actions/pact-create-version@v0
+      uses: ./composite-actions/lossprevention/dotnetPact
       with:
-        service-account-key: ${{ inputs.secret-auth }}
+        secret-auth: ${{ inputs.secret-auth }}
         application-name: ${{ inputs.application-name }}
-
-    - name: Pact can I deploy?
-      if: inputs.pact-directory || inputs.pact-webhook-id
-      uses: extenda/actions/pact-can-i-deploy@v0
-      with:
-        service-account-key: ${{ inputs.secret-auth }}
-        application-name: ${{ inputs.application-name }}
-        retry-while-unknown: 18
-        retry-interval: 10
-
-    - name: Create Pact release
-      if: github.ref == 'refs/heads/master' && ( inputs.pact-directory || inputs.pact-webhook-id )
-      uses: extenda/actions/pact-tag-version@v0
-      with:
-        service-account-key: ${{ inputs.secret-auth }}
-        application-name: ${{ inputs.application-name }}
-        release-tag: ${{ steps.semver.outputs.semver }}
-
+        pact-directory: ${{ inputs.pact-directory }}
+        pact-webhook-id: ${{ inputs.pact-webhook-id }}
+        pact-broker-baseuri: ${{ inputs.pact-broker-baseuri }}
+        version: ${{ steps.semver.outputs.composed-version-string }}
     - name: Build Docker
       shell: sh
       run: |
