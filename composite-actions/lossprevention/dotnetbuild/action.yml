@@ -99,21 +99,21 @@ runs:
         TestActual: true
 
     - name: Publish consumer pacts
-      if: pact-directory
+      if: inputs.pact-directory
       uses: extenda/actions/pact-publish@v0
       with:
         pacts-directory: ${{ inputs.pact-directory }}
         service-account-key: ${{ inputs.secret-auth }}
 
     - name: Update pact with current branch
-      if: pact-directory
+      if: inputs.pact-directory
       uses: extenda/actions/pact-create-version@v0
       with:
         service-account-key: ${{ inputs.secret-auth }}
         application-name: ${{ inputs.application-name }}
 
     - name: Pact can I deploy?
-      if: pact-directory
+      if: inputs.pact-directory
       uses: extenda/actions/pact-can-i-deploy@v0
       with:
         service-account-key: ${{ inputs.secret-auth }}
@@ -122,7 +122,7 @@ runs:
         retry-interval: 10
 
     - name: Create Pact release
-      if: github.ref == 'refs/heads/master' && pact-directory
+      if: github.ref == 'refs/heads/master' && inputs.pact-directory
       uses: extenda/actions/pact-tag-version@v0
       with:
         service-account-key: ${{ inputs.secret-auth }}
