@@ -133,7 +133,7 @@ runs:
       shell: sh
       run: |
         IMAGE=eu.gcr.io/extenda/${{ clan }}/${{ application-name }}
-        dotnet publish ./src/BasketAuditDeterminationService --os linux --arch x64 /t:PublishContainer /p:ContainerRepository=$IMAGE /p:ContainerImageTag=${{ steps.semver.outputs.composed-version-string }} /p:Version=${{ steps.semver.outputs.semver }} /p:FileVersion=${{ steps.semver.outputs.version }} -c Release
+        dotnet publish ${{dotnet-service-project}} --os linux --arch x64 /t:PublishContainer /p:ContainerRepository=$IMAGE /p:ContainerImageTag=${{ steps.semver.outputs.composed-version-string }} /p:Version=${{ steps.semver.outputs.semver }} /p:FileVersion=${{ steps.semver.outputs.version }} -c Release
 
     - name: Analyze with Sonar
       uses: extenda/actions/sonar-scanner@v0
