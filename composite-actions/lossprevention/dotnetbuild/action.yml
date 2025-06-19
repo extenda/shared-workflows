@@ -1,0 +1,165 @@
+name: 'DotnetBuild'
+description: 'Build step for lossprevention services'
+
+inputs:
+  secret-auth:
+    description: 'SECRET_AUTH value from secrets. '
+    required: true
+  secret-push-attest-auth:
+    description: 'Auth to use for pushing and attesting the docker image. Usually secrets.GCLOUD_AUTH_STAGING.'
+    required: true
+  dotnet-version:
+    description: 'Version of dotnet to install, used for build and test'
+    required: true
+  application-name: 
+    description: 'The name for the application. Used for the image name and pact if applicable.'
+    required: true
+  dotnet-service-project: 
+    description: 'The project(folder) of the service entry point to build a docker image from to push and attested'
+    required: true
+  clan: 
+    description: 'Name of the clan. Used for the image name.'
+    required: false
+    default: 'lossprevention'
+  sonar-host: 
+    description: 'The host to use for sonar scanning'
+    required: false
+    default: 'https://sonarcloud.io'
+  pact-directory:
+    description: 'Directory for pact files, turn pact off by leaving this out'
+    required: false
+  pact-broker-baseuri:
+    description: 'Base URI for the pact broker, used to publish pacts. Usage dependant off setting pact-directory'
+    required: false
+    default: 'https://pact-broker.retailsvc.com'
+
+outputs:
+  version:
+    description: 'The version that was build and if on master pushed and attested'
+    value: ${{ steps.semver.outputs.composed-version-string }}
+
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - uses: extenda/actions/gcp-secret-manager@v0
+      with:
+        service-account-key: ${{ secret-auth }}
+        secrets: |
+          NEXUS-PASSWORD: nexus-password
+          NEXUS-USERNAME: nexus-username
+          SONARCLOUD-TOKEN: sonarcloud-token
+          NUGET-API-KEY: nuget-api-key
+          GITHUB-TOKEN: github-token
+          STYRA_TOKEN: styra-das-token
+
+    - name: Determine version
+      uses: extenda/actions/conventional-version@v0
+      id: semver
+      with:
+        build-number: ${{ github.run_number }}
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{dotnet-version}}
+
+    - name: Register nuget source
+      shell: sh
+      run: dotnet nuget add source "https://repo.extendaretail.com/repository/nuget-hosted/" --name "Extenda hosted" --username ${{ env.NEXUS-USERNAME }} --password ${{ env.NEXUS-PASSWORD }} --store-password-in-clear-text
+
+    - name: Start Sonar Scanner
+      uses: extenda/actions/sonar-scanner@v0
+      with:
+        sonar-host: ${{ sonar-host }}
+        sonar-scanner: dotnet
+        service-account-key: ${{ secret-auth }}
+
+    - name: Restore dependencies
+      shell: sh
+      run: dotnet restore src/
+
+    - name: Build dotnet solution
+      shell: sh
+      run: |
+        dotnet build src/ --configuration Release /p:Version=${{ steps.semver.outputs.semver }} /p:FileVersion=${{ steps.semver.outputs.version }}
+
+    - name: Run tests
+      shell: sh
+      run: |
+        dotnet test src/ --configuration Release --no-build /p:CollectCoverage=true /p:CoverletOutputFormat=opencover
+      env:
+        PACT_BROKER_DISABLE_SSL_VERIFICATION: 1
+        PACT_BROKER_BASEURI: ${{ pact-broker-baseuri }}
+        TestActual: true
+
+    - name: Publish consumer pacts
+      if: pact-directory
+      uses: extenda/actions/pact-publish@v0
+      with:
+        pacts-directory: ${{ pact-directory }}
+        service-account-key: ${{ secret-auth }}
+
+    - name: Update pact with current branch
+      if: pact-directory
+      uses: extenda/actions/pact-create-version@v0
+      with:
+        service-account-key: ${{ secret-auth }}
+        application-name: ${{ application-name }}
+
+    - name: Pact can I deploy?
+      if: pact-directory
+      uses: extenda/actions/pact-can-i-deploy@v0
+      with:
+        service-account-key: ${{ secret-auth }}
+        application-name: ${{ application-name }}
+        retry-while-unknown: 18
+        retry-interval: 10
+
+    - name: Create Pact release
+      if: github.ref == 'refs/heads/master' && pact-directory
+      uses: extenda/actions/pact-tag-version@v0
+      with:
+        service-account-key: ${{ secret-auth }}
+        application-name: ${{ application-name }}
+        release-tag: ${{ steps.semver.outputs.semver }}
+
+    - name: Build Docker
+      shell: sh
+      run: |
+        IMAGE=eu.gcr.io/extenda/${{ clan }}/${{ application-name }}
+        dotnet publish ./src/BasketAuditDeterminationService --os linux --arch x64 /t:PublishContainer /p:ContainerRepository=$IMAGE /p:ContainerImageTag=${{ steps.semver.outputs.composed-version-string }} /p:Version=${{ steps.semver.outputs.semver }} /p:FileVersion=${{ steps.semver.outputs.version }} -c Release
+
+    - name: Analyze with Sonar
+      uses: extenda/actions/sonar-scanner@v0
+      with:
+        sonar-host: ${{ sonar-host }}
+        sonar-scanner: dotnet
+        service-account-key: ${{ secret-auth }}
+
+    # GCloud is needed for pushing the docker image
+    - uses: extenda/actions/setup-gcloud@v0
+      if: github.ref == 'refs/heads/master'
+      with:
+        service-account-key: ${{ secret-push-attest-auth }}
+
+    # Pushing is needed the image for staging/ production deployment steps
+    - name: Push Docker
+      if: github.ref == 'refs/heads/master'
+      shell: sh
+      run: |
+        gcloud --quiet auth configure-docker
+        IMAGE=eu.gcr.io/extenda/${{ clan }}/${{ application-name }}:${{ steps.semver.outputs.composed-version-string }}
+        docker push $IMAGE
+
+    - name: Attest image
+      if: github.ref == 'refs/heads/master'
+      uses: extenda/actions/binary-auth-attestation@v0
+      with:
+        image-path: eu.gcr.io/extenda/${{ clan }}/${{ application-name }}:${{ steps.semver.outputs.composed-version-string }}
+        service-account-key: ${{ secret-push-attest-auth }}
