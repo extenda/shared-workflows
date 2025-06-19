@@ -1,0 +1,63 @@
+name: 'PactBroker'
+description: 'Handles Pact publishing, webhook, tagging, and can-i-deploy for lossprevention services'
+
+inputs:
+  secret-auth:
+    description: 'SECRET_AUTH value from secrets.'
+    required: true
+  application-name:
+    description: 'The name for the application. Used for Pact.'
+    required: true
+  version:
+    description: 'The version to tag for release.'
+    required: true
+  pact-directory:
+    description: 'Directory for pact files. Leave out to disable consumer/client pact publishing.'
+    required: false
+  pact-webhook-id:
+    description: 'Webhook ID for pact broker, used to trigger the webhook after publishing pacts. Leave out to disable producer/server pact.'
+    required: false
+  pact-broker-baseuri:
+    description: 'Base URI for the pact broker, used to publish pacts.'
+    required: false
+    default: 'https://pact-broker.retailsvc.com'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Publish consumer pacts
+      if: inputs.pact-directory
+      uses: extenda/actions/pact-publish@v0
+      with:
+        pacts-directory: ${{ inputs.pact-directory }}
+        service-account-key: ${{ inputs.secret-auth }}
+
+    - name: Create/update Pact broker webhook
+      if: inputs.pact-webhook-id
+      uses: extenda/actions/pact-create-webhook@v0
+      with:
+        service-account-key: ${{ inputs.secret-auth }}
+        application-name: ${{ inputs.application-name }}
+        uuid: ${{ inputs.pact-webhook-id }}
+
+    - name: Update pact with current branch
+      uses: extenda/actions/pact-create-version@v0
+      with:
+        service-account-key: ${{ inputs.secret-auth }}
+        application-name: ${{ inputs.application-name }}
+
+    - name: Pact can I deploy?
+      uses: extenda/actions/pact-can-i-deploy@v0
+      with:
+        service-account-key: ${{ inputs.secret-auth }}
+        application-name: ${{ inputs.application-name }}
+        retry-while-unknown: 18
+        retry-interval: 10
+
+    - name: Create Pact release
+      if: github.ref == 'refs/heads/master'
+      uses: extenda/actions/pact-tag-version@v0
+      with:
+        service-account-key: ${{ inputs.secret-auth }}
+        application-name: ${{ inputs.application-name }}
+        release-tag: ${{ inputs.version }}
