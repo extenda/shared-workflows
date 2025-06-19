@@ -49,7 +49,7 @@ runs:
 
     - uses: extenda/actions/gcp-secret-manager@v0
       with:
-        service-account-key: ${{ secret-auth }}
+        service-account-key: ${{ inputs.secret-auth }}
         secrets: |
           NEXUS-PASSWORD: nexus-password
           NEXUS-USERNAME: nexus-username
@@ -67,7 +67,7 @@ runs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: ${{dotnet-version}}
+        dotnet-version: ${{ inputs.dotnet-version }}
 
     - name: Register nuget source
       shell: sh
@@ -76,9 +76,9 @@ runs:
     - name: Start Sonar Scanner
       uses: extenda/actions/sonar-scanner@v0
       with:
-        sonar-host: ${{ sonar-host }}
+        sonar-host: ${{ inputs.sonar-host }}
         sonar-scanner: dotnet
-        service-account-key: ${{ secret-auth }}
+        service-account-key: ${{ inputs.secret-auth }}
 
     - name: Restore dependencies
       shell: sh
@@ -95,29 +95,29 @@ runs:
         dotnet test src/ --configuration Release --no-build /p:CollectCoverage=true /p:CoverletOutputFormat=opencover
       env:
         PACT_BROKER_DISABLE_SSL_VERIFICATION: 1
-        PACT_BROKER_BASEURI: ${{ pact-broker-baseuri }}
+        PACT_BROKER_BASEURI: ${{ inputs.pact-broker-baseuri }}
         TestActual: true
 
     - name: Publish consumer pacts
       if: pact-directory
       uses: extenda/actions/pact-publish@v0
       with:
-        pacts-directory: ${{ pact-directory }}
-        service-account-key: ${{ secret-auth }}
+        pacts-directory: ${{ inputs.pact-directory }}
+        service-account-key: ${{ inputs.secret-auth }}
 
     - name: Update pact with current branch
       if: pact-directory
       uses: extenda/actions/pact-create-version@v0
       with:
-        service-account-key: ${{ secret-auth }}
-        application-name: ${{ application-name }}
+        service-account-key: ${{ inputs.secret-auth }}
+        application-name: ${{ inputs.application-name }}
 
     - name: Pact can I deploy?
       if: pact-directory
       uses: extenda/actions/pact-can-i-deploy@v0
       with:
-        service-account-key: ${{ secret-auth }}
-        application-name: ${{ application-name }}
+        service-account-key: ${{ inputs.secret-auth }}
+        application-name: ${{ inputs.application-name }}
         retry-while-unknown: 18
         retry-interval: 10
 
@@ -125,28 +125,28 @@ runs:
       if: github.ref == 'refs/heads/master' && pact-directory
       uses: extenda/actions/pact-tag-version@v0
       with:
-        service-account-key: ${{ secret-auth }}
-        application-name: ${{ application-name }}
+        service-account-key: ${{ inputs.secret-auth }}
+        application-name: ${{ inputs.application-name }}
         release-tag: ${{ steps.semver.outputs.semver }}
 
     - name: Build Docker
       shell: sh
       run: |
-        IMAGE=eu.gcr.io/extenda/${{ clan }}/${{ application-name }}
-        dotnet publish ${{dotnet-service-project}} --os linux --arch x64 /t:PublishContainer /p:ContainerRepository=$IMAGE /p:ContainerImageTag=${{ steps.semver.outputs.composed-version-string }} /p:Version=${{ steps.semver.outputs.semver }} /p:FileVersion=${{ steps.semver.outputs.version }} -c Release
+        IMAGE=eu.gcr.io/extenda/${{ inputs.clan }}/${{ inputs.application-name }}
+        dotnet publish ${{ inputs.dotnet-service-project}} --os linux --arch x64 /t:PublishContainer /p:ContainerRepository=$IMAGE /p:ContainerImageTag=${{ steps.semver.outputs.composed-version-string }} /p:Version=${{ steps.semver.outputs.semver }} /p:FileVersion=${{ steps.semver.outputs.version }} -c Release
 
     - name: Analyze with Sonar
       uses: extenda/actions/sonar-scanner@v0
       with:
-        sonar-host: ${{ sonar-host }}
+        sonar-host: ${{ inputs.sonar-host }}
         sonar-scanner: dotnet
-        service-account-key: ${{ secret-auth }}
+        service-account-key: ${{ inputs.secret-auth }}
 
     # GCloud is needed for pushing the docker image
     - uses: extenda/actions/setup-gcloud@v0
       if: github.ref == 'refs/heads/master'
       with:
-        service-account-key: ${{ secret-push-attest-auth }}
+        service-account-key: ${{ inputs.secret-push-attest-auth }}
 
     # Pushing is needed the image for staging/ production deployment steps
     - name: Push Docker
@@ -154,12 +154,12 @@ runs:
       shell: sh
       run: |
         gcloud --quiet auth configure-docker
-        IMAGE=eu.gcr.io/extenda/${{ clan }}/${{ application-name }}:${{ steps.semver.outputs.composed-version-string }}
+        IMAGE=eu.gcr.io/extenda/${{ inputs.clan }}/${{ inputs.application-name }}:${{ steps.semver.outputs.composed-version-string }}
         docker push $IMAGE
 
     - name: Attest image
       if: github.ref == 'refs/heads/master'
       uses: extenda/actions/binary-auth-attestation@v0
       with:
-        image-path: eu.gcr.io/extenda/${{ clan }}/${{ application-name }}:${{ steps.semver.outputs.composed-version-string }}
-        service-account-key: ${{ secret-push-attest-auth }}
+        image-path: eu.gcr.io/extenda/${{ inputs.clan }}/${{ inputs.application-name }}:${{ steps.semver.outputs.composed-version-string }}
+        service-account-key: ${{ inputs.secret-push-attest-auth }}
