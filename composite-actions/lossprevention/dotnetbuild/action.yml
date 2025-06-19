@@ -107,7 +107,7 @@ runs:
 
     - name: Pact steps
       if: inputs.pact-directory || inputs.pact-webhook-id
-      uses: ./composite-actions/lossprevention/dotnetPact
+      uses: ../dotnetPact
       with:
         secret-auth: ${{ inputs.secret-auth }}
         application-name: ${{ inputs.application-name }}
