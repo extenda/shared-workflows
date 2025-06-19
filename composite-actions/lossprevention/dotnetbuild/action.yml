@@ -26,7 +26,10 @@ inputs:
     required: false
     default: 'https://sonarcloud.io'
   pact-directory:
-    description: 'Directory for pact files, turn pact off by leaving this out'
+    description: 'Directory for pact files, turn pact for consumer/client off by leaving this out'
+    required: false
+  pact-webhook-id:
+    description: 'Webhook ID for pact broker, used to trigger the webhook after publishing pacts. Turn pact for producer/server off by leaving this out.'
     required: false
   pact-broker-baseuri:
     description: 'Base URI for the pact broker, used to publish pacts. Usage dependant off setting pact-directory'
@@ -57,6 +60,8 @@ runs:
           NUGET-API-KEY: nuget-api-key
           GITHUB-TOKEN: github-token
           STYRA_TOKEN: styra-das-token
+          PACT_BROKER_USERNAME: pact-broker-username
+          PACT_BROKER_PASSWORD: pact-broker-password
 
     - name: Determine version
       uses: extenda/actions/conventional-version@v0
@@ -94,6 +99,8 @@ runs:
       run: |
         dotnet test src/ --configuration Release --no-build /p:CollectCoverage=true /p:CoverletOutputFormat=opencover
       env:
+        PACT_BROKER_USERNAME: ${{ env.PACT_BROKER_USERNAME }}
+        PACT_BROKER_PASSWORD: ${{ env.PACT_BROKER_PASSWORD }}
         PACT_BROKER_DISABLE_SSL_VERIFICATION: 1
         PACT_BROKER_BASEURI: ${{ inputs.pact-broker-baseuri }}
         TestActual: true
@@ -105,15 +112,24 @@ runs:
         pacts-directory: ${{ inputs.pact-directory }}
         service-account-key: ${{ inputs.secret-auth }}
 
+    - name: Create/update Pact broker webhook
+      if: inputs.pact-webhook-id
+      uses: extenda/actions/pact-create-webhook@v0
+      with:
+        service-account-key: ${{ inputs.secret-auth }}
+        application-name: ${{ inputs.application-name }}
+        uuid: ${{ inputs.pact-webhook-id }}
+
+
     - name: Update pact with current branch
-      if: inputs.pact-directory
+      if: inputs.pact-directory || inputs.pact-webhook-id
       uses: extenda/actions/pact-create-version@v0
       with:
         service-account-key: ${{ inputs.secret-auth }}
         application-name: ${{ inputs.application-name }}
 
     - name: Pact can I deploy?
-      if: inputs.pact-directory
+      if: inputs.pact-directory || inputs.pact-webhook-id
       uses: extenda/actions/pact-can-i-deploy@v0
       with:
         service-account-key: ${{ inputs.secret-auth }}
@@ -122,7 +138,7 @@ runs:
         retry-interval: 10
 
     - name: Create Pact release
-      if: github.ref == 'refs/heads/master' && inputs.pact-directory
+      if: github.ref == 'refs/heads/master' && ( inputs.pact-directory || inputs.pact-webhook-id )
       uses: extenda/actions/pact-tag-version@v0
       with:
         service-account-key: ${{ inputs.secret-auth }}

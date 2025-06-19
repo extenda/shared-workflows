@@ -31,7 +31,7 @@ Build, test, analyze, and optionally publish Docker images and Pact contracts fo
 | `dotnet-service-project`  | Yes      |                                | Project/folder of the service entry point to build Docker image from.                            |
 | `clan`                    | No       | `lossprevention`               | Name of the clan (used for image name).                                                         |
 | `sonar-host`              | No       | `https://sonarcloud.io`        | Host to use for Sonar scanning.                                                                 |
-| `pact-directory`          | No       |                                | Directory for Pact files. Leave out to disable Pact steps.                                       |
+| `pact-directory`          | No       |                                | Directory for Pact files. Leave out to disable consumer side Pact steps.                                       |
 | `pact-broker-baseuri`     | No       | `https://pact-broker.retailsvc.com` | Base URI for the Pact broker (used to publish Pacts).                                           |
 
 ## Outputs
