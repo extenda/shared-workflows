@@ -132,5 +132,5 @@ runs:
       if: github.ref == 'refs/heads/master'
       uses: extenda/shared-workflows/composite-actions/lossprevention/pushattestimage@master
       with:
-        secret-push-attest-auth: ${{ inputs.secret-push-attest-auth }}
+        secret-auth: ${{ inputs.secret-push-attest-auth }}
         image: eu.gcr.io/extenda/${{ inputs.clan }}/${{ inputs.application-name }}:${{ steps.semver.outputs.composed-version-string }}
