@@ -1,0 +1,32 @@
+name: 'PushAttestImage'
+description: 'Push and attest Docker images for lossprevention services on master branch'
+
+inputs:
+  secret-auth:
+    description: 'Auth to use for pushing and attesting the docker image. Usually secrets.GCLOUD_AUTH_STAGING.'
+    required: true
+  image:
+    description: 'Full name/path of the image used for pushing and attesting the image.'
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+    # GCloud is needed for pushing the docker image
+    - uses: extenda/actions/setup-gcloud@v0
+      with:
+        service-account-key: ${{ inputs.secret-auth }}
+
+    # Pushing is needed for the image for staging/production deployment steps
+    - name: Push Docker
+      shell: sh
+      run: |
+        gcloud --quiet auth configure-docker
+        IMAGE=${{ inputs.image }}
+        docker push $IMAGE
+
+    - name: Attest image
+      uses: extenda/actions/binary-auth-attestation@v0
+      with:
+        image-path: ${{ inputs.image }}
+        service-account-key: ${{ inputs.secret-auth }}
