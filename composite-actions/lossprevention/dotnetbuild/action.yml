@@ -128,24 +128,9 @@ runs:
         sonar-scanner: dotnet
         service-account-key: ${{ inputs.secret-auth }}
 
-    # GCloud is needed for pushing the docker image
-    - uses: extenda/actions/setup-gcloud@v0
+    - name: Push and Attest
       if: github.ref == 'refs/heads/master'
+      uses: extenda/shared-workflows/composite-actions/lossprevention/pushattestimage@master
       with:
-        service-account-key: ${{ inputs.secret-push-attest-auth }}
-
-    # Pushing is needed the image for staging/ production deployment steps
-    - name: Push Docker
-      if: github.ref == 'refs/heads/master'
-      shell: sh
-      run: |
-        gcloud --quiet auth configure-docker
-        IMAGE=eu.gcr.io/extenda/${{ inputs.clan }}/${{ inputs.application-name }}:${{ steps.semver.outputs.composed-version-string }}
-        docker push $IMAGE
-
-    - name: Attest image
-      if: github.ref == 'refs/heads/master'
-      uses: extenda/actions/binary-auth-attestation@v0
-      with:
-        image-path: eu.gcr.io/extenda/${{ inputs.clan }}/${{ inputs.application-name }}:${{ steps.semver.outputs.composed-version-string }}
-        service-account-key: ${{ inputs.secret-push-attest-auth }}
+        secret-push-attest-auth: ${{ inputs.secret-push-attest-auth }}
+        image: eu.gcr.io/extenda/${{ inputs.clan }}/${{ inputs.application-name }}:${{ steps.semver.outputs.composed-version-string }}
