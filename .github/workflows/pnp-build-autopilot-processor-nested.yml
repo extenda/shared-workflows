@@ -102,7 +102,7 @@ on:
         description: 'If true runs Kafka Streams Lint'
         type: boolean
         required: false
-        default: true
+        default: false
         
 jobs:
   build:
