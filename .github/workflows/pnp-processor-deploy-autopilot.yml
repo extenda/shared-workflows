@@ -108,7 +108,7 @@ jobs:
           -X POST \
           -H "Accept: application/vnd.github+json" \
           -H "Authorization: Bearer $GITHUB_TOKEN" \
-          'https://api.github.com/repos/extenda/enterprise-pnp-common/actions/workflows/synthetic-monitoring-staging.yml/dispatches' \
+          'https://api.github.com/repos/extenda/enterprise-pnp-common/actions/workflows/synthetic-monitoring-prod.yml/dispatches' \
           -d '{"ref": "master","inputs": {"synthetic_monitoring_script_input": "run_all"}}'
           
       - name: Dora Component
