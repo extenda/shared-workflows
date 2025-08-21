@@ -99,7 +99,7 @@ jobs:
           -H "Accept: application/vnd.github+json" \
           -H "Authorization: Bearer $GITHUB_TOKEN" \
           https://github.com/extenda/enterprise-pnp-common/dispatches \
-          -d '{"event_type":"RUN_SYNTHETIC_TESTS"}'
+          -d '{"event_type":"run_synthetic_monitoring_tests"}'
 
       - name: Dora Component
         if: ${{ inputs.release-version == true && inputs.dora-component != ''}}
