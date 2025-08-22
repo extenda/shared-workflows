@@ -407,6 +407,8 @@ jobs:
       
       - name: Trigger synthetic monitoring tests on staging
         if: ${{ inputs.trigger-synthetic-monitoring-tests == true }} && ${{ inputs.release-version == false }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           curl -L \
           -X POST \
