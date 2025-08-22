@@ -94,6 +94,12 @@ on:
         type: boolean
         required: false
         default: true
+      trigger-synthetic-monitoring-tests:
+        description: 'If true runs synthetic monitoring tests'
+        type: boolean
+        required: false
+        default: true
+
 
 jobs:
   build:
@@ -384,6 +390,16 @@ jobs:
           service-definition: ${{ inputs.service-definition }}
           image: eu.gcr.io/extenda/${{ inputs.GCR_image_name }}:${{ steps.semver.outputs.release-version }}
           update-dns: always
+
+      - name: Trigger synthetic monitoring tests on staging
+        if: ${{ inputs.trigger-synthetic-monitoring-tests == true }} && ${{ inputs.release-version == false }}
+        run: |
+          curl -L \
+          -X POST \
+          -H "Accept: application/vnd.github+json" \
+          -H "Authorization: Bearer $GITHUB_TOKEN" \
+          'https://api.github.com/repos/extenda/enterprise-pnp-common/actions/workflows/synthetic-monitoring-staging.yml/dispatches' \
+          -d '{"ref": "master","inputs": {"synthetic_monitoring_script_input": "run_all"}}'
 
       - name: PACT record deployment to STAGING
         if: ${{ inputs.do-pact-consumer-tests == true }}
