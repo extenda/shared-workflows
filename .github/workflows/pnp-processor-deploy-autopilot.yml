@@ -38,6 +38,11 @@ on:
         type: string
         required: false
         default: 'v'
+      trigger-synthetic-monitoring-tests:
+        description: 'If true runs synthetic monitoring tests'
+        type: boolean
+        required: false
+        default: true
 jobs:
   deploy:
     if: github.ref == 'refs/heads/master'
@@ -86,6 +91,26 @@ jobs:
           image: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.semver.outputs.release-version }}
           update-dns: always
 
+      - name: Trigger synthetic monitoring tests on staging
+        if: ${{ inputs.trigger-synthetic-monitoring-tests == true }} && ${{ inputs.release-version == false }}
+        run: |
+          curl -L \
+          -X POST \
+          -H "Accept: application/vnd.github+json" \
+          -H "Authorization: Bearer $GITHUB_TOKEN" \
+          'https://api.github.com/repos/extenda/enterprise-pnp-common/actions/workflows/synthetic-monitoring-staging.yml/dispatches' \
+          -d '{"ref": "master","inputs": {"synthetic_monitoring_script_input": "run_all"}}'
+
+      - name: Trigger synthetic monitoring tests on prod
+        if: ${{ inputs.trigger-synthetic-monitoring-tests == true }} && ${{ inputs.release-version == true }}
+        run: |
+          curl -L \
+          -X POST \
+          -H "Accept: application/vnd.github+json" \
+          -H "Authorization: Bearer $GITHUB_TOKEN" \
+          'https://api.github.com/repos/extenda/enterprise-pnp-common/actions/workflows/synthetic-monitoring-prod.yml/dispatches' \
+          -d '{"ref": "master","inputs": {"synthetic_monitoring_script_input": "run_all"}}'
+          
       - name: Dora Component
         if: ${{ inputs.release-version == true && inputs.dora-component != ''}}
         uses: extenda/actions/dora-metrics@v0
