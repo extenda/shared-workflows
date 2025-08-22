@@ -404,18 +404,17 @@ jobs:
           service-definition: ${{ inputs.service-definition }}
           image: eu.gcr.io/extenda/${{ inputs.GCR_image_name }}:${{ steps.semver.outputs.release-version }}
           update-dns: always
-      
-      - name: Trigger synthetic monitoring tests on staging
-        if: ${{ inputs.trigger-synthetic-monitoring-tests == true }} && ${{ inputs.release-version == false }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          curl -L \
-          -X POST \
-          -H "Accept: application/vnd.github+json" \
-          -H "Authorization: Bearer $GITHUB_TOKEN" \
-          'https://api.github.com/repos/extenda/enterprise-pnp-common/actions/workflows/synthetic-monitoring-staging.yml/dispatches' \
-          -d '{"ref": "master","inputs": {"synthetic_monitoring_script_input": "run_all"}}'
+            
+      - name: Trigger synthetic monitoring tests on staging using repo dispatch
+        uses: extenda/actions/repository-dispatch@v0
+        with:
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+          repository: extenda/enterprise-pnp-common
+          event-type: run_synthetic_monitoring_tests
+          client-payload: |
+            {
+              "synthetic_monitoring_script_input": "run_all"
+            }
 
       - name: PACT record deployment
         if: ${{ inputs.do-pact-consumer-tests == true }}
