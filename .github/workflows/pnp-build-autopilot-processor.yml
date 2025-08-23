@@ -393,14 +393,16 @@ jobs:
 
       - name: Trigger synthetic monitoring tests on staging
         if: ${{ inputs.trigger-synthetic-monitoring-tests == true }} && ${{ inputs.release-version == false }}
-        run: |
-          curl -L \
-          -X POST \
-          -H "Accept: application/vnd.github+json" \
-          -H "Authorization: Bearer $GITHUB_TOKEN" \
-          'https://api.github.com/repos/extenda/enterprise-pnp-common/actions/workflows/synthetic-monitoring-staging.yml/dispatches' \
-          -d '{"ref": "master","inputs": {"synthetic_monitoring_script_input": "run_all"}}'
-
+        uses: extenda/actions/repository-dispatch@v0
+        with:
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+          repository: extenda/enterprise-pnp-common
+          event-type: run_synthetic_monitoring_tests
+          client-payload: |
+            {
+              "synthetic_monitoring_script_input": "run_all",
+              "env":"dev"
+            }
       - name: PACT record deployment to STAGING
         if: ${{ inputs.do-pact-consumer-tests == true }}
         uses: extenda/actions/pact-record-deployment@v0
