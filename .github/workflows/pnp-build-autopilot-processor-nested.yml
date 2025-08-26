@@ -103,6 +103,11 @@ on:
         type: boolean
         required: false
         default: true
+      trigger-synthetic-monitoring-tests:
+        description: 'If true runs synthetic monitoring tests'
+        type: boolean
+        required: false
+        default: true
         
 jobs:
   build:
@@ -399,6 +404,19 @@ jobs:
           service-definition: ${{ inputs.service-definition }}
           image: eu.gcr.io/extenda/${{ inputs.GCR_image_name }}:${{ steps.semver.outputs.release-version }}
           update-dns: always
+            
+      - name: Trigger synthetic monitoring tests on staging
+        if: ${{ inputs.trigger-synthetic-monitoring-tests == true }} && ${{ inputs.release-version == false }}
+        uses: extenda/actions/repository-dispatch@v0
+        with:
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+          repository: extenda/enterprise-pnp-common
+          event-type: run_synthetic_monitoring_tests
+          client-payload: |
+            {
+              "synthetic_monitoring_script_input": "run_all",
+              "env":"dev"
+            }
 
       - name: PACT record deployment
         if: ${{ inputs.do-pact-consumer-tests == true }}
