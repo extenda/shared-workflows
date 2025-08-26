@@ -114,7 +114,7 @@ jobs:
           client-payload: |
             {
               "synthetic_monitoring_script_input": "run_all",
-              "env":"prod"
+              "env":"com"
             }
           
       - name: Dora Component
