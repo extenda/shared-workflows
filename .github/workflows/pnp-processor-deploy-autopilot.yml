@@ -72,7 +72,7 @@ jobs:
 
       - name: Deploy to Autopilot staging
         if: ${{ inputs.release-version == false }}
-        uses: extenda/actions/cloud-deploy@feat/EA-2106
+        uses: extenda/actions/cloud-deploy@feat/EA-2107
         with:
           secrets-account-key: ${{ secrets.SECRET_AUTH }}
           service-account-key: ${{ secrets.GCLOUD_AUTH }}
@@ -84,7 +84,7 @@ jobs:
 
       - name: Deploy to Autopilot prod
         if: ${{ inputs.release-version == true }}
-        uses: extenda/actions/cloud-deploy@feat/EA-2106
+        uses: extenda/actions/cloud-deploy@feat/EA-2107
         with:
           secrets-account-key: ${{ secrets.SECRET_AUTH }}
           service-account-key: ${{ secrets.GCLOUD_AUTH }}
