@@ -1,0 +1,55 @@
+name: k6
+description: Run performance tests with k6
+inputs:
+  SECRET_AUTH:
+    description: GCP Auth
+    required: true
+  script-path:
+    description: Path to the k6 script to run
+    default: test.js
+    required: true
+  test-name:
+    description: The name of the k6 test being run
+    required: true
+  k6-flags:
+    description: Additional flags to pass to k6
+    required: false
+  service-name:
+    description: The service name to use when uploading results
+    required: true
+  project-id:
+    description: The staging GCP project ID where the service is deployed
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/checkout@v5
+      with:
+        fetch-depth: 0
+
+    - uses: grafana/setup-k6-action@v1
+
+    - uses: grafana/run-k6-action@v1
+      with:
+        path: ${{ inputs.script-path }}
+        flags: ${{ inputs.k6-flags }} --summary-export=summary.json
+
+    - name: Get identity token
+      uses: extenda/actions/identity-token@v0
+      with:
+        service-account-key: ${{ inputs.SECRET_AUTH }}
+        service-account: ${{ inputs.service-name }}@${{ inputs.project-id }}.iam.gserviceaccount.com
+        audiences: hiiretail-sre-api
+
+    - name: Upload k6 summary
+      if: always()
+      shell: bash
+      run: |
+        curl --fail --silent --show-error -X POST https://sre-api.retailsvc.com/api/v1/k6/summary \
+          -H "Content-Type: application/json" \
+          -H "Authorization: Bearer ${{ env.IDENTITY_TOKEN }}" \
+          -H "X-Service-Name: ${{ inputs.service-name }}" \
+          -H "X-Project-Id: ${{ inputs.project-id }}" \
+          -H "X-Test-Name: ${{ inputs.test-name }}" \
+          --data-binary @summary.json || echo "Warning: Failed to upload k6 summary"
