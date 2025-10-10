@@ -42,6 +42,7 @@ runs:
         flags: ${{ inputs.k6-flags }} --summary-export=summary.json
 
     - name: Get identity token
+      if: always()
       uses: extenda/actions/identity-token@v0
       with:
         service-account-key: ${{ inputs.SECRET_AUTH }}
