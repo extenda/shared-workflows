@@ -20,6 +20,9 @@ inputs:
   project-id:
     description: The staging GCP project ID where the service is deployed
     required: true
+  environment:
+    description: The environment where the service is deployed (e.g., docker, staging, production)
+    required: false
 
 runs:
   using: composite
@@ -52,4 +55,5 @@ runs:
           -H "X-Service-Name: ${{ inputs.service-name }}" \
           -H "X-Project-Id: ${{ inputs.project-id }}" \
           -H "X-Test-Name: ${{ inputs.test-name }}" \
+          -H "X-Environment: ${{ inputs.environment }}" \
           --data-binary @summary.json || echo "Warning: Failed to upload k6 summary"
