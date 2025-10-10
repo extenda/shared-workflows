@@ -23,6 +23,9 @@ inputs:
   environment:
     description: The environment where the service is deployed (e.g., docker, staging, production)
     required: false
+  clan:
+    description: The clan where the service is deployed
+    required: false
 
 runs:
   using: composite
@@ -56,4 +59,5 @@ runs:
           -H "X-Project-Id: ${{ inputs.project-id }}" \
           -H "X-Test-Name: ${{ inputs.test-name }}" \
           -H "X-Environment: ${{ inputs.environment }}" \
+          -H "X-Clan: ${{ inputs.clan }}" \
           --data-binary @summary.json || echo "Warning: Failed to upload k6 summary"
