@@ -36,6 +36,9 @@ inputs:
     description: 'Product component'
     required: false
     default: 'scanngo'
+  semver-outputs:
+    description: 'Complete semver outputs from caller. If provided, the conventional-release step will be skipped.'
+    required: false
 
 runs:
   using: 'composite'
@@ -47,6 +50,7 @@ runs:
           GITHUB-TOKEN: github-token
 
     - name: Create release
+      if: ${{ inputs.semver-outputs == '' }}
       uses: extenda/actions/conventional-release@v0
       id: semver
       with:
@@ -59,12 +63,19 @@ runs:
       with:
         service-account-key: ${{ inputs.gcloud-auth-prod }}
 
+    - name: Determine release tag
+      id: release-tag
+      shell: bash
+      run: |
+        RELEASE_TAG=${{ inputs.semver-outputs != '' && inputs.semver-outputs.release-tag || steps.semver.outputs.release-tag }}
+        echo "value=${RELEASE_TAG}" >> $GITHUB_OUTPUT
+
     - name: Add tag in GCR
       shell: bash
       run: |
         gcloud container images add-tag \
           eu.gcr.io/extenda/${{ inputs.gcr-image-name }}:${{ github.sha }} \
-          eu.gcr.io/extenda/${{ inputs.gcr-image-name }}:${{ steps.semver.outputs.release-tag }}
+          eu.gcr.io/extenda/${{ inputs.gcr-image-name }}:${{ steps.release-tag.outputs.value }}
 
     - uses: extenda/actions/gcp-secret-manager@v0
       with:
@@ -86,7 +97,7 @@ runs:
       with:
         secrets-account-key: ${{ inputs.secret-auth }}
         service-account-key: ${{ inputs.gcloud-auth-prod }}
-        image: eu.gcr.io/extenda/${{ inputs.gcr-image-name }}:${{ steps.semver.outputs.release-tag }}
+        image: eu.gcr.io/extenda/${{ inputs.gcr-image-name }}:${{ steps.release-tag.outputs.value }}
         update-dns: always
 
     - uses: extenda/actions/dora-metrics@v0
