@@ -36,8 +36,8 @@ inputs:
     description: 'Product component'
     required: false
     default: 'scanngo'
-  semver-outputs:
-    description: 'Complete semver outputs from caller. If provided, the conventional-release step will be skipped.'
+  release-tag:
+    description: 'Release tag from caller. If provided, the conventional-release step will be skipped.'
     required: false
 
 runs:
@@ -50,7 +50,7 @@ runs:
           GITHUB-TOKEN: github-token
 
     - name: Create release
-      if: ${{ inputs.semver-outputs == '' }}
+      if: ${{ inputs.release-tag == '' }}
       uses: extenda/actions/conventional-release@v0
       id: semver
       with:
@@ -67,7 +67,7 @@ runs:
       id: release-tag
       shell: bash
       run: |
-        RELEASE_TAG=${{ inputs.semver-outputs != '' && inputs.semver-outputs.release-tag || steps.semver.outputs.release-tag }}
+        RELEASE_TAG=${{ inputs.release-tag != '' && inputs.release-tag || steps.semver.outputs.release-tag }}
         echo "value=${RELEASE_TAG}" >> $GITHUB_OUTPUT
 
     - name: Add tag in GCR
