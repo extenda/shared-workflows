@@ -15,6 +15,7 @@ Automates the process of creating a release, adding a new tag to an existing Doc
 - `jira-project-key` (optional, default: 'MCPE'): Jira product key.
 - `product-name` (optional, default: 'Scan & Go'): Product name.
 - `product-component` (optional, default: 'scanngo'): Product component.
+- `release-tag` (optional): Release tag from caller. If provided, the conventional-release step will be skipped.
 
 ### Example
 
