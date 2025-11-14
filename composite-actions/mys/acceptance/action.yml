@@ -1,0 +1,84 @@
+name: 'Acceptance'
+description: 'Acceptance action for MyScan services'
+
+inputs:
+  secret-auth:
+    description: 'SECRET_AUTH value from secrets'
+    required: true
+  gcloud-auth-staging:
+    description: 'GCLOUD_AUTH_STAGING value from secrets'
+    required: true
+  acceptance-username:
+    description: 'Acceptance username'
+    required: true
+  acceptance-postman-collection-path:
+    description: 'Path to Postman collection'
+    required: false
+    default: './hiiretail-myscan-common/acceptance/myscan-acceptance.postman_collection.json'
+  acceptance-postman-environment-path:
+    description: 'Path to Postman environment variables'
+    required: false
+    default: './hiiretail-myscan-common/acceptance/myscan-acceptance.postman_environment.json'
+  acceptance-globals-path:
+    description: 'Path to globals.json'
+    required: false
+    default: './hiiretail-myscan-common/acceptance/globals.json'
+
+runs:
+  using: 'composite'
+  steps:
+    - uses: extenda/actions/gcp-secret-manager@v0
+      with:
+        service-account-key: ${{ inputs.gcloud-auth-staging }}
+        secrets: |
+          MYSCAN_SHOPPER_PASSWORD: myscan_shopper_password
+          MYSCAN_STAFF_PASSWORD: myscan_staff_password
+          MYSCAN_ENCODED_CLIENT_CREDENTIALS: myscan_encoded_client_credentials
+
+    - uses: extenda/actions/gcp-secret-manager@v0
+      with:
+        service-account-key: ${{ inputs.secret-auth }}
+        secrets: |
+          GITHUB-TOKEN: github-token
+
+    - uses: actions/checkout@v5
+      with:
+        repository: extenda/hiiretail-myscan-common
+        path: 'hiiretail-myscan-common'
+        token: ${{ env.GITHUB-TOKEN }}
+
+    - name: create-json
+      id: create-json
+      uses: jsdaniell/create-json@v1.2.2
+      with:
+        name: ${{ inputs.acceptance-globals-path }}
+        json: '{
+            "values": [{
+                    "key": "myscan_shopper_password",
+                    "value": "${{env.MYSCAN_SHOPPER_PASSWORD}}",
+                    "enabled": true
+                }, {
+                    "key": "myscan_shopper_username",
+                    "value": "${{ inputs.acceptance-username }}",
+                    "enabled": true
+                }, {
+                    "key": "myscan_staff_password",
+                    "value": "${{env.MYSCAN_STAFF_PASSWORD}}",
+                    "enabled": true
+                }, {
+                    "key": "myscan_encoded_client_credentials",
+                    "value": "${{env.MYSCAN_ENCODED_CLIENT_CREDENTIALS}}",
+                    "enabled": true
+                }
+                
+            ]
+        }'
+
+    - name: Acceptance tests
+      uses: matt-ball/newman-action@master
+      with:
+        collection: ${{ inputs.acceptance-postman-collection-path }}
+        environment: ${{ inputs.acceptance-postman-environment-path }}
+        globals: ${{ inputs.acceptance-globals-path }}
+        folder: '["Acceptance"]'
+        bail: true
