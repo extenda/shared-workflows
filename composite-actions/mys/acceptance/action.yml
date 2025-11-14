@@ -33,6 +33,7 @@ runs:
         secrets: |
           MYSCAN_SHOPPER_PASSWORD: myscan_shopper_password
           MYSCAN_STAFF_PASSWORD: myscan_staff_password
+          MYSCAN_ENCODED_CLIENT_CREDENTIALS: myscan_encoded_client_credentials
 
     - uses: extenda/actions/gcp-secret-manager@v0
       with:
@@ -65,7 +66,12 @@ runs:
                     "key": "myscan_staff_password",
                     "value": "${{env.MYSCAN_STAFF_PASSWORD}}",
                     "enabled": true
+                }, {
+                    "key": "myscan_encoded_client_credentials",
+                    "value": "${{env.MYSCAN_ENCODED_CLIENT_CREDENTIALS}}",
+                    "enabled": true
                 }
+                
             ]
         }'
 
