@@ -44,7 +44,6 @@ runs:
     - uses: actions/checkout@v5
       with:
         repository: extenda/hiiretail-myscan-common
-        ref: feat/add-itemdataservice-acceptance-tests #Remove before merge to master
         path: 'hiiretail-myscan-common'
         token: ${{ env.GITHUB-TOKEN }}
 
