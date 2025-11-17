@@ -9,16 +9,14 @@ inputs:
     description: 'GCLOUD_AUTH_STAGING value from secrets'
     required: true
   acceptance-username:
-    description: 'Acceptance username'
+    description: 'Acceptance username (usually name of service)'
     required: true
   acceptance-postman-collection-path:
-    description: 'Path to Postman collection'
-    required: false
-    default: './hiiretail-myscan-common/acceptance/myscan-acceptance.postman_collection.json'
+    description: 'Path to Postman collection for a service'
+    required: true
   acceptance-postman-environment-path:
-    description: 'Path to Postman environment variables'
-    required: false
-    default: './hiiretail-myscan-common/acceptance/myscan-acceptance.postman_environment.json'
+    description: 'Path to Postman environment variables for a service'
+    required: true
   acceptance-globals-path:
     description: 'Path to globals.json'
     required: false
@@ -48,7 +46,6 @@ runs:
         token: ${{ env.GITHUB-TOKEN }}
 
     - name: create-json
-      id: create-json
       uses: jsdaniell/create-json@v1.2.2
       with:
         name: ${{ inputs.acceptance-globals-path }}
