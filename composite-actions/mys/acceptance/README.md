@@ -6,9 +6,11 @@ Performs acceptance tests for MyScan services.
 
 ### Inputs
 
-- `secret-auth` (required): SECRET_AUTH value from secrets.
-- `gcloud-auth-staging` (required): GCLOUD_AUTH_STAGING value from secrets.
-- `acceptance-username` (required): Acceptance username (usually name of service).
+- `secret-auth` (required): SECRET_AUTH value from secrets
+- `gcloud-auth-staging` (required): GCLOUD_AUTH_STAGING value from secrets
+- `acceptance-username` (required): Acceptance username (usually name of service)
+- `acceptance-postman-collection-path` (required): Path to Postman collection for a service
+- `acceptance-postman-environment-path` (required): Path to Postman environment variables for a service
 
 ### Example
 
@@ -31,3 +33,5 @@ jobs:
           secret-auth: ${{ secrets.SECRET_AUTH }}
           gcloud-auth-staging: ${{ secrets.GCLOUD_AUTH_STAGING }}
           acceptance-username: 'myscan-coreservice'
+          acceptance-postman-collection-path: './hiiretail-myscan-common/acceptance/myscan-coreservice-acceptance.postman_collection.json'
+          acceptance-postman-environment-path: './hiiretail-myscan-common/acceptance/myscan-coreservice-acceptance.postman_environment.json'
