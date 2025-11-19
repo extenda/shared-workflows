@@ -1,0 +1,391 @@
+name: Deploy and Switch Traffic in Production
+
+on:
+  workflow_call:
+    inputs:
+      strategy:
+        description: 'Deployment strategy'
+        required: true
+        type: string
+        default: deploy-only
+      project_id:
+        description: 'GCP Project ID'
+        required: true
+        type: string
+      region:
+        description: 'GCP Region'
+        required: true
+        type: string
+      service_name:
+        description: 'Cloud Run service name'
+        required: true
+        type: string
+      service_url:
+        description: 'Service URL for health checks'
+        required: true
+        type: string
+      health_auth:
+        description: 'Basic auth header for health endpoint'
+        required: false
+        type: string
+        default: ""
+    secrets:
+      SECRET_AUTH:
+        required: true
+      GCLOUD_AUTH_PROD:
+        required: true
+      GCR_image_name:
+        description: 'GCR image name for deployment'
+        required: true
+      dora-component:
+        description: 'DORA component name'
+        required: true
+      slack-channel:
+        description: 'Slack channel for notifications'
+        required: false
+
+env:
+  PROJECT_ID: ${{ inputs.project_id }}
+  REGION: ${{ inputs.region }}
+  SERVICE_NAME: ${{ inputs.service_name }}
+
+jobs:
+  validate-and-setup:
+    runs-on: ubuntu-latest
+    outputs:
+      strategy: ${{ steps.setup.outputs.strategy }}
+      needs_deployment: ${{ steps.setup.outputs.needs_deployment }}
+      needs_traffic_switch: ${{ steps.setup.outputs.needs_traffic_switch }}
+    
+    steps:
+    - name: Validate inputs and setup
+      id: setup
+      run: |
+        SERVICE="${{ env.SERVICE_NAME }}"
+        STRATEGY="${{ inputs.strategy }}"
+        
+        echo "Validating deployment configuration..."
+        echo "Service: $SERVICE"
+        echo "Strategy: $STRATEGY"
+        
+        echo "strategy=$STRATEGY" >> $GITHUB_OUTPUT
+        
+        # Determine what needs to be done
+        case "$STRATEGY" in
+          "deploy-only")
+            echo "needs_deployment=true" >> $GITHUB_OUTPUT
+            echo "needs_traffic_switch=false" >> $GITHUB_OUTPUT
+            ;;
+          "deploy-gradual")
+            echo "needs_deployment=true" >> $GITHUB_OUTPUT
+            echo "needs_traffic_switch=true" >> $GITHUB_OUTPUT
+            ;;
+        esac
+        
+        echo "Configuration valid"
+
+  # Step 1: Deploy new revision using existing shared workflow
+  deploy-service:
+    needs: validate-and-setup
+    if: needs.validate-and-setup.outputs.needs_deployment == 'true'
+    uses: extenda/shared-workflows/.github/workflows/pnp-api-prod-deploy.yml@master
+    secrets:
+      SECRET_AUTH: ${{ secrets.SECRET_AUTH }}
+      GCLOUD_AUTH_PROD: ${{ secrets.GCLOUD_AUTH_PROD }}
+      slack-channel: ${{ secrets.slack-channel }}
+      dora-component: ${{ secrets.dora-component }}
+      GCR_image_name: ${{ secrets.GCR_image_name }} 
+
+  # Step 2: Get the deployed revision name
+  get-revision:
+    needs: [validate-and-setup, deploy-service]
+    if: needs.validate-and-setup.outputs.needs_deployment == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      new_revision: ${{ steps.get-revision.outputs.new_revision }}
+    
+    steps:
+    - name: Setup GCP
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.GCLOUD_AUTH_PROD }}
+
+    - name: Setup Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+
+    - name: Get deployed revision
+      id: get-revision
+      run: |
+        echo "Getting latest deployed revision..."
+        
+        NEW_REVISION=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
+          --project=${{ env.PROJECT_ID }} \
+          --region=${{ env.REGION }} \
+          --format="value(status.latestCreatedRevisionName)")
+        
+        echo "new_revision=$NEW_REVISION" >> $GITHUB_OUTPUT
+        echo "Latest revision: $NEW_REVISION"
+
+    - name: Notify Slack if failed
+      if: failure()
+      uses: extenda/actions/slack-notify@v0
+      with:
+        text: |
+          *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+          Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+        channel: ${{ secrets.slack-channel }}
+        service-account-key: ${{ secrets.SECRET_AUTH }}
+
+  # Step 3: Switch traffic based on strategy
+  switch-traffic:
+    needs: [validate-and-setup, deploy-service, get-revision]
+    if: needs.validate-and-setup.outputs.needs_traffic_switch == 'true' && needs.deploy-service.result == 'success' && needs.get-revision.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Setup GCP
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.GCLOUD_AUTH_PROD }}
+
+    - name: Setup Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+
+    - name: Determine target revision
+      id: revision
+      run: |
+        TARGET_REVISION="${{ needs.get-revision.outputs.new_revision }}"
+        echo "target_revision=$TARGET_REVISION" >> $GITHUB_OUTPUT
+        echo "Target revision: $TARGET_REVISION"
+
+    - name: Execute traffic strategy
+      run: |
+        STRATEGY="${{ needs.validate-and-setup.outputs.strategy }}"
+        SERVICE="${{ env.SERVICE_NAME }}"
+        PROJECT_ID="${{ env.PROJECT_ID }}"
+        TARGET_REVISION="${{ steps.revision.outputs.target_revision }}"
+        HEALTH_URL="${{ inputs.service_url }}/health"
+        HEALTH_AUTH="${{ inputs.health_auth }}"
+        
+        echo "Executing strategy: $STRATEGY"
+        echo "Using health URL: $HEALTH_URL"
+        
+        # Health check function
+        validate_health() {
+          local stage="$1"
+          echo "Validating service health after $stage traffic deployment..."
+          
+          for attempt in {1..6}; do
+            if [ -n "$HEALTH_AUTH" ]; then
+              HTTP_STATUS=$(curl -s -L -w "%{http_code}" -H "Authorization: $HEALTH_AUTH" "$HEALTH_URL" -o /dev/null)
+            else
+              HTTP_STATUS=$(curl -s -L -w "%{http_code}" "$HEALTH_URL" -o /dev/null)
+            fi
+            
+            if [ "$HTTP_STATUS" -eq 200 ]; then
+              echo "Health check passed (HTTP $HTTP_STATUS) for $stage"
+              return 0
+            elif [ $attempt -eq 6 ]; then
+              echo "Health check failed after 6 attempts (HTTP $HTTP_STATUS) for $stage"
+              echo "Rolling back due to health check failure"
+              return 1
+            fi
+            echo "Health check attempt $attempt/6 (HTTP $HTTP_STATUS) for $stage..."
+            sleep 30
+          done
+        }
+        
+        # Error rate validation function
+        validate_error_rate() {
+          local stage="$1"
+          echo "Checking error rates for $stage traffic..."
+          
+          # Calculate timestamp 5 minutes ago (portable format)
+          FIVE_MIN_AGO=$(date -u -d '5 minutes ago' '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || date -u -v-5M '+%Y-%m-%dT%H:%M:%SZ')
+          
+          # Check for errors in the last 5 minutes
+          ERROR_COUNT=$(gcloud logging read "resource.type=cloud_run_revision 
+            AND resource.labels.service_name=$SERVICE 
+            AND resource.labels.revision_name=$TARGET_REVISION
+            AND severity>=ERROR 
+            AND timestamp>=\"$FIVE_MIN_AGO\"" \
+            --project=$PROJECT_ID \
+            --limit=20 \
+            --format="value(timestamp)" | wc -l)
+          
+          if [ "$ERROR_COUNT" -gt 10 ]; then
+            echo "High error rate detected for $stage: $ERROR_COUNT errors in 5 minutes"
+            echo "Rolling back due to high error rate"
+            return 1
+          else
+            echo "Error rate acceptable for $stage: $ERROR_COUNT errors in 5 minutes"
+            return 0
+          fi
+        }
+        
+        case "$STRATEGY" in
+          "deploy-gradual")
+            echo "Starting gradual traffic migration..."
+            
+            # Stage 1: 10% traffic
+            echo "Stage 1: Deploying 10% traffic"
+            gcloud run services update-traffic $SERVICE \
+              --to-revisions="$TARGET_REVISION=10" \
+              --project=$PROJECT_ID \
+              --region=${{ env.REGION }}
+            
+            # Health check after 10% deployment
+            if ! validate_health "10%"; then
+              exit 1
+            fi
+            
+            echo "Monitoring 10% traffic for 3 minutes..."
+            sleep 180
+            
+            # Error rate validation after monitoring period
+            if ! validate_error_rate "10%"; then
+              exit 1
+            fi
+            
+            # Stage 2: 50% traffic  
+            echo "Stage 2: Deploying 50% traffic"
+            gcloud run services update-traffic $SERVICE \
+              --to-revisions="$TARGET_REVISION=50" \
+              --project=$PROJECT_ID \
+              --region=${{ env.REGION }}
+            
+            # Health check after 50% deployment
+            if ! validate_health "50%"; then
+              exit 1
+            fi
+            
+            echo "Monitoring 50% traffic for 3 minutes..."
+            sleep 180
+            
+            # Error rate validation after monitoring period
+            if ! validate_error_rate "50%"; then
+              exit 1
+            fi
+            
+            # Stage 3: 100% traffic
+            echo "Stage 3: Deploying 100% traffic"
+            gcloud run services update-traffic $SERVICE \
+              --to-revisions="$TARGET_REVISION=100" \
+              --project=$PROJECT_ID \
+              --region=${{ env.REGION }}
+            
+            # Health check after 100% deployment
+            if ! validate_health "100%"; then
+              exit 1
+            fi
+            
+            # Final validation
+            echo "Final monitoring for 2 minutes..."
+            sleep 120
+            
+            if ! validate_error_rate "100%"; then
+              exit 1
+            fi
+            
+            echo "Gradual migration completed successfully!"
+            echo "All health checks passed"
+            echo "Error rates within acceptable limits"
+            ;;
+            
+          "deploy-only")
+            echo "Deployment completed with 0% traffic"
+            echo "Use Operations Hub for manual traffic switching"
+            ;;
+        esac
+
+    - name: Notify Slack if failed
+      if: failure()
+      uses: extenda/actions/slack-notify@v0
+      with:
+        text: |
+          *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+          Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+        channel: ${{ secrets.slack-channel }}
+        service-account-key: ${{ secrets.SECRET_AUTH }}
+
+  # Emergency rollback on failure
+  rollback:
+    needs: [validate-and-setup, deploy-service, get-revision, switch-traffic]
+    if: failure() && needs.validate-and-setup.outputs.strategy == 'deploy-gradual' && needs.switch-traffic.result == 'failure'
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Setup GCP
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.GCLOUD_AUTH_PROD }}
+
+    - name: Setup Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+
+    - name: Rollback to previous revision
+      run: |
+        echo "Emergency rollback initiated"
+        
+        SERVICE="${{ env.SERVICE_NAME }}"
+        PROJECT_ID="${{ env.PROJECT_ID }}"
+        
+        # Get the revision that currently has traffic (not the latest ready)
+        PREVIOUS_REVISION=$(gcloud run services describe $SERVICE \
+          --project=$PROJECT_ID \
+          --region=${{ env.REGION }} \
+          --format="json" | jq -r '.status.traffic[] | select(.percent > 0) | .revisionName' | head -n 1)
+        
+        if [ -z "$PREVIOUS_REVISION" ]; then
+          echo "Could not find revision with traffic, falling back to latestReadyRevisionName"
+          PREVIOUS_REVISION=$(gcloud run services describe $SERVICE \
+            --project=$PROJECT_ID \
+            --region=${{ env.REGION }} \
+            --format="value(status.latestReadyRevisionName)")
+        fi
+        
+        echo "Rolling back to revision with traffic: $PREVIOUS_REVISION"
+        
+        # Route 100% traffic back to previous revision
+        gcloud run services update-traffic $SERVICE \
+          --to-revisions="$PREVIOUS_REVISION=100" \
+          --project=$PROJECT_ID \
+          --region=${{ env.REGION }}
+        
+        echo "Rollback completed to: $PREVIOUS_REVISION"
+
+    - name: Notify Slack if failed
+      if: failure()
+      uses: extenda/actions/slack-notify@v0
+      with:
+        text: |
+          *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+          Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+        channel: ${{ secrets.slack-channel }}
+        service-account-key: ${{ secrets.SECRET_AUTH }}
+
+  summary:
+    needs: [validate-and-setup, deploy-service, get-revision, switch-traffic, rollback]
+    if: always()
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Summary
+      run: |
+        echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+        echo "**Strategy**: ${{ needs.validate-and-setup.outputs.strategy }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Deployment**: ${{ needs.deploy-service.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Traffic Switch**: ${{ needs.switch-traffic.result }}" >> $GITHUB_STEP_SUMMARY
+        if [ "${{ needs.rollback.result }}" != "skipped" ]; then
+          echo "**Rollback**: ${{ needs.rollback.result }}" >> $GITHUB_STEP_SUMMARY
+        fi
+        if [ "${{ needs.get-revision.outputs.new_revision }}" != "" ]; then
+          echo "**Revision**: ${{ needs.get-revision.outputs.new_revision }}" >> $GITHUB_STEP_SUMMARY
+        fi
+        echo "[Service](${{ inputs.service_url }}) | [Health](${{ inputs.service_url }}/health)" >> $GITHUB_STEP_SUMMARY
