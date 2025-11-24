@@ -24,6 +24,11 @@ on:
         type: boolean
         required: false
         default: false
+      tag-prefix:
+        description: 'Release tag prefix. Must be provided in case of multiple projects in the same repository. Each project needs to have its own prefix. Use {service-prefix}-v format.'
+        type: string
+        required: false
+        default: 'v'
 
 jobs:
   release:
@@ -40,6 +45,8 @@ jobs:
         id: release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag-prefix: ${{ inputs.tag-prefix }}
 
       - name: Create release (reuse current release mode)
         if: ${{ inputs.reuse-release == true }}
@@ -47,6 +54,8 @@ jobs:
         id: release_reuse
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag-prefix: ${{ inputs.tag-prefix }}  
 
       - uses: extenda/actions/setup-gcloud@v0
         with:
