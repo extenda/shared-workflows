@@ -13,11 +13,11 @@ on:
         required: true
         type: string
       path-to-pom:
-        description: 'Path to the pom file'
+        description: 'Path to the pom file. When working directory is set, this path is relative to it.'
         required: true
         type: string
       path-to-dockerfile:
-        description: 'Path to dockerfile which builds the service.'
+        description: 'Path to dockerfile which builds the service. When working directory is set, this path is relative to it.'
         required: true
         type: string
       slack-channel:
