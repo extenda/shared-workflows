@@ -65,11 +65,6 @@
         required: false
         type: string
         default: './mcpe-common/tests/acceptance/globals.json'
-      models-project-path:
-        description: |
-          Path to *.csproj file which contains the models. Must be set when 'pack-models' is 'true'
-        type: string
-        required: false
       start-sql:
         type: boolean
         required: false
@@ -153,30 +148,6 @@ jobs:
           channel: ${{ inputs.slack-channel }}
           service-account-key: ${{ secrets.secret-auth }}
 
-  pack:
-    if: ${{ inputs.models-project-path != '' }}
-    runs-on: ubuntu-22.04
-    needs: build
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Pack and upload service models
-        uses: extenda/shared-workflows/composite-actions/dotnet-pack-and-upload@master
-        with:
-          secret-auth: ${{ secrets.secret-auth }}
-          csproj-path: ${{ inputs.models-project-path }}
-
-      - name: Notify Slack if pack fails
-        uses: extenda/actions/slack-notify@v0
-        if: failure() && github.ref == 'refs/heads/master'
-        with:
-          text: |
-            *Pack failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
-            Pack failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
-          channel: ${{ inputs.slack-channel }}
-          service-account-key: ${{ secrets.secret-auth }}
 
   docker-build:
     if: github.ref == 'refs/heads/master'
