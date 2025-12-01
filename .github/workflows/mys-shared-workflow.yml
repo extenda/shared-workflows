@@ -1,0 +1,676 @@
+on:
+  workflow_call:
+    secrets:
+      secret-auth:
+        description: "SECRET_AUTH value from secrets"
+        required: true
+      gcloud-auth-staging:
+        description: "GCLOUD_AUTH_STAGING value from secrets"
+        required: true
+      gcloud-auth-prod:
+        description: "GCLOUD_AUTH_PROD value from secrets"
+        required: true
+    inputs:
+      project-name:
+        description: |
+          Project name (e.g., "Mdc.MyScan.Core.Service")
+        type: string
+        required: true
+      dotnet-version:
+        description: |
+          .NET version
+        type: string
+        required: false
+        default: "8.0.x"
+      java-distribution:
+        description: |
+          Java distribution
+        type: string
+        required: false
+        default: "temurin"
+      java-version:
+        description: |
+          Java version
+        type: string
+        required: false
+        default: "17"
+      gcr-image-name:
+        description: |
+          Google Container Registry Docker image name
+        type: string
+        required: true
+      service-name:
+        description: |
+          Service name in GCP
+        type: string
+        required: true
+      dockerfile-path:
+        description: |
+          Path to Dockerfile
+        type: string
+        required: true
+      system-name:
+        description: |
+          System name (mys)
+        type: string
+        required: false
+        default: "mys"
+      release-name:
+        description: |
+          Release name (e.g., "MyScan Core")
+        type: string
+        required: true
+      product-name:
+        description: |
+          Product name
+        type: string
+        required: false
+        default: "MyScan"
+      product-component:
+        description: |
+          Product component
+        type: string
+        required: false
+        default: "MyScan"
+      slack-channel:
+        description: |
+          Slack channel for release notifications
+        type: string
+        required: false
+        default: "myscan-releases"
+      failure-slack-channel:
+        description: |
+          Slack channel for failure notifications
+        type: string
+        required: false
+        default: "selfscan-pipeline-notifications"
+      code-freeze:
+        description: |
+          Code freeze flag. Use this flag when there is a code freeze and code changes should not be deployed to staging and production environments.
+        type: boolean
+        required: false
+        default: false
+      nexus-uri:
+        description: |
+          Nexus URI
+        type: string
+        required: false
+        default: "https://repo.extendaretail.com/repository/nuget-group/"
+      use-acceptance:
+        description: |
+          Enable acceptance tests
+        type: boolean
+        required: false
+        default: true
+      acceptance-username:
+        description: |
+          Acceptance username (usually service name)
+        type: string
+        required: false
+      acceptance-postman-collection-path:
+        description: |
+          Path to Postman collection for acceptance tests
+        type: string
+        required: false
+      acceptance-postman-environment-path:
+        description: |
+          Path to Postman environment variables for acceptance tests
+        type: string
+        required: false
+      dotnet-build-sln-path:
+        description: |
+          Path to .sln file for building (optional, if not provided, will use default build)
+        type: string
+        required: false
+      dotnet-test-sln-path:
+        description: |
+          Path to .sln file for testing (optional, if not provided, will use default test)
+        type: string
+        required: false
+      dotnet-publish-project-path:
+        description: |
+          Path to .csproj file for publishing (e.g., "Mdc.MyScan.Core.Service/Mdc.MyScan.Core.Service.csproj")
+        type: string
+        required: true
+
+jobs:
+  build-test-sonarqube:
+    if: "!startsWith(github.ref, 'refs/tags/')"
+    runs-on: ubuntu-latest
+    outputs:
+      semver-outputs: ${{ toJSON(steps.release.outputs) }}
+    steps:
+    - name: .NET Setup
+      uses: actions/setup-dotnet@v5
+      with:
+        dotnet-version: ${{ inputs.dotnet-version }}
+
+    - name: Code Checkout
+      uses: actions/checkout@v5
+      with:
+        fetch-depth: 0
+        
+    - name: Setup Java
+      uses: actions/setup-java@v5
+      with:
+        distribution: ${{ inputs.java-distribution }}
+        java-version: ${{ inputs.java-version }}
+        
+    - name: Opa policy test
+      uses: extenda/actions/opa-policy-test@v0
+      with:
+        service-account-key: ${{ secrets.gcloud-auth-staging }}
+
+    - name: SonarScanner Start
+      uses: extenda/actions/sonar-scanner@v0
+      with:
+        sonar-host: https://sonarcloud.io
+        sonar-scanner: dotnet
+        service-account-key: ${{ secrets.secret-auth }}
+
+    - name: Get secrets
+      uses: extenda/actions/gcp-secret-manager@v0
+      with:
+        service-account-key: ${{ secrets.secret-auth }}
+        secrets: |
+          NUGET_FEED_URI: azure_devops_revision_nuget_source
+          NUGET_FEED_USER: azure_devops_revision_user
+          NUGET_FEED_TOKEN: azure_devops_revision_token
+          NEXUS_USERNAME: nexus-username
+          NEXUS_PASSWORD: nexus-password
+
+    - name: NuGet Authorize
+      run: |
+        dotnet nuget add \
+          source ${{ env.NUGET_FEED_URI }} \
+          --name 'nuget-ci-production' \
+          --username ${{ env.NUGET_FEED_USER }} \
+          --password ${{ env.NUGET_FEED_TOKEN }} \
+          --store-password-in-clear-text
+        dotnet nuget add \
+            source ${{ inputs.nexus-uri }} \
+            --name "Nexus ExtendaRetail" \
+            --username "${{ env.NEXUS_USERNAME }}" \
+            --password "${{ env.NEXUS_PASSWORD }}" \
+            --store-password-in-clear-text
+
+    - name: .NET Build
+      shell: bash
+      run: |
+        if [[ -n "${{ inputs.dotnet-build-sln-path }}" ]]; then
+          dotnet build ${{ inputs.dotnet-build-sln-path }} \
+          --configuration Release \
+          --warnaserror
+        else
+          dotnet build \
+          --configuration Release \
+          --warnaserror
+        fi
+
+    - name: .NET Test
+      shell: bash
+      run: |
+        if [[ -n "${{ inputs.dotnet-test-sln-path }}" ]]; then
+          dotnet test ${{ inputs.dotnet-test-sln-path }} \
+          --no-restore \
+          --no-build \
+          --configuration Release \
+          /p:CollectCoverage=true \
+          /p:CoverletOutputFormat=opencover
+        else
+          dotnet test \
+          --no-restore \
+          --no-build \
+          --configuration Release \
+          /p:CollectCoverage=true \
+          /p:CoverletOutputFormat=opencover
+        fi
+
+    - name: SonarScanner Analyse
+      uses: extenda/actions/sonar-scanner@v0
+      with:
+        sonar-host: https://sonarcloud.io
+        sonar-scanner: dotnet
+        service-account-key: ${{ secrets.secret-auth }}
+
+    - name: Release Tag Create
+      if: github.ref == 'refs/heads/master'
+      uses: extenda/actions/conventional-release@v0
+      id: release
+      with:
+          name: ${{ inputs.release-name }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Notify Slack if build fails
+      uses: extenda/actions/slack-notify@v0
+      if: failure() && github.ref == 'refs/heads/master'
+      with:
+        text: |
+          *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+          Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+        channel: ${{ inputs.failure-slack-channel }}
+        service-account-key: ${{ secrets.secret-auth }}        
+
+  onprem-release:
+    if: |
+      always() &&
+      ((github.ref == 'refs/heads/master' && needs.build-test-sonarqube.result == 'success') ||
+      (startsWith(github.ref, 'refs/tags/') && needs.build-test-sonarqube.result == 'skipped'))
+    runs-on: ubuntu-latest
+    needs: build-test-sonarqube
+    steps:
+      - name: .NET Setup
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: ${{ inputs.dotnet-version }}
+
+      - name: Code Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Validate Hotfix Tag
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: |
+          # Extract the current tag name
+          current_tag="${GITHUB_REF#refs/tags/}"
+          echo "Current hotfix tag: ${current_tag}"
+          
+          # Extract base version from hotfix tag (e.g., v3.1.2-hotfix-1 -> v3.1.2)
+          base_version=$(echo "${current_tag}" | sed -E 's/-hotfix-[0-9]+$//')
+          echo "Expected base version: ${base_version}"
+          
+          # Extract hotfix number from current tag (e.g., v3.1.2-hotfix-1 -> 1)
+          current_hotfix_number=$(echo "${current_tag}" | sed -E 's/.*-hotfix-([0-9]+)$/\1/')
+          echo "Current hotfix number: ${current_hotfix_number}"
+          
+          # Check if the base version tag exists in the repository
+          if ! git rev-parse "${base_version}" >/dev/null 2>&1; then
+            echo "❌ ERROR: Hotfix tag validation failed!"
+            echo "The base version tag '${base_version}' does not exist in the repository"
+            echo "The hotfix tag '${current_tag}' indicates it should be based on '${base_version}'"
+            echo ""
+            echo "Available tags:"
+            git tag -l | tail -10
+            echo ""
+            echo "Please ensure the base version tag exists before creating a hotfix tag."
+            exit 1
+          fi
+          
+          # Check if the current commit is a descendant of the base version tag
+          # This means: base_version is an ancestor of HEAD (the branch was created from base_version)
+          if git merge-base --is-ancestor "${base_version}" HEAD; then
+            echo "✅ Current commit is based on '${base_version}'"
+          
+            # Get the commit hash of the base version
+            base_commit=$(git rev-parse "${base_version}")
+            current_commit=$(git rev-parse HEAD)
+          
+            echo "Base version commit: ${base_commit}"
+            echo "Current commit: ${current_commit}"
+          
+            # Ensure we have actually moved forward from the base version
+            if [[ "${base_commit}" == "${current_commit}" ]]; then
+              echo "⚠️  WARNING: Hotfix tag is on the same commit as base version"
+              echo "Typically, hotfix tags should be on new commits with fixes"
+              echo "However, this is allowed for emergency hotfix releases"
+            fi
+          else
+            echo "❌ ERROR: Hotfix tag validation failed!"
+            echo "The hotfix tag '${current_tag}' indicates it should be based on '${base_version}'"
+            echo "However, the current commit is NOT a descendant of '${base_version}'"
+            echo ""
+            echo "This means the branch was not created from '${base_version}'"
+            echo ""
+            echo "Please ensure you checkout the correct base version before creating a hotfix tag."
+            echo "For example, to create a hotfix for v3.1.2:"
+            echo "  git checkout v3.1.2"
+            echo "  git tag v3.1.2-hotfix-1"
+            echo "  git push origin v3.1.2-hotfix-1"
+            exit 1
+          fi
+          
+          # Find all existing hotfix tags for this base version (excluding the current tag)
+          all_hotfixes=$(git tag -l "${base_version}-hotfix-*" | sort -V || true)
+          existing_hotfixes=$(echo "${all_hotfixes}" | grep -v "^${current_tag}$" || true)
+          
+          echo "Existing hotfixes for ${base_version} (excluding current tag):"
+          if [[ -n "${existing_hotfixes}" && "${existing_hotfixes}" != "" ]]; then
+            echo "${existing_hotfixes}"
+          
+            # Get the highest hotfix number
+            highest_hotfix=$(echo "${existing_hotfixes}" | tail -n 1)
+            highest_number=$(echo "${highest_hotfix}" | sed -E 's/.*-hotfix-([0-9]+)$/\1/')
+            expected_number=$((highest_number + 1))
+          
+            echo "Highest existing hotfix: ${highest_hotfix} (number: ${highest_number})"
+            echo "Expected hotfix number: ${expected_number}"
+          
+            # Validate that current hotfix number is the next sequential number
+            if [[ "${current_hotfix_number}" != "${expected_number}" ]]; then
+              echo "❌ ERROR: Hotfix number validation failed!"
+              echo "The hotfix tag '${current_tag}' has hotfix number ${current_hotfix_number}"
+              echo "However, the expected hotfix number should be ${expected_number}"
+              echo ""
+              echo "Existing hotfixes for ${base_version}:"
+              echo "${existing_hotfixes}"
+              echo ""
+              echo "Please create the hotfix tag with the correct number:"
+              echo "  git checkout ${base_version}"
+              echo "  git tag ${base_version}-hotfix-${expected_number}"
+              echo "  git push origin ${base_version}-hotfix-${expected_number}"
+              exit 1
+            fi
+          else
+            # This is the first hotfix for this base version
+            echo "(none)"
+            echo "No existing hotfixes found for ${base_version}"
+            if [[ "${current_hotfix_number}" != "1" ]]; then
+              echo "❌ ERROR: First hotfix must be numbered 1!"
+              echo "The hotfix tag '${current_tag}' has hotfix number ${current_hotfix_number}"
+              echo "However, this is the first hotfix for ${base_version}, so it should be numbered 1"
+              echo ""
+              echo "Please create the hotfix tag with the correct number:"
+              echo "  git checkout ${base_version}"
+              echo "  git tag ${base_version}-hotfix-1"
+              echo "  git push origin ${base_version}-hotfix-1"
+              exit 1
+            fi
+          fi
+          
+          echo "✅ Hotfix tag validation passed: ${current_tag} is correctly based on ${base_version} with proper hotfix number ${current_hotfix_number}"
+
+      - name: Extract Tag Version
+        if: startsWith(github.ref, 'refs/tags/')
+        id: tag-version
+        shell: bash
+        run: |
+          tag_ref="${{ github.ref }}"
+          tag_name="${tag_ref#refs/tags/v}"
+          echo "version=${tag_name}" >> "$GITHUB_OUTPUT"
+          
+      - name: Determine Version
+        id: version
+        shell: bash
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            tag_version="${{ steps.tag-version.outputs.version }}"
+            if [[ "${tag_version}" =~ ^([0-9]+\.[0-9]+\.[0-9]+)-hotfix-([0-9]+)$ ]]; then
+              base_version="${BASH_REMATCH[1]}"
+              hotfix_number="${BASH_REMATCH[2]}"
+              version="${base_version}.${hotfix_number}"
+              echo "Transformed hotfix version: ${tag_version} -> ${version}"
+            else
+              version="${tag_version}"
+            fi
+          else
+            version="${{ needs.build-test-sonarqube.outputs.semver-outputs && fromJSON(needs.build-test-sonarqube.outputs.semver-outputs).version }}"
+          fi
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+
+      - name: Get secrets
+        uses: extenda/actions/gcp-secret-manager@v0
+        with:
+          service-account-key: ${{ secrets.secret-auth }}
+          secrets: |
+            NUGET_FEED_URI: azure_devops_revision_nuget_source
+            NUGET_FEED_USER: azure_devops_revision_user
+            NUGET_FEED_TOKEN: azure_devops_revision_token
+            NEXUS_USERNAME: nexus-username
+            NEXUS_PASSWORD: nexus-password
+
+      - name: NuGet Authorize
+        run: |
+          dotnet nuget add \
+            source ${{ env.NUGET_FEED_URI }} \
+            --name 'nuget-ci-production' \
+            --username ${{ env.NUGET_FEED_USER }} \
+            --password ${{ env.NUGET_FEED_TOKEN }} \
+            --store-password-in-clear-text
+          dotnet nuget add \
+            source ${{ inputs.nexus-uri }} \
+            --name "Nexus ExtendaRetail" \
+            --username "${{ env.NEXUS_USERNAME }}" \
+            --password "${{ env.NEXUS_PASSWORD }}" \
+            --store-password-in-clear-text
+
+      - name: .NET Publish
+        id: dotnet-publish
+        shell: bash      
+        run: |
+          tag="${{ steps.version.outputs.version }}"
+          projectname="${{ inputs.project-name }}"
+          releasename="${projectname}_v${tag}"
+        
+          echo "releasename=${releasename}" >> "$GITHUB_OUTPUT"
+        
+          dotnet publish "${{ inputs.dotnet-publish-project-path }}" \
+            --runtime win-x64 \
+            --configuration Release \
+            --output "$releasename" \
+            --self-contained true \
+            -p:PublishReadyToRun=True \
+            -p:Version="$tag" \
+            -p:AssemblyVersion="$tag" \
+            -p:AssemblyFileVersion="$tag"
+
+      - name: Release Artifact Create
+        id: create-artifact
+        shell: bash
+        run: |
+          projectname="${{ inputs.project-name }}"
+          releasename="${{ steps.dotnet-publish.outputs.releasename }}"
+          
+          git log --pretty=format:"##%D %cs %n %s %b %N" \
+            | sed \
+            -e 's/tag://g' \
+            -e 's/HEAD -> master, //g' \
+            -e 's/, origin\/master//g' \
+            >"./${releasename}/CHANGELOG.md"
+      
+          cp "./ReleaseNotes_${projectname}.md" "./${releasename}/"
+      
+          7z a -tzip "${releasename}.zip" "./${releasename}/*"
+      
+          echo "artifact=${releasename}.zip" >> "$GITHUB_OUTPUT"
+      
+          rm -r "${releasename}"
+    
+      - name: GCloud SDK Setup
+        uses: extenda/actions/setup-gcloud@v0
+        id: gcloud
+        with:
+          service-account-key: ${{ secrets.gcloud-auth-staging }}
+
+      - name: GCloud Storage Artifact Upload
+        id: gcloud-upload
+        run: |
+          artifact="${{ steps.create-artifact.outputs.artifact }}"
+          version="${{ steps.version.outputs.version }}"
+
+          gcloud artifacts generic upload \
+            --source=${artifact} \
+            --project=extenda \
+            --repository=re-vision \
+            --location=europe-west1 \
+            --version=${version} \
+            --package=${{ inputs.service-name }}
+
+      - name: Notify Slack about new release
+        uses: extenda/actions/slack-notify@v0
+        with:
+          text: |
+            A new ${{ steps.create-artifact.outputs.artifact }} ${{ startsWith(github.ref, 'refs/tags/') && 'hotfix ' || '' }}release is available :gift:
+            Version: ${{ steps.version.outputs.version }}
+            ${{ needs.build-test-sonarqube.outputs.semver-outputs && fromJSON(needs.build-test-sonarqube.outputs.semver-outputs).release-changelog }}
+          channel: ${{ inputs.slack-channel }}
+          service-account-key: ${{ secrets.secret-auth }}
+
+      - name: Notify Slack if onprem-release fails
+        uses: extenda/actions/slack-notify@v0
+        if: failure()
+        with:
+          text: |
+            *On-Prem artifact build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            On-Prem artifact failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+          channel: ${{ inputs.failure-slack-channel }}
+          service-account-key: ${{ secrets.secret-auth }}
+  
+  docker-build:
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-22.04
+    needs: build-test-sonarqube
+    env:
+      HEAD_COMMIT_MESSAGE: "${{ github.event.head_commit.message }}"
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Code freeze check
+        run: |
+          commit_message=$HEAD_COMMIT_MESSAGE
+          if [[ "${{ inputs.code-freeze }}" == "true" && $commit_message != *"[force-deploy]"* ]]; then
+            echo "Code freeze flag is enabled. Skipping deployment.";
+            echo "To trigger a deployment that bypasses the code-freeze input checks, include '[force-deploy]' in the commit message.";
+            exit 1
+          else
+            echo "Code freeze is not enabled. Proceeding with deployment."
+          fi
+
+      - name: Get secrets
+        uses: extenda/actions/gcp-secret-manager@v0
+        with:
+          service-account-key: ${{ secrets.secret-auth }}
+          secrets: |
+            NUGET_FEED_URI: azure_devops_revision_nuget_source
+            NUGET_FEED_USER: azure_devops_revision_user
+            NUGET_FEED_TOKEN: azure_devops_revision_token
+            NEXUS_USERNAME: nexus-username
+            NEXUS_PASSWORD: nexus-password
+
+      - name: Setup NuGet sources
+        uses: extenda/actions/setup-nuget-sources@v0
+        with:
+          config-file: NuGet.Config
+          sources: |
+            [{
+              "name": "nuget-ci-production",
+              "source": "${{ env.NUGET_FEED_URI }}",
+              "username": "${{ env.NUGET_FEED_USER }}",
+              "password": "${{ env.NUGET_FEED_TOKEN }}"
+            },
+            {
+              "name": "Nexus ExtendaRetail",
+              "source": "${{ inputs.nexus-uri }}",
+              "username": "${{ env.NEXUS_USERNAME }}",
+              "password": "${{ env.NEXUS_PASSWORD }}"
+            }]
+
+      - name: Build Docker image
+        uses: extenda/shared-workflows/composite-actions/docker-build@master
+        with:
+          gcloud-auth-staging: ${{ secrets.gcloud-auth-staging }}
+          dockerfile-path: ${{ inputs.dockerfile-path }}
+          gcr-image-name: ${{ inputs.gcr-image-name }}
+
+      - name: Notify Slack if docker-build fails
+        uses: extenda/actions/slack-notify@v0
+        if: |
+          failure() &&
+          (!inputs.code-freeze || contains(env.HEAD_COMMIT_MESSAGE, '[force-deploy]'))
+        with:
+          text: |
+            *Docker build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            Docker build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+          channel: ${{ inputs.failure-slack-channel }}
+          service-account-key: ${{ secrets.secret-auth }}
+
+  staging:
+    runs-on: ubuntu-22.04
+    needs: docker-build
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Deploy to staging
+        uses: extenda/shared-workflows/composite-actions/deploy-to-staging@master
+        with:
+          secret-auth: ${{ secrets.secret-auth }}
+          gcloud-auth-staging: ${{ secrets.gcloud-auth-staging }}
+          gcr-image-name: ${{ inputs.gcr-image-name }}
+
+      - name: Notify Slack if staging fails
+        uses: extenda/actions/slack-notify@v0
+        if: failure()
+        with:
+          text: |
+            *Staging failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            Staging failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+          channel: ${{ inputs.failure-slack-channel }}
+          service-account-key: ${{ secrets.secret-auth }}
+
+  acceptance:
+    if: ${{ inputs.use-acceptance }}
+    runs-on: ubuntu-22.04
+    needs: staging
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Acceptance
+        uses: extenda/shared-workflows/composite-actions/mys/acceptance@master
+        with:
+          secret-auth: ${{ secrets.secret-auth }}
+          gcloud-auth-staging: ${{ secrets.gcloud-auth-staging }}
+          acceptance-username: ${{ inputs.acceptance-username }}
+          acceptance-postman-collection-path: ${{ inputs.acceptance-postman-collection-path }}
+          acceptance-postman-environment-path: ${{ inputs.acceptance-postman-environment-path }}
+
+      - name: Notify Slack if acceptance fails
+        uses: extenda/actions/slack-notify@v0
+        if: failure()
+        with:
+          text: |
+            *Acceptance failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            Acceptance failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+          channel: ${{ inputs.failure-slack-channel }}
+          service-account-key: ${{ secrets.secret-auth }}
+
+  production:
+    if: |
+      always() &&
+      (needs.acceptance.result == 'success' || needs.acceptance.result == 'skipped') &&
+      (needs.staging.result == 'success')
+    runs-on: ubuntu-22.04
+    needs: [acceptance, staging, build-test-sonarqube]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Deploy to production
+        uses: extenda/shared-workflows/composite-actions/deploy-to-production@master
+        with:
+          secret-auth: ${{ secrets.secret-auth }}
+          gcloud-auth-prod: ${{ secrets.gcloud-auth-prod }}
+          gcr-image-name: ${{ inputs.gcr-image-name }}
+          service-name: ${{ inputs.service-name }}
+          system-name: ${{ inputs.system-name }}
+          product-name: ${{ inputs.product-name }}
+          product-component: ${{ inputs.product-component }}
+          release-tag: ${{ fromJSON(needs.build-test-sonarqube.outputs.semver-outputs).release-tag }}
+
+      - name: Notify Slack if production fails
+        uses: extenda/actions/slack-notify@v0
+        if: failure()
+        with:
+          text: |
+            *Production failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            Production failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+          channel: ${{ inputs.failure-slack-channel }}
+          service-account-key: ${{ secrets.secret-auth }}
