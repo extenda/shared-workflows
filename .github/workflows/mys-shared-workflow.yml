@@ -233,6 +233,10 @@ jobs:
         sonar-scanner: dotnet
         service-account-key: ${{ secrets.secret-auth }}
 
+    - name: Determine SemVersion
+      uses: extenda/actions/conventional-version@v0
+      id: semver
+
     - name: Release Tag Create
       if: github.ref == 'refs/heads/master'
       uses: extenda/actions/conventional-release@v0
