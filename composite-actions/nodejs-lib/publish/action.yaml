@@ -48,15 +48,19 @@ runs:
         export-default-credentials: 'true'
 
     - name: Install dependencies
+      shell: bash
       run: npm ci --ignore-scripts
 
     - name: Lint
+      shell: bash
       run: npm run lint:ci
 
     - name: Build
+      shell: bash
       run: npm run build
 
     - name: Test
+      shell: bash
       run: npm test
 
     - name: Analyze with SonarCloud
@@ -72,9 +76,11 @@ runs:
         export-default-credentials: 'true'
 
     - name: Write .npmrc
+      shell: bash
       run: echo "@hiiretail:registry = https://europe-west1-npm.pkg.dev/extenda/npm-releases" > .npmrc
 
     - name: Release
       env:
         GITHUB_TOKEN: ${{ inputs.GITHUB_TOKEN }}
+      shell: bash
       run: npm run auth && NPM_TOKEN=$(gcloud auth print-access-token) npx semantic-release

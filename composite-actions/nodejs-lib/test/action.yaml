@@ -37,20 +37,24 @@ runs:
         node-version-file: .nvmrc
 
     - name: Install dependencies
+      shell: bash
       run: npm ci --ignore-scripts
 
     - name: Lint
+      shell: bash
       run: npm run lint:ci
 
     - name: Build
+      shell: bash
       run: npm run build --if-present
 
     - name: Test
+      shell: bash
       run: npm test
 
     - name: Analyze with SonarCloud
       uses: extenda/actions/sonar-scanner@v0
       with:
         sonar-host: https://sonarcloud.io
-        service-account-key: ${{ secrets.SECRET_AUTH }}
+        service-account-key: ${{ inputs.SECRET_AUTH }}
         sonar-scanner: node
