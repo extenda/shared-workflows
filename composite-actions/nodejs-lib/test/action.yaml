@@ -36,9 +36,14 @@ runs:
       with:
         node-version-file: .nvmrc
 
+    - uses: extenda/actions/setup-gcloud@v0
+      with:
+        service-account-key: ${{ inputs.SECRET_AUTH }}
+        export-default-credentials: 'true'
+
     - name: Install dependencies
       shell: bash
-      run: npm run auth --if-exist && npm ci
+      run: npm run auth --if-present && npm ci
 
     - name: Lint
       shell: bash
