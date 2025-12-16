@@ -49,7 +49,7 @@ runs:
 
     - name: Install dependencies
       shell: bash
-      run: npm ci
+      run: npm run auth --if-exist && npm ci
 
     - name: Lint
       shell: bash
@@ -83,4 +83,4 @@ runs:
       env:
         GITHUB_TOKEN: ${{ inputs.GITHUB_TOKEN }}
       shell: bash
-      run: npm run auth && NPM_TOKEN=$(gcloud auth print-access-token) npx semantic-release
+      run: npm run auth --if-exist && NPM_TOKEN=$(gcloud auth print-access-token) npx semantic-release
