@@ -38,7 +38,7 @@ runs:
 
     - name: Install dependencies
       shell: bash
-      run: npm ci
+      run: npm run auth --if-exist && npm ci
 
     - name: Lint
       shell: bash
