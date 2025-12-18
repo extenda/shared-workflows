@@ -64,10 +64,9 @@ runs:
       shell: bash
       run: gcloud --quiet auth configure-docker eu.gcr.io
 
-    - name: Auth to Nexus npm registry
-      uses: extenda/actions/nexus-auth-npm@v0
-      with:
-        service-account-key: ${{ inputs.SECRET_AUTH }}
+    - name: Run NPM auth script
+      shell: bash
+      run: npm run npm-auth --if-present
 
     - name: Build and push Docker image
       shell: bash
