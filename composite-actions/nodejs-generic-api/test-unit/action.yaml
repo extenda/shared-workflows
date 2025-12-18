@@ -66,10 +66,9 @@ runs:
       with:
         node-version-file: .nvmrc
 
-    - name: Auth to Nexus npm registry
-      uses: extenda/actions/nexus-auth-npm@v0
-      with:
-        service-account-key: ${{ inputs.SECRET_AUTH }}
+    - name: Run NPM auth script
+      shell: bash
+      run: npm run npm-auth --if-present
 
     - name: Install dependencies
       if: steps.cache-node-modules.outputs.cache-hit != 'true'
