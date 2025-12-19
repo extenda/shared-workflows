@@ -64,15 +64,10 @@ runs:
       shell: bash
       run: gcloud --quiet auth configure-docker eu.gcr.io
 
-    - name: Run NPM auth script
-      shell: bash
-      run: npm run npm-auth --if-present
-
-    - name: Add auth to .npmrc
-      shell: bash
-      run: |
-            NPM_TOKEN=$(gcloud auth print-access-token)
-            echo "//europe-west1-npm.pkg.dev/extenda/npm/:_authToken=${NPM_TOKEN}" >> .npmrc
+    - name: Auth to Nexus npm registry
+      uses: extenda/actions/nexus-auth-npm@v0
+      with:
+        service-account-key: ${{ inputs.SECRET_AUTH }}
 
     - name: Build and push Docker image
       shell: bash
