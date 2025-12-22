@@ -77,7 +77,7 @@ runs:
 
     - name: Write .npmrc
       shell: bash
-      run: echo "@hiiretail:registry = https://europe-west1-npm.pkg.dev/extenda/npm-releases" > .npmrc
+      run: echo "@hiiretail:registry = https://europe-west1-npm.pkg.dev/extenda/npm-releases/ " > .npmrc
 
     - name: Release
       env:
