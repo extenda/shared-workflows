@@ -63,5 +63,5 @@ runs:
         collection: ${{ inputs.acceptance-postman-collection-path }}
         environment: ${{ inputs.acceptance-postman-environment-path }}
         globals: ${{ inputs.acceptance-globals-path }}
-        folder: '["Acceptance"]'
+        folder: '["Acceptance", "Acceptance - BAS SLP"]'
         bail: true
