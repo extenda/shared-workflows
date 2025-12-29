@@ -66,7 +66,7 @@ runs:
 
     - name: Run NPM auth script
       shell: bash
-      run: npm run npm-auth --if-present
+      run: npm run auth --if-present
 
     - name: Add auth to .npmrc
       shell: bash
