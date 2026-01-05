@@ -47,7 +47,7 @@ inputs:
     required: false
   with-component-tests:
     description: "If true runs component tests"
-    default: 'true'
+    default: "true"
     required: false
 
 runs:
@@ -66,7 +66,9 @@ runs:
 
     - name: Run NPM auth script
       shell: bash
-      run: npm run auth --if-present -- --credential-config=./.npmrc
+      run: |
+        echo "@hiiretail:registry=https://europe-west1-npm.pkg.dev/extenda/npm/" > .npmrc
+        npm run auth  -- --credential-config=./.npmrc
 
     - name: Build and push Docker image
       shell: bash
