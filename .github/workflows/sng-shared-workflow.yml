@@ -1,4 +1,4 @@
-﻿on:
+on:
   workflow_call:
     secrets:
       secret-auth:
@@ -297,6 +297,7 @@ jobs:
   staging:
     if: |
       always() &&
+      (needs.docker-build.result == 'success') &&
       (needs.liquibase-staging.result == 'success' || needs.liquibase-staging.result == 'skipped')
     runs-on: ubuntu-22.04
     needs: [docker-build, liquibase-staging]
