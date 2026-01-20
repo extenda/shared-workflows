@@ -1,4 +1,4 @@
-on:
+﻿on:
   workflow_call:
     secrets:
       secret-auth:
@@ -146,7 +146,7 @@ jobs:
           docker run --rm -d -p 5433:1433 -e ACCEPT_EULA=Y -e MSSQL_SA_PASSWORD="${{ secrets.sql-password }}" --name sql-server mcr.microsoft.com/mssql/server:2017-latest
 
       - name: Build and test
-        uses: extenda/shared-workflows/composite-actions/dotnet-build-and-test@master
+        uses: extenda/shared-workflows/composite-actions/dotnet-build-and-test@feat/MCPE-5201
         with:
           sln-path: ${{ inputs.sln-path }}
           secret-auth: ${{ secrets.secret-auth }}
