@@ -256,10 +256,15 @@ jobs:
       - name: Create database if not exists
         shell: bash
         run: |
-          PGPASSWORD="${{ env.DB_PASS }}" psql -h 127.0.0.1 -U ${{ inputs.liquibase-db-user }} -d postgres -tc \
-            "SELECT 1 FROM pg_database WHERE datname = '${{ inputs.liquibase-db-name }}'" | grep -q 1 || \
-          PGPASSWORD="${{ env.DB_PASS }}" psql -h 127.0.0.1 -U ${{ inputs.liquibase-db-user }} -d postgres -c \
-            "CREATE DATABASE \"${{ inputs.liquibase-db-name }}\""
+          if PGPASSWORD="${{ env.DB_PASS }}" psql -h 127.0.0.1 -U ${{ inputs.liquibase-db-user }} -d postgres -tc \
+            "SELECT 1 FROM pg_database WHERE datname = '${{ inputs.liquibase-db-name }}'" | grep -q 1; then
+            echo "Database '${{ inputs.liquibase-db-name }}' already exists"
+          else
+            echo "Database '${{ inputs.liquibase-db-name }}' does not exist, creating..."
+            PGPASSWORD="${{ env.DB_PASS }}" psql -h 127.0.0.1 -U ${{ inputs.liquibase-db-user }} -d postgres -c \
+              "CREATE DATABASE \"${{ inputs.liquibase-db-name }}\""
+            echo "Database '${{ inputs.liquibase-db-name }}' created successfully"
+          fi
 
       - name: Setup Liquibase
         uses: liquibase/setup-liquibase@v2
@@ -406,10 +411,15 @@ jobs:
       - name: Create database if not exists
         shell: bash
         run: |
-          PGPASSWORD="${{ env.DB_PASS }}" psql -h 127.0.0.1 -U ${{ inputs.liquibase-db-user }} -d postgres -tc \
-            "SELECT 1 FROM pg_database WHERE datname = '${{ inputs.liquibase-db-name }}'" | grep -q 1 || \
-          PGPASSWORD="${{ env.DB_PASS }}" psql -h 127.0.0.1 -U ${{ inputs.liquibase-db-user }} -d postgres -c \
-            "CREATE DATABASE \"${{ inputs.liquibase-db-name }}\""
+          if PGPASSWORD="${{ env.DB_PASS }}" psql -h 127.0.0.1 -U ${{ inputs.liquibase-db-user }} -d postgres -tc \
+            "SELECT 1 FROM pg_database WHERE datname = '${{ inputs.liquibase-db-name }}'" | grep -q 1; then
+            echo "Database '${{ inputs.liquibase-db-name }}' already exists"
+          else
+            echo "Database '${{ inputs.liquibase-db-name }}' does not exist, creating..."
+            PGPASSWORD="${{ env.DB_PASS }}" psql -h 127.0.0.1 -U ${{ inputs.liquibase-db-user }} -d postgres -c \
+              "CREATE DATABASE \"${{ inputs.liquibase-db-name }}\""
+            echo "Database '${{ inputs.liquibase-db-name }}' created successfully"
+          fi
 
       - name: Setup Liquibase
         uses: liquibase/setup-liquibase@v2
