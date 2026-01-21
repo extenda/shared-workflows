@@ -72,11 +72,11 @@ on:
         type: boolean
         required: false
       liquibase-path:
-        description: "Path to Liquibase changelog file (relative to repo root). If set, Liquibase migrations will run before deployment."
+        description: "Path to Liquibase changelog file, relative to liquibase-search-path (e.g., 'changelog/db.changelog-master.yaml')"
         type: string
         required: false
       liquibase-search-path:
-        description: "Additional path to search for SQL changesets (e.g., 'liquibase/sql')"
+        description: "Base path for Liquibase to search for changelog and SQL files (e.g., 'liquibase')"
         type: string
         required: false
       liquibase-db-instance-secret:
