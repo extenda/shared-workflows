@@ -265,6 +265,7 @@ jobs:
         uses: liquibase/setup-liquibase@v2
         with:
           version: '4.32.0'
+          edition: community
 
       - name: Run Liquibase migrations
         shell: bash
@@ -413,6 +414,7 @@ jobs:
         uses: liquibase/setup-liquibase@v2
         with:
           version: '4.32.0'
+          edition: community
 
       - name: Run Liquibase migrations
         shell: bash
