@@ -1,4 +1,4 @@
-﻿on:
+on:
   workflow_call:
     secrets:
       secret-auth:
@@ -270,9 +270,10 @@ jobs:
       - name: Run Liquibase migrations
         shell: bash
         run: |
-          liquibase update \
-            --changelog-file=${{ inputs.liquibase-path }} \
-            --search-path=${{ inputs.liquibase-search-path }} \
+          liquibase \
+            --search-path="${{ inputs.liquibase-search-path }}" \
+            update \
+            --changelog-file="${{ inputs.liquibase-path }}" \
             --url="jdbc:postgresql://127.0.0.1:5432/${{ inputs.liquibase-db-name }}" \
             --username="${{ inputs.liquibase-db-user }}" \
             --password="${{ env.DB_PASS }}"
@@ -419,9 +420,10 @@ jobs:
       - name: Run Liquibase migrations
         shell: bash
         run: |
-          liquibase update \
-            --changelog-file=${{ inputs.liquibase-path }} \
-            --search-path=${{ inputs.liquibase-search-path }} \
+          liquibase \
+            --search-path="${{ inputs.liquibase-search-path }}" \
+            update \
+            --changelog-file="${{ inputs.liquibase-path }}" \
             --url="jdbc:postgresql://127.0.0.1:5432/${{ inputs.liquibase-db-name }}" \
             --username="${{ inputs.liquibase-db-user }}" \
             --password="${{ env.DB_PASS }}"
