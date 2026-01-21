@@ -224,7 +224,7 @@ jobs:
   liquibase-staging:
     if: ${{ inputs.liquibase-path }}
     runs-on: ubuntu-22.04
-    needs: docker-build
+    needs: build
     steps:
       - uses: actions/checkout@v4
         with:
