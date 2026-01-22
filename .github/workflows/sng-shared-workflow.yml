@@ -1,4 +1,4 @@
-﻿on:
+on:
   workflow_call:
     secrets:
       secret-auth:
@@ -36,7 +36,7 @@
         required: true
       system-name:
         description: |
-          System name (sng or mcp)
+          System name (sng, mcp or mys)
         type: string
         required: false
         default: "sng"
@@ -232,7 +232,7 @@ jobs:
           fetch-depth: 0
 
       - name: Acceptance
-        if: ${{ inputs.system-name == 'sng' }}
+        if: ${{ inputs.system-name == 'sng' || inputs.system-name == 'mcp' }}
         uses: extenda/shared-workflows/composite-actions/sng/acceptance@master
         with:
           secret-auth: ${{ secrets.secret-auth }}
