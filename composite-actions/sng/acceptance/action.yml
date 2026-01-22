@@ -57,11 +57,22 @@ runs:
         name: "./mcpe-common/tests/acceptance/globals.json"
         json: '{"values":[{"key":"scanngo_shopper_username","value":"${{ inputs.acceptance-username }}","enabled":true},{"key":"scanngo_flags_on_username","value":"${{ inputs.acceptance-username }}-on","enabled":true},{"key":"scanngo_rescan_username","value":"${{ inputs.acceptance-username }}-rescan","enabled":true},{"key":"scanngo_shopper_password","value":"${{env.SCANNGO_SHOPPER_PASSWORD}}","enabled":true},{"key":"mcpe_shopper_username","value":"${{ inputs.acceptance-username }}","enabled":true},{"key":"mcpe_shopper_password","value":"${{env.MCPE_SHOPPER_PASSWORD}}","enabled":true},{"key":"attedant_staff_password","value":"${{env.ATTENDANT_STAFF_PASSWORD}}","enabled":true},{"key":"staff_password","value":"${{env.MCPE_STAFF_PASSWORD}}","enabled":true}]}'
 
-    - name: Acceptance tests
+    - name: Acceptance tests (scanngo)
+      if: ${{ contains(inputs.acceptance-postman-collection-path, 'scanngo-acceptance') }}
       uses: matt-ball/newman-action@master
       with:
         collection: ${{ inputs.acceptance-postman-collection-path }}
         environment: ${{ inputs.acceptance-postman-environment-path }}
         globals: ${{ inputs.acceptance-globals-path }}
         folder: '["Acceptance", "Acceptance - BAS SLP"]'
+        bail: true
+
+    - name: Acceptance tests
+      if: ${{ !contains(inputs.acceptance-postman-collection-path, 'scanngo-acceptance') }}
+      uses: matt-ball/newman-action@master
+      with:
+        collection: ${{ inputs.acceptance-postman-collection-path }}
+        environment: ${{ inputs.acceptance-postman-environment-path }}
+        globals: ${{ inputs.acceptance-globals-path }}
+        folder: '["Acceptance"]'
         bail: true
