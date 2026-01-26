@@ -71,6 +71,7 @@ runs:
         sonar-scanner: dotnet
         main-branch: ${{ steps.semver.outputs.branch-name-short }}
         service-account-key: ${{ inputs.secret-auth }}
+        dotnet-args: /d:sonar.exclusions="liquibase/**/*"
 
     - name: Build .NET solution
       shell: bash
@@ -93,3 +94,4 @@ runs:
         sonar-scanner: dotnet
         main-branch: ${{ steps.semver.outputs.branch-name-short }}
         service-account-key: ${{ inputs.secret-auth }}
+        dotnet-args: /d:sonar.exclusions="liquibase/**/*"

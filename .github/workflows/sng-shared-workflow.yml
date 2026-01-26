@@ -71,6 +71,30 @@ on:
       start-redis:
         type: boolean
         required: false
+      liquibase-path:
+        description: "Path to Liquibase changelog file, relative to liquibase-search-path (e.g., 'changelog/db.changelog-master.yaml')"
+        type: string
+        required: false
+      liquibase-search-path:
+        description: "Base path for Liquibase to search for changelog and SQL files (e.g., 'liquibase')"
+        type: string
+        required: false
+      liquibase-db-instance-secret:
+        description: "GCP Secret Manager secret name containing the Cloud SQL instance connection string"
+        type: string
+        required: false
+      liquibase-db-name:
+        description: "Target database name for Liquibase migrations"
+        type: string
+        required: false
+      liquibase-db-user:
+        description: "Database username for Liquibase connection"
+        type: string
+        required: false
+      liquibase-db-pass-secret:
+        description: "GCP Secret Manager secret name containing the database password"
+        type: string
+        required: false
       release-name:
         type: string
         required: false
@@ -197,9 +221,93 @@ jobs:
           channel: ${{ inputs.slack-channel }}
           service-account-key: ${{ secrets.secret-auth }}
 
-  staging:
+  liquibase-staging:
+    if: ${{ inputs.liquibase-path }}
     runs-on: ubuntu-22.04
     needs: docker-build
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup GCloud
+        uses: extenda/actions/setup-gcloud@v0
+        with:
+          service-account-key: ${{ secrets.gcloud-auth-staging }}
+          export-default-credentials: true
+
+      - name: Fetch database secrets
+        uses: extenda/actions/gcp-secret-manager@v0
+        with:
+          service-account-key: ${{ secrets.gcloud-auth-staging }}
+          secrets: |
+            DB_INST: ${{ inputs.liquibase-db-instance-secret }}
+            DB_PASS: ${{ inputs.liquibase-db-pass-secret }}
+
+      - name: Setup Cloud SQL Proxy
+        shell: bash
+        run: |
+          curl -o cloud-sql-proxy https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.8.2/cloud-sql-proxy.linux.amd64
+          chmod +x cloud-sql-proxy
+          nohup ./cloud-sql-proxy ${{ env.DB_INST }} --address 127.0.0.1 --port 5432 > cloud-sql-proxy.log 2>&1 &
+          echo "CLOUD_SQL_PROXY_PID=$!" >> $GITHUB_ENV
+          sleep 5
+
+      - name: Create database if not exists
+        shell: bash
+        run: |
+          if PGPASSWORD="${{ env.DB_PASS }}" psql -h 127.0.0.1 -U ${{ inputs.liquibase-db-user }} -d postgres -tc \
+            "SELECT 1 FROM pg_database WHERE datname = '${{ inputs.liquibase-db-name }}'" | grep -q 1; then
+            echo "Database '${{ inputs.liquibase-db-name }}' already exists"
+          else
+            echo "Database '${{ inputs.liquibase-db-name }}' does not exist, creating..."
+            PGPASSWORD="${{ env.DB_PASS }}" psql -h 127.0.0.1 -U ${{ inputs.liquibase-db-user }} -d postgres -c \
+              "CREATE DATABASE \"${{ inputs.liquibase-db-name }}\""
+            echo "Database '${{ inputs.liquibase-db-name }}' created successfully"
+          fi
+
+      - name: Setup Liquibase
+        uses: liquibase/setup-liquibase@v2
+        with:
+          version: '4.32.0'
+          edition: community
+
+      - name: Run Liquibase migrations
+        shell: bash
+        run: |
+          liquibase \
+            --search-path="${{ inputs.liquibase-search-path }}" \
+            update \
+            --changelog-file="${{ inputs.liquibase-path }}" \
+            --url="jdbc:postgresql://127.0.0.1:5432/${{ inputs.liquibase-db-name }}" \
+            --username="${{ inputs.liquibase-db-user }}" \
+            --password="${{ env.DB_PASS }}"
+
+      - name: Stop Cloud SQL Proxy
+        if: always()
+        shell: bash
+        run: |
+          if [ -n "${{ env.CLOUD_SQL_PROXY_PID }}" ]; then
+            kill ${{ env.CLOUD_SQL_PROXY_PID }} || true
+          fi
+
+      - name: Notify Slack if Liquibase staging fails
+        uses: extenda/actions/slack-notify@v0
+        if: failure()
+        with:
+          text: |
+            *Liquibase staging migrations failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            Liquibase failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+          channel: ${{ inputs.slack-channel }}
+          service-account-key: ${{ secrets.secret-auth }}
+
+  staging:
+    if: |
+      always() &&
+      (needs.docker-build.result == 'success') &&
+      (needs.liquibase-staging.result == 'success' || needs.liquibase-staging.result == 'skipped')
+    runs-on: ubuntu-22.04
+    needs: [docker-build, liquibase-staging]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -263,14 +371,100 @@ jobs:
           channel: ${{ inputs.slack-channel }}
           service-account-key: ${{ secrets.secret-auth }}
 
-  production:
+  liquibase-prod:
     if: |
+      inputs.liquibase-path &&
       always() &&
       (!inputs.release-to-staging-only) &&
       (needs.acceptance.result == 'success' || needs.acceptance.result == 'skipped') &&
       (needs.staging.result == 'success')
     runs-on: ubuntu-22.04
     needs: [acceptance, staging]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup GCloud
+        uses: extenda/actions/setup-gcloud@v0
+        with:
+          service-account-key: ${{ secrets.gcloud-auth-prod }}
+          export-default-credentials: true
+
+      - name: Fetch database secrets
+        uses: extenda/actions/gcp-secret-manager@v0
+        with:
+          service-account-key: ${{ secrets.gcloud-auth-prod }}
+          secrets: |
+            DB_INST: ${{ inputs.liquibase-db-instance-secret }}
+            DB_PASS: ${{ inputs.liquibase-db-pass-secret }}
+
+      - name: Setup Cloud SQL Proxy
+        shell: bash
+        run: |
+          curl -o cloud-sql-proxy https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.8.2/cloud-sql-proxy.linux.amd64
+          chmod +x cloud-sql-proxy
+          nohup ./cloud-sql-proxy ${{ env.DB_INST }} --address 127.0.0.1 --port 5432 > cloud-sql-proxy.log 2>&1 &
+          echo "CLOUD_SQL_PROXY_PID=$!" >> $GITHUB_ENV
+          sleep 5
+
+      - name: Create database if not exists
+        shell: bash
+        run: |
+          if PGPASSWORD="${{ env.DB_PASS }}" psql -h 127.0.0.1 -U ${{ inputs.liquibase-db-user }} -d postgres -tc \
+            "SELECT 1 FROM pg_database WHERE datname = '${{ inputs.liquibase-db-name }}'" | grep -q 1; then
+            echo "Database '${{ inputs.liquibase-db-name }}' already exists"
+          else
+            echo "Database '${{ inputs.liquibase-db-name }}' does not exist, creating..."
+            PGPASSWORD="${{ env.DB_PASS }}" psql -h 127.0.0.1 -U ${{ inputs.liquibase-db-user }} -d postgres -c \
+              "CREATE DATABASE \"${{ inputs.liquibase-db-name }}\""
+            echo "Database '${{ inputs.liquibase-db-name }}' created successfully"
+          fi
+
+      - name: Setup Liquibase
+        uses: liquibase/setup-liquibase@v2
+        with:
+          version: '4.32.0'
+          edition: community
+
+      - name: Run Liquibase migrations
+        shell: bash
+        run: |
+          liquibase \
+            --search-path="${{ inputs.liquibase-search-path }}" \
+            update \
+            --changelog-file="${{ inputs.liquibase-path }}" \
+            --url="jdbc:postgresql://127.0.0.1:5432/${{ inputs.liquibase-db-name }}" \
+            --username="${{ inputs.liquibase-db-user }}" \
+            --password="${{ env.DB_PASS }}"
+
+      - name: Stop Cloud SQL Proxy
+        if: always()
+        shell: bash
+        run: |
+          if [ -n "${{ env.CLOUD_SQL_PROXY_PID }}" ]; then
+            kill ${{ env.CLOUD_SQL_PROXY_PID }} || true
+          fi
+
+      - name: Notify Slack if Liquibase production fails
+        uses: extenda/actions/slack-notify@v0
+        if: failure()
+        with:
+          text: |
+            *Liquibase production migrations failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            Liquibase failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+          channel: ${{ inputs.slack-channel }}
+          service-account-key: ${{ secrets.secret-auth }}
+
+  production:
+    if: |
+      always() &&
+      (!inputs.release-to-staging-only) &&
+      (needs.acceptance.result == 'success' || needs.acceptance.result == 'skipped') &&
+      (needs.staging.result == 'success') &&
+      (needs.liquibase-prod.result == 'success' || needs.liquibase-prod.result == 'skipped')
+    runs-on: ubuntu-22.04
+    needs: [acceptance, staging, liquibase-prod]
     steps:
       - uses: actions/checkout@v4
         with:
