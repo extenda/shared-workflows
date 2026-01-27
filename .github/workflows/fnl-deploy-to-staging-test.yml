@@ -39,14 +39,16 @@ jobs:
           id: gcloud
           with:
             service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
+            export-default-credentials: 'true'
 
         - name: GCloud configure-docker
           run: gcloud --quiet auth configure-docker eu.gcr.io
 
-        - name: Auth to Nexus npm registry
-          uses: extenda/actions/nexus-auth-npm@v0
-          with:
-            service-account-key: ${{ secrets.SECRET_AUTH }}
+        - name: Run NPM auth script
+          shell: bash
+          run: |
+            echo "@hiiretail:registry=https://europe-west1-npm.pkg.dev/extenda/npm/" > .npmrc
+            npm run auth  -- --credential-config=./.npmrc
 
         - name: Build and push Docker image
           run: |
