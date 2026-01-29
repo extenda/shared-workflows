@@ -40,21 +40,29 @@ runs:
       with:
         node-version: 16
 
-    - name: Auth to Nexus npm registry
-      uses: extenda/actions/nexus-auth-npm@v0
-      with:
-        service-account-key: ${{ inputs.SECRET_AUTH }}
-
-    - name: Install dependencies
-      if: steps.cache-node-modules.outputs.cache-hit != 'true'
-      shell: bash
-      run: npm ci
-
     - uses: extenda/actions/setup-gcloud@v0
       id: gcloud
       with:
         service-account-key: ${{ inputs.GCLOUD_AUTH }}
         export-default-credentials: true
+
+    - name: Auth to Nexus npm registry
+      uses: extenda/actions/nexus-auth-npm@v0
+      with:
+        service-account-key: ${{ inputs.SECRET_AUTH }}
+
+    - name: Run NPM auth script (if present)
+      shell: bash
+      run: |
+        if jq -e '.scripts.auth' package.json > /dev/null; then
+          echo "@hiiretail:registry=https://europe-west1-npm.pkg.dev/extenda/npm/" > .npmrc
+          npm run auth  -- --credential-config=./.npmrc
+        fi
+
+    - name: Install dependencies
+      if: steps.cache-node-modules.outputs.cache-hit != 'true'
+      shell: bash
+      run: npm ci
 
     - name: GCloud configure-docker
       shell: bash
