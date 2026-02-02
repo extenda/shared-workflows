@@ -331,7 +331,10 @@ jobs:
           service-account-key: ${{ secrets.secret-auth }}
 
   acceptance:
-    if: ${{ inputs.use-scanngo-acceptance }}
+    if: |
+      always() &&
+      inputs.use-scanngo-acceptance &&
+      needs.staging.result == 'success'
     runs-on: ubuntu-22.04
     needs: staging
     steps:
