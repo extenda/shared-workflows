@@ -25,6 +25,9 @@ inputs:
     description: 'The host to use for sonar scanning'
     required: false
     default: 'https://sonarcloud.io'
+  sonar-dotnet-args:
+    description: Custom Sonar arguments that will be appended to the dotnet scanner command
+    required: false
   pact-directory:
     description: 'Directory for pact files, turn pact for consumer/client off by leaving this out'
     required: false
@@ -84,6 +87,7 @@ runs:
         sonar-host: ${{ inputs.sonar-host }}
         sonar-scanner: dotnet
         service-account-key: ${{ inputs.secret-auth }}
+        dotnet-args: ${{ inputs.sonar-dotnet-args }}
 
     - name: Restore dependencies
       shell: sh
