@@ -1,0 +1,23 @@
+name: should-i-deploy
+description: Check if the current time is Monday to Thursday and fail the workflow if it is not.
+inputs:
+  time-zone:
+    description: 'The time zone to check'
+    required: false
+    default: 'UTC'
+runs:
+  using: composite
+  steps:
+    - name: Check if it is Monday to Thursday
+      shell: bash
+      run: |
+        export TZ="${{ inputs.time-zone }}"
+        DAY_OF_WEEK=$(date +%u)
+        # 1=Monday, 2=Tuesday, 3=Wednesday, 4=Thursday, 5=Friday, 6=Saturday, 7=Sunday
+        if [ "$DAY_OF_WEEK" -le 4 ]; then
+          echo "It's a good day to deploy!"
+          exit 0
+        else
+          echo "Deployment is only allowed Monday to Thursday. Today is $(date +%A)."
+          exit 1
+        fi
