@@ -12,6 +12,13 @@ runs:
       shell: bash
       run: |
         export TZ="${{ inputs.time-zone }}"
+        COMMIT_MSG="${{ github.event.head_commit.message }}"
+
+        if [[ "$COMMIT_MSG" == *"[force deploy]"* ]]; then
+          echo "Force deploy detected in commit message. Proceeding..."
+          exit 0
+        fi
+
         DAY_OF_WEEK=$(date +%u)
         # 1=Monday, 2=Tuesday, 3=Wednesday, 4=Thursday, 5=Friday, 6=Saturday, 7=Sunday
         if [ "$DAY_OF_WEEK" -le 4 ]; then
