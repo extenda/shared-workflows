@@ -1,0 +1,80 @@
+name: Deploy staging
+
+on: 
+  workflow_call:
+    secrets:
+      GCLOUD_AUTH_STAGING:
+        required: true
+      SECRET_AUTH:
+        required: true
+    inputs:
+      image_name:
+        required: true
+        type: string
+      slack-channel:
+        description: Name of the channel to notify failing action
+        required: true
+        type: string
+      update-dns:
+        description: |
+          Set how DNS should be updated. Use `if-missing` to only create DNS if an
+          entry does not exist. Use `always` to update the DNS entry if is missing or
+          if the existing entry does not match the load balancer IP for the service.
+        required: false
+        type: string
+        default: if-missing
+      notify-slack-on-fail:
+        description: If true notifies slack channel specified in secrets in case this workflow fails
+        default: false
+        type: boolean
+        required: false
+
+jobs:
+  deploy:
+      runs-on: ubuntu-latest
+      steps:
+        - uses: actions/checkout@v4
+
+        - uses: extenda/actions/setup-gcloud@v0
+          id: gcloud
+          with:
+            service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
+            export-default-credentials: 'true'
+
+        - name: GCloud configure-docker
+          run: gcloud --quiet auth configure-docker eu.gcr.io
+
+        - name: Run NPM auth script
+          shell: bash
+          run: |
+            echo "@hiiretail:registry=https://europe-west1-npm.pkg.dev/extenda/npm/" > .npmrc
+            npm run auth  -- --credential-config=./.npmrc
+
+        - name: Build and push Docker image
+          run: |
+            docker build -t ${{ inputs.image_name }}:${{ github.sha }} .
+            docker push --all-tags ${{ inputs.image_name }}
+
+        - name: Attest image
+          uses: extenda/actions/binary-auth-attestation@v0
+          with:
+            image-path: ${{ inputs.image_name }}:${{ github.sha }}
+            service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
+
+        - name: Deploy to staging
+          uses: extenda/actions/cloud-deploy@v0
+          with:
+            secrets-account-key: ${{ secrets.SECRET_AUTH }}
+            service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
+            image: ${{ inputs.image_name }}:${{ github.sha }}
+            update-dns: ${{ inputs.update-dns }}
+
+        - name: Notify Slack if failed
+          if: ${{ failure() && inputs.notify-slack-on-fail }}
+          uses: extenda/actions/slack-notify@v0
+          with:
+            text: |
+              *Deploy to staging failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+              Deploy failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+            channel: ${{ inputs.slack-channel }}
+            service-account-key: ${{ secrets.SECRET_AUTH }}
