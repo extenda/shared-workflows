@@ -1,0 +1,78 @@
+name: Run tests
+description: Action for running test with artifact registry for financial and logistics clan
+
+inputs:
+  SECRET_AUTH:
+    required: true
+  GCLOUD_AUTH_STAGING:
+    required: true
+  open-api:
+    required: false
+    default: true
+    type: boolean
+
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Copy .env file
+      shell: bash
+      run: cp test/example.env .env
+
+    - name: Cache Sonar binary
+      uses: actions/cache@v3
+      env:
+        cache-name: cache-sonar-binary
+      with:
+        path: /home/runner/.sonar/native-sonar-scanner
+        key: ${{ runner.os }}-cache-sonar-binary
+        restore-keys: |
+          ${{ runner.os }}-build-${{ env.cache-name }}
+
+    - name: Install Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: 24
+
+    - uses: extenda/actions/setup-gcloud@v0
+      id: gcloud
+      with:
+        service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
+        export-default-credentials: true
+
+    - name: Run NPM auth script
+      shell: bash
+      run: |
+        echo "@hiiretail:registry=https://europe-west1-npm.pkg.dev/extenda/npm/" > .npmrc
+        npm run auth  -- --credential-config=./.npmrc
+
+    - name: Install dependencies
+      shell: bash
+      run: npm ci
+
+    - name: Fetch base branch
+      shell: bash
+      run: git fetch origin master:refs/remotes/origin/master
+
+    - name: Check OpenAPI schema updates
+      if: ${{ inputs.open-api == true }}
+      shell: bash
+      run: npm run check-openapi-schema
+
+    - name: Lint
+      shell: bash
+      run: npm run lint:ci
+
+    - name: Run unit tests with coverage
+      shell: bash
+      run: npm run test:cov
+
+    - name: Analyze with SonarCloud
+      uses: extenda/actions/sonar-scanner@v0
+      with:
+        sonar-host: https://sonarcloud.io
+        service-account-key: ${{ inputs.SECRET_AUTH }}
+        sonar-scanner: node
