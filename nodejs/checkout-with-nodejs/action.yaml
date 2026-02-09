@@ -9,6 +9,10 @@ inputs:
     description: The location of the node version file.
     required: false
     default: .nvmrc
+  cache-dependency-path:
+    description: The cache location
+    required: false
+    default: '**/package-lock.json'
 runs:
   using: composite
   steps:
@@ -19,3 +23,5 @@ runs:
     - uses: actions/setup-node@v4
       with:
         node-version-file: ${{ inputs.node-version-file }}
+        cache: npm
+        cache-dependency-path: ${{ inputs.cache-dependency-path }}
