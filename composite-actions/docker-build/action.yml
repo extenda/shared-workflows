@@ -27,7 +27,7 @@ runs:
       run: |
         gcloud --quiet auth configure-docker
         IMAGE=eu.gcr.io/extenda/${{ inputs.gcr-image-name }}:${{ github.sha }}
-        docker build -t $IMAGE . -f ${{ inputs.dockerfile-path }}
+        docker build --provenance=false -t $IMAGE . -f ${{ inputs.dockerfile-path }}
         docker push $IMAGE
 
     - name: Attest image
