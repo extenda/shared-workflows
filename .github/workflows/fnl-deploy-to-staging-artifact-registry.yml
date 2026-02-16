@@ -52,7 +52,7 @@ jobs:
 
         - name: Build and push Docker image
           run: |
-            docker build --provenance=false -t ${{ inputs.image_name }}:${{ github.sha }} .
+            docker build --provenance=false --pull --no-cache -t ${{ inputs.image_name }}:${{ github.sha }} .
             docker push --all-tags ${{ inputs.image_name }}
 
         - name: Attest image
