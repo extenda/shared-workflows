@@ -73,7 +73,7 @@ runs:
     - name: Build and push Docker image
       shell: bash
       run: |
-        docker build -t ${{ inputs.image }}:${{ github.sha }} .
+        docker build --provenance=false -t ${{ inputs.image }}:${{ github.sha }} .
         docker push ${{ inputs.image }}:${{ github.sha }}
 
     - name: Attest image
