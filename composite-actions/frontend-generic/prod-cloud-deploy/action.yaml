@@ -55,7 +55,7 @@ runs:
       shell: bash
       run: |
         gcloud --quiet auth configure-docker
-        docker build --build-arg LD_CLIENT_ID=${{ env.LD_CLIENT_ID }} -t ${{ inputs.image }}:${{ github.sha }} .
+        docker build --provenance=false --build-arg LD_CLIENT_ID=${{ env.LD_CLIENT_ID }} -t ${{ inputs.image }}:${{ github.sha }} .
         docker push ${{ inputs.image }}:${{ github.sha }}
 
     - name: Attest image
@@ -86,7 +86,7 @@ runs:
         service-account-key: ${{ inputs.GCLOUD_AUTH_STAGING }}
         update-dns: always
         image: ${{ env.IMAGE_NAME }}:${{ github.sha }}
-  
+
     - name: Run e2e tests
       id: e2e-test
       if: ${{ inputs.RUN_E2E_TESTS == 'true' && steps.stage-deployment.outcome == 'success' }}
