@@ -13,11 +13,11 @@ on:
         required: true
         type: string
       path-to-pom:
-        description: 'Path to the pom file'
+        description: 'Path to the pom file. When working directory is set, this path is relative to it.'
         required: true
         type: string
       path-to-dockerfile:
-        description: 'Path to dockerfile which builds the service.'
+        description: 'Path to dockerfile which builds the service. When working directory is set, this path is relative to it.'
         required: true
         type: string
       slack-channel:
@@ -75,6 +75,15 @@ on:
         type: boolean
         required: false
         default: true
+      working-directory:
+        description: 'working directory'
+        required: false
+        type: string
+      tag-prefix:
+        description: 'Release tag prefix. Must be provided in case of multiple projects in the same repository. Each project needs to have its own prefix. Use {service-prefix}-v format.'
+        type: string
+        required: false
+        default: 'v'
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -121,6 +130,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           build-number: ${{ github.run_number }}
+          tag-prefix: ${{ inputs.tag-prefix }}
 
       - name: Verify with Maven        
         uses: extenda/actions/maven@v0
@@ -128,6 +138,7 @@ jobs:
           args: verify -s settings.xml
           version: ${{ steps.semver.outputs.version }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
+          working-directory: ${{ inputs.working-directory || '.' }}
 
       - name: Kafka Streams lint - fetch detekt config file
         if: ${{ inputs.enable-kafka-streams-lint == true }}
@@ -138,7 +149,7 @@ jobs:
             -H "Authorization: Bearer $GITHUB_TOKEN" \
             -H "Accept: application/vnd.github.v3.raw" \
             "https://api.github.com/repos/extenda/shared-workflows/contents/.github/configs/pnp-detekt-plugin.yml" \
-            -o pnp-detekt-plugin.yml
+            -o ${{ inputs.working-directory || '.' }}pnp-detekt-plugin.yml
 
             cat pnp-detekt-plugin.yml
 
@@ -148,6 +159,7 @@ jobs:
         with:
           args: dependency:get -Dartifact=com.retailsvc:pnp-processors-core-common:0.140.3:jar
           service-account-key: ${{ secrets.SECRET_AUTH }}
+          working-directory: ${{ inputs.working-directory || '.' }}
           
       
       - name: Kafka Streams lint - build classpath with maven
@@ -156,7 +168,7 @@ jobs:
         with:
           args: dependency:build-classpath -DincludeScope=runtime -Dmdep.outputFile=cp.txt -DexcludeGroupIds=org.jetbrains.kotlin -DexcludeArtifactIds=kotlin-compiler-embeddable -q
           service-account-key: ${{ secrets.SECRET_AUTH }}
-          
+          working-directory: ${{ inputs.working-directory || '.' }}
 
       - name: Kafka Streams lint - build classpath lib dir with maven
         if: ${{ inputs.enable-kafka-streams-lint == true }}
@@ -164,23 +176,24 @@ jobs:
         with:
           args: dependency:copy-dependencies -DoutputDirectory=lib -DexcludeGroupIds=org.jetbrains.kotlin -DexcludeArtifactIds=kotlin-compiler-embeddable -q
           service-account-key: ${{ secrets.SECRET_AUTH }}
+          working-directory: ${{ inputs.working-directory || '.' }}
           
 
       - name: Kafka Streams lint - download Detekt CLI
         if: ${{ inputs.enable-kafka-streams-lint == true }}
         run: |
-          curl -s -L --create-dirs -o lib/detekt-cli.jar \
+          curl -s -L --create-dirs -o ${{ inputs.working-directory || '.' }}lib/detekt-cli.jar \
             https://github.com/detekt/detekt/releases/download/v1.23.8/detekt-cli-1.23.8-all.jar
       
 
       - name: Kafka Streams lint - verify with Detekt
         if: ${{ inputs.enable-kafka-streams-lint == true }}
         run: |
-          java -cp "target/classes:lib/*" \
+          java -cp "${{ inputs.working-directory || '.' }}target/classes:lib/*" \
             io.gitlab.arturbosch.detekt.cli.Main \
-              --input  src/main/kotlin \
-              --config  pnp-detekt-plugin.yml \
-              --classpath "target/classes:$(cat cp.txt)" \
+              --input  ${{ inputs.working-directory || '.' }}src/main/kotlin \
+              --config  ${{ inputs.working-directory || '.' }}pnp-detekt-plugin.yml \
+              --classpath "${{ inputs.working-directory || '.' }}target/classes:$(cat cp.txt)" \
               --jvm-target 21 \
               --plugins ~/.m2/repository/com/retailsvc/pnp-processors-core-common/0.140.3/pnp-processors-core-common-0.140.3.jar \
 
@@ -190,6 +203,7 @@ jobs:
           sonar-host: https://sonarcloud.io
           maven-args: --file ${{ inputs.path-to-pom }} --settings settings.xml org.sonarsource.scanner.maven:sonar-maven-plugin:3.7.0.1746:sonar
           service-account-key: ${{ secrets.SECRET_AUTH }}
+          working-directory: ${{ inputs.working-directory || '.' }}
           
       - uses: graalvm/setup-graalvm@v1
         if: ${{ inputs.native-image == true }}
@@ -205,6 +219,7 @@ jobs:
           args: verify -Dpackaging=native-image -s settings.xml
           version: ${{ steps.semver.outputs.version }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
+          working-directory: ${{ inputs.working-directory || '.' }}
     
       - name: Publish pacts
         if: ${{ inputs.do-pact-consumer-tests == true }}
@@ -251,7 +266,8 @@ jobs:
         if: github.ref == 'refs/heads/master'
         run: |
           IMAGE=eu.gcr.io/extenda/${{ inputs.GCR_image_name }}
-          docker build . -f ${{ inputs.path-to-dockerfile }} --build-arg jar_version=${{ steps.semver.outputs.version }} -t $IMAGE:${{ steps.semver.outputs.version }} -t $IMAGE:${{ github.sha }} -t $IMAGE:latest
+          WORKING_DIR=${{ inputs.working-directory || '.' }}
+          docker build ./${WORKING_DIR} -f ${{ inputs.path-to-dockerfile }} --build-arg jar_version=${{ steps.semver.outputs.version }} -t $IMAGE:${{ steps.semver.outputs.version }} -t $IMAGE:${{ github.sha }} -t $IMAGE:latest
           docker push --all-tags $IMAGE
 
       - name: Attest image
