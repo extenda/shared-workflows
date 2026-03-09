@@ -7,9 +7,6 @@ inputs:
   BUILD_TOOL:
     description: 'Build tool to use'
     required: true
-  GCLOUD_AUTH_PROD:
-    description: 'GCP Auth for production'
-    required: true
   GAR_WORKFLOW:
     description: 'Use GAR auth workflow (true/false)'
     required: false
