@@ -1,14 +1,21 @@
-name: "Run test & build"
-description: "Run test & build for frontend service on pull request"
+name: 'Run test & build'
+description: 'Run test & build for frontend service on pull request'
 inputs:
   SECRET_AUTH:
-    description: "GCP Auth"
+    description: 'GCP Auth'
     required: true
   BUILD_TOOL:
-    description: "Build tool to use"
+    description: 'Build tool to use'
     required: true
+  GCLOUD_AUTH_PROD:
+    description: 'GCP Auth for production'
+    required: true
+  GAR_WORKFLOW:
+    description: 'Use GAR auth workflow (true/false)'
+    required: false
+    default: 'false'
 runs:
-  using: "composite"
+  using: 'composite'
   steps:
     - uses: actions/checkout@v4
       with:
@@ -65,9 +72,24 @@ runs:
         node-version: 20
 
     - name: Auth to Nexus npm registry
+      if: inputs.GAR_WORKFLOW != 'true'
       uses: extenda/actions/nexus-auth-npm@v0
       with:
         service-account-key: ${{ inputs.SECRET_AUTH }}
+
+    - name: Auth to GCP
+      if: inputs.GAR_WORKFLOW == 'true'
+      uses: extenda/actions/setup-gcloud@v0
+      with:
+        service-account-key: ${{ inputs.SECRET_AUTH }}
+        export-default-credentials: 'true'
+
+    - name: Run NPM auth script
+      if: inputs.GAR_WORKFLOW == 'true'
+      shell: bash
+      run: |
+        echo "@hiiretail:registry=https://europe-west1-npm.pkg.dev/extenda/npm/" > .npmrc
+        npm run auth  -- --credential-config=./.npmrc
 
     - name: Install dependencies
       shell: bash
@@ -90,8 +112,8 @@ runs:
       run: npm run build
 
     - name: Install dependencies
-      shell: bash
       if: steps.cache-yarn-node-modules.outputs.cache-hit != 'true' && inputs.BUILD_TOOL == 'yarn'
+      shell: bash
       run: yarn install --frozen-lockfile
 
     - name: Lint
