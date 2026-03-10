@@ -1,31 +1,31 @@
-name: "Cloud deploy prod"
-description: "Cloud deploy prod"
+name: 'Cloud deploy prod'
+description: 'Cloud deploy prod'
 inputs:
   SECRET_AUTH:
-    description: "GCP Auth"
+    description: 'GCP Auth'
     required: true
   GCLOUD_AUTH_STAGING:
-    description: "GCP Auth (staging)"
+    description: 'GCP Auth (staging)'
     required: true
   GCLOUD_AUTH_PROD:
-    description: "GCP Auth (prod)"
+    description: 'GCP Auth (prod)'
     required: true
   GITHUB_TOKEN:
-    description: "GH token to create a release"
+    description: 'GH token to create a release'
   LD_CLIENT_ID:
-    description: "LaunchDarkly client ID in Secret Manager"
+    description: 'LaunchDarkly client ID in Secret Manager'
     required: true
   IMAGE:
-    description: "Image name for the service (without tag)"
+    description: 'Image name for the service (without tag)'
     required: true
   DEPLOY_TO_STAGE:
-    description: "Deploy to staging"
+    description: 'Deploy to staging'
     required: false
   RUN_E2E_TESTS:
-    description: "Run e2e tests"
+    description: 'Run e2e tests'
     required: false
   BUILD_TOOL:
-    description: "Build tool"
+    description: 'Build tool'
     required: false
   GAR_WORKFLOW:
     description: 'Use GAR auth workflow (true/false)'
@@ -33,7 +33,7 @@ inputs:
     default: 'false'
 
 runs:
-  using: "composite"
+  using: 'composite'
   steps:
     - uses: actions/checkout@v4
       with:
@@ -44,7 +44,7 @@ runs:
       uses: extenda/actions/nexus-auth-npm@v0
       with:
         service-account-key: ${{ inputs.SECRET_AUTH }}
-    
+
     - name: Auth to GCP
       if: inputs.GAR_WORKFLOW == 'true'
       uses: extenda/actions/setup-gcloud@v0
@@ -64,7 +64,8 @@ runs:
           LD_CLIENT_ID: ${{ inputs.LD_CLIENT_ID }}
 
     - name: GCloud configure-docker
-        run: gcloud --quiet auth configure-docker
+      shell: bash
+      run: gcloud --quiet auth configure-docker
 
     - name: Run NPM auth script
       if: inputs.GAR_WORKFLOW == 'true'
