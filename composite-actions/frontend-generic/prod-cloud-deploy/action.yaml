@@ -27,6 +27,10 @@ inputs:
   BUILD_TOOL:
     description: "Build tool"
     required: false
+  GAR_WORKFLOW:
+    description: 'Use GAR auth workflow (true/false)'
+    required: false
+    default: 'false'
 
 runs:
   using: "composite"
@@ -36,9 +40,17 @@ runs:
         fetch-depth: 0
 
     - name: Auth to Nexus npm registry
+      if: inputs.GAR_WORKFLOW != 'true'
       uses: extenda/actions/nexus-auth-npm@v0
       with:
         service-account-key: ${{ inputs.SECRET_AUTH }}
+    
+    - name: Auth to GCP
+      if: inputs.GAR_WORKFLOW == 'true'
+      uses: extenda/actions/setup-gcloud@v0
+      with:
+        service-account-key: ${{ inputs.SECRET_AUTH }}
+        export-default-credentials: 'true'
 
     - uses: extenda/actions/setup-gcloud@v0
       id: gcloud
@@ -51,10 +63,19 @@ runs:
         secrets: |
           LD_CLIENT_ID: ${{ inputs.LD_CLIENT_ID }}
 
+    - name: GCloud configure-docker
+        run: gcloud --quiet auth configure-docker
+
+    - name: Run NPM auth script
+      if: inputs.GAR_WORKFLOW == 'true'
+      shell: bash
+      run: |
+        echo "@hiiretail:registry=https://europe-west1-npm.pkg.dev/extenda/npm/" > .npmrc
+        npm run auth  -- --credential-config=./.npmrc
+
     - name: Build and push Docker
       shell: bash
       run: |
-        gcloud --quiet auth configure-docker
         docker build --provenance=false --build-arg LD_CLIENT_ID=${{ env.LD_CLIENT_ID }} -t ${{ inputs.image }}:${{ github.sha }} .
         docker push ${{ inputs.image }}:${{ github.sha }}
 
