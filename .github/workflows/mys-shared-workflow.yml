@@ -173,20 +173,11 @@ jobs:
       with:
         service-account-key: ${{ secrets.secret-auth }}
         secrets: |
-          NUGET_FEED_URI: azure_devops_revision_nuget_source
-          NUGET_FEED_USER: azure_devops_revision_user
-          NUGET_FEED_TOKEN: azure_devops_revision_token
           NEXUS_USERNAME: nexus-username
           NEXUS_PASSWORD: nexus-password
 
     - name: NuGet Authorize
       run: |
-        dotnet nuget add \
-          source ${{ env.NUGET_FEED_URI }} \
-          --name 'nuget-ci-production' \
-          --username ${{ env.NUGET_FEED_USER }} \
-          --password ${{ env.NUGET_FEED_TOKEN }} \
-          --store-password-in-clear-text
         dotnet nuget add \
             source ${{ inputs.nexus-uri }} \
             --name "Nexus ExtendaRetail" \
