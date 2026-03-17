@@ -157,7 +157,7 @@ jobs:
         java-version: ${{ inputs.java-version }}
         
     - name: Opa policy test
-      uses: extenda/actions/opa-policy-test@e2ce37cd34ea84b8a364adb68e790f51c436c258
+      uses: extenda/actions/opa-policy-test@v0
       with:
         service-account-key: ${{ secrets.gcloud-auth-staging }}
 
