@@ -157,19 +157,19 @@ jobs:
         java-version: ${{ inputs.java-version }}
         
     - name: Opa policy test
-      uses: extenda/actions/opa-policy-test@v0
+      uses: extenda/actions/opa-policy-test@e2ce37cd34ea84b8a364adb68e790f51c436c258
       with:
         service-account-key: ${{ secrets.gcloud-auth-staging }}
 
     - name: SonarScanner Start
-      uses: extenda/actions/sonar-scanner@v0
+      uses: extenda/actions/sonar-scanner@e2ce37cd34ea84b8a364adb68e790f51c436c258
       with:
         sonar-host: https://sonarcloud.io
         sonar-scanner: dotnet
         service-account-key: ${{ secrets.secret-auth }}
 
     - name: Get secrets
-      uses: extenda/actions/gcp-secret-manager@v0
+      uses: extenda/actions/gcp-secret-manager@e2ce37cd34ea84b8a364adb68e790f51c436c258
       with:
         service-account-key: ${{ secrets.secret-auth }}
         secrets: |
@@ -181,12 +181,6 @@ jobs:
 
     - name: NuGet Authorize
       run: |
-        dotnet nuget add \
-          source ${{ env.NUGET_FEED_URI }} \
-          --name 'nuget-ci-production' \
-          --username ${{ env.NUGET_FEED_USER }} \
-          --password ${{ env.NUGET_FEED_TOKEN }} \
-          --store-password-in-clear-text
         dotnet nuget add \
             source ${{ inputs.nexus-uri }} \
             --name "Nexus ExtendaRetail" \
@@ -227,19 +221,19 @@ jobs:
         fi
 
     - name: SonarScanner Analyse
-      uses: extenda/actions/sonar-scanner@v0
+      uses: extenda/actions/sonar-scanner@e2ce37cd34ea84b8a364adb68e790f51c436c258
       with:
         sonar-host: https://sonarcloud.io
         sonar-scanner: dotnet
         service-account-key: ${{ secrets.secret-auth }}
 
     - name: Determine SemVersion
-      uses: extenda/actions/conventional-version@v0
+      uses: extenda/actions/conventional-version@e2ce37cd34ea84b8a364adb68e790f51c436c258
       id: semver
 
     - name: Release Tag Create
       if: github.ref == 'refs/heads/master'
-      uses: extenda/actions/conventional-release@v0
+      uses: extenda/actions/conventional-release@e2ce37cd34ea84b8a364adb68e790f51c436c258
       id: release
       with:
           name: ${{ inputs.release-name }}
@@ -247,7 +241,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         
     - name: Notify Slack if build fails
-      uses: extenda/actions/slack-notify@v0
+      uses: extenda/actions/slack-notify@e2ce37cd34ea84b8a364adb68e790f51c436c258
       if: failure() && github.ref == 'refs/heads/master'
       with:
         text: |
@@ -415,7 +409,7 @@ jobs:
           echo "version=${version}" >> "$GITHUB_OUTPUT"
 
       - name: Get secrets
-        uses: extenda/actions/gcp-secret-manager@v0
+        uses: extenda/actions/gcp-secret-manager@e2ce37cd34ea84b8a364adb68e790f51c436c258
         with:
           service-account-key: ${{ secrets.secret-auth }}
           secrets: |
@@ -483,7 +477,7 @@ jobs:
           rm -r "${releasename}"
     
       - name: GCloud SDK Setup
-        uses: extenda/actions/setup-gcloud@v0
+        uses: extenda/actions/setup-gcloud@e2ce37cd34ea84b8a364adb68e790f51c436c258
         id: gcloud
         with:
           service-account-key: ${{ secrets.gcloud-auth-staging }}
@@ -503,7 +497,7 @@ jobs:
             --package=${{ inputs.service-name }}
 
       - name: Notify Slack about new release
-        uses: extenda/actions/slack-notify@v0
+        uses: extenda/actions/slack-notify@e2ce37cd34ea84b8a364adb68e790f51c436c258
         with:
           text: |
             A new ${{ steps.create-artifact.outputs.artifact }} ${{ startsWith(github.ref, 'refs/tags/') && 'hotfix ' || '' }}release is available :gift:
@@ -513,7 +507,7 @@ jobs:
           service-account-key: ${{ secrets.secret-auth }}
 
       - name: Notify Slack if onprem-release fails
-        uses: extenda/actions/slack-notify@v0
+        uses: extenda/actions/slack-notify@e2ce37cd34ea84b8a364adb68e790f51c436c258
         if: failure()
         with:
           text: |
@@ -545,7 +539,7 @@ jobs:
           fi
 
       - name: Get secrets
-        uses: extenda/actions/gcp-secret-manager@v0
+        uses: extenda/actions/gcp-secret-manager@e2ce37cd34ea84b8a364adb68e790f51c436c258
         with:
           service-account-key: ${{ secrets.secret-auth }}
           secrets: |
@@ -556,7 +550,7 @@ jobs:
             NEXUS_PASSWORD: nexus-password
 
       - name: Setup NuGet sources
-        uses: extenda/actions/setup-nuget-sources@v0
+        uses: extenda/actions/setup-nuget-sources@e2ce37cd34ea84b8a364adb68e790f51c436c258
         with:
           config-file: NuGet.Config
           sources: |
@@ -574,14 +568,14 @@ jobs:
             }]
 
       - name: Build Docker image
-        uses: extenda/shared-workflows/composite-actions/docker-build@master
+        uses: extenda/shared-workflows/composite-actions/docker-build@9e4c870fd5f770c059fa3c78b8754a6e2cac08b7
         with:
           gcloud-auth-staging: ${{ secrets.gcloud-auth-staging }}
           dockerfile-path: ${{ inputs.dockerfile-path }}
           gcr-image-name: ${{ inputs.gcr-image-name }}
 
       - name: Notify Slack if docker-build fails
-        uses: extenda/actions/slack-notify@v0
+        uses: extenda/actions/slack-notify@e2ce37cd34ea84b8a364adb68e790f51c436c258
         if: |
           failure() &&
           (!inputs.code-freeze || contains(env.HEAD_COMMIT_MESSAGE, '[force-deploy]'))
@@ -601,14 +595,14 @@ jobs:
           fetch-depth: 0
 
       - name: Deploy to staging
-        uses: extenda/shared-workflows/composite-actions/deploy-to-staging@master
+        uses: extenda/shared-workflows/composite-actions/deploy-to-staging@9e4c870fd5f770c059fa3c78b8754a6e2cac08b7
         with:
           secret-auth: ${{ secrets.secret-auth }}
           gcloud-auth-staging: ${{ secrets.gcloud-auth-staging }}
           gcr-image-name: ${{ inputs.gcr-image-name }}
 
       - name: Notify Slack if staging fails
-        uses: extenda/actions/slack-notify@v0
+        uses: extenda/actions/slack-notify@e2ce37cd34ea84b8a364adb68e790f51c436c258
         if: failure()
         with:
           text: |
@@ -627,7 +621,7 @@ jobs:
           fetch-depth: 0
 
       - name: Acceptance
-        uses: extenda/shared-workflows/composite-actions/mys/acceptance@master
+        uses: extenda/shared-workflows/composite-actions/mys/acceptance@9e4c870fd5f770c059fa3c78b8754a6e2cac08b7
         with:
           secret-auth: ${{ secrets.secret-auth }}
           gcloud-auth-staging: ${{ secrets.gcloud-auth-staging }}
@@ -636,7 +630,7 @@ jobs:
           acceptance-postman-environment-path: ${{ inputs.acceptance-postman-environment-path }}
 
       - name: Notify Slack if acceptance fails
-        uses: extenda/actions/slack-notify@v0
+        uses: extenda/actions/slack-notify@e2ce37cd34ea84b8a364adb68e790f51c436c258
         if: failure()
         with:
           text: |
@@ -658,7 +652,7 @@ jobs:
           fetch-depth: 0
 
       - name: Deploy to production
-        uses: extenda/shared-workflows/composite-actions/deploy-to-production@master
+        uses: extenda/shared-workflows/composite-actions/deploy-to-production@9e4c870fd5f770c059fa3c78b8754a6e2cac08b7
         with:
           secret-auth: ${{ secrets.secret-auth }}
           gcloud-auth-prod: ${{ secrets.gcloud-auth-prod }}
@@ -670,7 +664,7 @@ jobs:
           release-tag: ${{ fromJSON(needs.build-test-sonarqube.outputs.semver-outputs).release-tag }}
 
       - name: Notify Slack if production fails
-        uses: extenda/actions/slack-notify@v0
+        uses: extenda/actions/slack-notify@e2ce37cd34ea84b8a364adb68e790f51c436c258
         if: failure()
         with:
           text: |
