@@ -173,9 +173,6 @@ jobs:
       with:
         service-account-key: ${{ secrets.secret-auth }}
         secrets: |
-          NUGET_FEED_URI: azure_devops_revision_nuget_source
-          NUGET_FEED_USER: azure_devops_revision_user
-          NUGET_FEED_TOKEN: azure_devops_revision_token
           NEXUS_USERNAME: nexus-username
           NEXUS_PASSWORD: nexus-password
 
