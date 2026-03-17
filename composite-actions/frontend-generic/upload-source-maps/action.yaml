@@ -20,6 +20,10 @@ inputs:
   GCLOUD_AUTH_STAGING:
     description: "GCP Auth for staging"
     required: true
+  GAR_WORKFLOW:
+    description: "Use GAR auth workflow (true/false)"
+    required: false
+    default: "false"
 
 runs:
   using: composite
@@ -43,9 +47,24 @@ runs:
         node-version: "20"
 
     - name: Auth to Nexus npm registry
+      if: inputs.GAR_WORKFLOW != 'true'
       uses: extenda/actions/nexus-auth-npm@v0
       with:
         service-account-key: ${{ inputs.SECRET_AUTH }}
+
+    - name: Auth to GCP
+      if: inputs.GAR_WORKFLOW == 'true'
+      uses: extenda/actions/setup-gcloud@v0
+      with:
+        service-account-key: ${{ inputs.SECRET_AUTH }}
+        export-default-credentials: 'true'
+
+    - name: Run NPM auth script
+      if: inputs.GAR_WORKFLOW == 'true'
+      shell: bash
+      run: |
+        echo "@hiiretail:registry=https://europe-west1-npm.pkg.dev/extenda/npm/" > .npmrc
+        npm run auth  -- --credential-config=./.npmrc
 
     - name: Install dependencies
       shell: bash
