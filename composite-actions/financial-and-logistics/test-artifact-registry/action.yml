@@ -40,7 +40,7 @@ runs:
     - uses: extenda/actions/setup-gcloud@v0
       id: gcloud
       with:
-        service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
+        service-account-key: ${{ inputs.GCLOUD_AUTH_STAGING }}
         export-default-credentials: true
 
     - name: Run NPM auth script
