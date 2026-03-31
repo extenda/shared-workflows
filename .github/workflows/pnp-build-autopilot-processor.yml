@@ -278,6 +278,19 @@ jobs:
           docker build . -f ${{ inputs.path-to-dockerfile }} --build-arg jar_version=${{ steps.semver.outputs.version }} -t $IMAGE:${{ steps.semver.outputs.version }} -t $IMAGE:${{ github.sha }} -t $IMAGE:latest
           docker push --all-tags $IMAGE
 
+      - name: Scan image with Trivy
+        if: github.ref == 'refs/heads/master'
+        uses: extenda/actions/trivy-scan@v0
+        with:
+          image: eu.gcr.io/extenda/${{ inputs.GCR_image_name }}:${{ steps.semver.outputs.version }}
+          service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
+          # Only report HIGH and CRITICAL vulnerabilities
+          severity: 'HIGH,CRITICAL'
+          # Fail the build if vulnerabilities are found
+          fail-on-vulnerabilities: false
+          notify-slack-on-vulnerabilities: true
+          upload-sbom: false
+
       - name: Attest image
         if: github.ref == 'refs/heads/master'
         uses: extenda/actions/binary-auth-attestation@v0
