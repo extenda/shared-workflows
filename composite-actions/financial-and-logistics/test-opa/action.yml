@@ -27,6 +27,7 @@ runs:
     - name: OPA/Rego unit tests
       uses: extenda/actions/opa-policy-test@v0
       with:
+        service-account-key: ${{ inputs.SECRET_AUTH }}
         permission-prefix: ${{ inputs.permission-prefix }}
         service-name: ${{ inputs.service-name }}
         styra-das-token: ${{ inputs.STYRA_TOKEN }}
