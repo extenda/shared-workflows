@@ -7,17 +7,6 @@ inputs:
   GCLOUD_AUTH:
     description: 'GCP Auth (Staging)'
     required: false
-  system:
-    description: '3-letter service name'
-    required: true
-  service-name:
-    description: 'Service name (same as in Styra & GCP)'
-    required: true
-  policy-type:
-    description: |
-      The policy you are testing, ingress or app ( default: ingress )
-    default: ingress
-    required: false
   slack-channel:
     description: Name of the channel to notify failing action
     required: true
@@ -29,21 +18,12 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
 
-    - uses: extenda/actions/gcp-secret-manager@v0
+    - name: Test OPA policies
+      uses: extenda/actions/opa-policy-test@v0
       with:
-        service-account-key: ${{ inputs.SECRET_AUTH }}
-        secrets: |
-          STYRA_TOKEN: styra-das-token
-
-    - name: OPA/Rego unit tests
-      uses: extenda/actions/styra-das-test@v0
-      with:
-        policy-type: ${{ inputs.policy-type }}
-        permission-prefix: ${{ inputs.system }}
-        service-name: ${{ inputs.service-name }}
-        styra-das-token: ${{ env.STYRA_TOKEN }}
+        service-account-key: ${{ inputs.GCLOUD_AUTH || inputs.SECRET_AUTH }}
 
     - name: Notify Slack if failed
       if: ${{ github.ref == 'refs/heads/master' && failure() && inputs.notify-slack-on-fail }}
