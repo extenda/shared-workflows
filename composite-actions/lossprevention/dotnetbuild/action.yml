@@ -41,7 +41,10 @@ inputs:
 
 outputs:
   version:
-    description: 'The version that was build and if on master pushed and attested'
+    description: 'The version that was build and if on master pushed and attested. Sanitized to max 128 chars for Docker tag compatibility.'
+    value: ${{ steps.safe-version.outputs.tag }}
+  version-original:
+    description: 'The original composed version string from conventional-version, before sanitization.'
     value: ${{ steps.semver.outputs.composed-version-string }}
 
 
