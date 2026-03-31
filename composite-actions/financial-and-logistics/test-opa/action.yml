@@ -25,7 +25,7 @@ runs:
           STYRA_TOKEN: styra-das-token
 
     - name: OPA/Rego unit tests
-      uses: extenda/actions/styra-das-test@v0
+      uses: extenda/actions/opa-policy-test@v0
       with:
         permission-prefix: ${{ inputs.permission-prefix }}
         service-name: ${{ inputs.service-name }}
