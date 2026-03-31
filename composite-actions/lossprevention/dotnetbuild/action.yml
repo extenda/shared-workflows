@@ -118,7 +118,7 @@ runs:
           SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
           TAG="${{ steps.semver.outputs.semver }}-${SHORT_SHA}"
         fi
-        echo "tag=$TAG" >> $GITHUB_OUTPUT
+        echo "tag=$TAG" >> $GITHUB_OUTPUT 
 
     - name: Pact steps
       if: inputs.pact-directory || inputs.pact-webhook-id
