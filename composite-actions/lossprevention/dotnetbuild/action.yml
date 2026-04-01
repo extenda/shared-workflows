@@ -119,7 +119,7 @@ runs:
         TAG="${{ steps.semver.outputs.composed-version-string }}"
         if [ ${#TAG} -gt 128 ]; then
           SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-          TAG="${{ steps.semver.outputs.semver }}-${SHORT_SHA}"
+          TAG="${{ steps.semver.outputs.version }}-${SHORT_SHA}"
         fi
         echo "tag=$TAG" >> $GITHUB_OUTPUT 
 
