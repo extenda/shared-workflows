@@ -28,35 +28,23 @@ on:
         required: false
 
     inputs:
-      has-k6-tests:
-        description: |
-          If true, runs k6 tests for this API. Requires "k6-tests-root-folder" and "k6-tests-file-names" to run k6 tests.  
-        type: boolean
-        required: true
-      k6-node-version:
-        description: |
-          Node version needed for k6 tests.
-        type: number
-        required: false
-        default: 22
-      k6-tests-root-folder:
-        description: |
-          k6 tests root folder.
-        type: string
-        required: false
-        default: 'test/k6'
-      k6-tests-file-names:
-        description: |
-          The k6 tests file names. Should follow the JSON string array format.
-        type: string
-        required: false
-        default: '["dist/api-tests.js"]'
       dotnet-version:
         description: |
           The .NET version.
         type: number
         required: false
         default: 10
+      has-k6-tests:
+        description: |
+          If true, runs k6 tests for this API. Requires "k6-test-scripts" to run k6 tests.  
+        type: boolean
+        required: true
+      k6-test-scripts:
+        description: |
+          Glob pattern to select one or multiple k6 test scripts to run.
+        type: string
+        required: false
+        default: './test/k6/**/api*.ts'
 
 permissions:
   contents: read
@@ -222,10 +210,6 @@ jobs:
     needs: staging
     if: ${{ github.ref == 'refs/heads/master' && inputs.has-k6-tests == true }}
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        k6-test-file-name: ${{ fromJSON(inputs.k6-tests-file-names) }}
-
     steps:
       - uses: actions/checkout@v4
       
@@ -241,21 +225,11 @@ jobs:
         with:
           service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
           api-key: ${{ env.API_KEY }}
-
-      - uses: actions/setup-node@v3
-        with:
-          node-version: ${{ inputs.k6-node-version }}
-
-      - name: yarn webpack
-        run: |
-         cd ${{ inputs.k6-tests-root-folder }}
-         yarn install
-         yarn webpack
     
       - name: Run API tests
-        uses: k6io/action@v0.2.0
+        uses: extenda/actions/k6@v0
         with:
-          filename: ${{ inputs.k6-tests-root-folder }}/${{ matrix.k6-test-file-name }}
+          scripts: ${{ inputs.k6-test-scripts }}
           flags: --env IAM_TOKEN=${{ steps.testtoken.outputs.iam-token }} --env SERVICE_BASE_URL=${{ secrets.SERVICE_BASE_URL_STAGING }}
 
       - name: Notify Slack if failed
