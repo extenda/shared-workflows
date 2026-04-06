@@ -58,6 +58,10 @@ on:
         required: false
         default: 8
 
+permissions:
+  contents: read
+  id-token: write
+
 jobs:
   test-opa-policies:
     runs-on: ubuntu-latest
@@ -88,13 +92,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: extenda/actions/gcp-secret-manager@v0
-        with:
-          service-account-key: ${{ secrets.SECRET_AUTH }}
-          secrets: |
-            NEXUS_PASSWORD: nexus-password
-            NEXUS_USERNAME: nexus-username                        
-        
       - name: Determine version
         uses: extenda/actions/conventional-version@v0
         id: semver
@@ -106,10 +103,18 @@ jobs:
         with:
           dotnet-version: '${{ inputs.dotnet-version }}.0.x'
 
-      - name: Register nuget source
+      - uses: extenda/actions/gcp-secret-manager@v0
+        with:
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+          secrets: |
+            NEXUS_PASSWORD: nexus-password
+            NEXUS_USERNAME: nexus-username
+      
+      - name: Update nuget source
         run: |
-          dotnet nuget add source "https://repo.extendaretail.com/repository/nuget-hosted/" --name "Extenda" \
-            --username ${{ env.NEXUS_USERNAME }} --password ${{ env.NEXUS_PASSWORD }} \
+          dotnet nuget update source Extenda \
+            --username ${{ env.NEXUS_USERNAME }} \
+            --password ${{ env.NEXUS_PASSWORD }} \
             --store-password-in-clear-text
 
       - name: Start Sonar Scanner
@@ -122,12 +127,15 @@ jobs:
 
       - name: Build dotnet solution
         run: |
-          dotnet build ${{ secrets.PATH_TO_SOLUTION }} --configuration Release \
+          dotnet build ${{ secrets.PATH_TO_SOLUTION }} \
+            --configuration Release \
             /p:Version=${{ steps.semver.outputs.semver }}
       
       - name: Test dotnet solution
         run: |
-          dotnet test ${{ secrets.PATH_TO_UNIT_TESTS }} --configuration Release --no-build \
+          dotnet test ${{ secrets.PATH_TO_UNIT_TESTS }} \
+            --no-build \
+            --configuration Release \
             /p:CollectCoverage=true /p:CoverletOutputFormat=opencover
 
       - name: Analyze with Sonar  
@@ -154,6 +162,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '${{ inputs.dotnet-version }}.0.x'
+
       - uses: extenda/actions/gcp-secret-manager@v0
         with:
           service-account-key: ${{ secrets.SECRET_AUTH }}
@@ -161,37 +174,29 @@ jobs:
             NEXUS_PASSWORD: nexus-password
             NEXUS_USERNAME: nexus-username
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '${{ inputs.dotnet-version }}.0.x'
-
-      - name: Register nuget source
+      - name: Update nuget source
         run: |
-          dotnet nuget add source "https://repo.extendaretail.com/repository/nuget-hosted/" --name "Extenda" \
-            --username ${{ env.NEXUS_USERNAME }} --password ${{ env.NEXUS_PASSWORD }} \
+          dotnet nuget update source Extenda \
+            --username ${{ env.NEXUS_USERNAME }} \
+            --password ${{ env.NEXUS_PASSWORD }} \
+            --configfile nuget.config \
             --store-password-in-clear-text
-
-      - name: Build container image
-        run: |
-          dotnet publish ${{ secrets.PATH_TO_SOLUTION }} -r linux-x64 \
-            -p PublishProfile=DefaultContainer -p ContainerRepository=eu.gcr.io/extenda/${{ secrets.IMAGE_NAME }} \
-            -p ContainerImageTag=${{ github.sha }}
 
       - uses: extenda/actions/setup-gcloud@v0
         with:
           service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
 
-      - name: Build and push Docker
+      - name: Build and push image
         run: |
           gcloud --quiet auth configure-docker
-          IMAGE=eu.gcr.io/extenda/${{ secrets.IMAGE_NAME }}:${{ github.sha }}
-          docker push $IMAGE
+          IMAGE=eu.gcr.io/extenda/${{ secrets.IMAGE_NAME }}
+          docker build -t $IMAGE:${{ github.sha }} -t $IMAGE:latest . -f Dockerfile
+          docker push --all-tags $IMAGE
 
       - name: Attest image
         uses: extenda/actions/binary-auth-attestation@v0
         with:
-          image-path: eu.gcr.io/extenda/${{ secrets.IMAGE_NAME }}:${{ github.sha }}
+          image-path: eu.gcr.io/extenda/${{ secrets.IMAGE_NAME }}
           service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
 
       - name: Deploy to staging
