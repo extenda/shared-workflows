@@ -6,10 +6,6 @@ on:
         required: true
       GCLOUD_AUTH_STAGING:
         required: true
-      IMAGE_NAME:
-        description: |
-          The name of the image to be created in GCR.
-        required: true
       PATH_TO_SOLUTION:
         description: |
           The path to the solution.
@@ -17,6 +13,10 @@ on:
       PATH_TO_UNIT_TESTS:
         description: |
           The path to the unit tests project/solution.
+        required: true
+      IMAGE_NAME:
+        description: |
+          The name of the image to be created in GCR.
         required: true
       SERVICE_BASE_URL_STAGING:
         description: 
@@ -38,7 +38,7 @@ on:
           Node version needed for k6 tests.
         type: number
         required: false
-        default: 18
+        default: 22
       k6-tests-root-folder:
         description: |
           k6 tests root folder.
@@ -50,13 +50,13 @@ on:
           The k6 tests file names. Should follow the JSON string array format.
         type: string
         required: false
-        default: '["dist/api-tests-v1.js", "dist/api-tests-v2.js"]'
+        default: '["dist/api-tests.js"]'
       dotnet-version:
         description: |
           The .NET version.
         type: number
         required: false
-        default: 8
+        default: 10
 
 permissions:
   contents: read
@@ -115,6 +115,7 @@ jobs:
           dotnet nuget update source Extenda \
             --username ${{ env.NEXUS_USERNAME }} \
             --password ${{ env.NEXUS_PASSWORD }} \
+            --configfile nuget.config \
             --store-password-in-clear-text
 
       - name: Start Sonar Scanner
@@ -190,13 +191,13 @@ jobs:
         run: |
           gcloud --quiet auth configure-docker
           IMAGE=eu.gcr.io/extenda/${{ secrets.IMAGE_NAME }}
-          docker build -t $IMAGE:${{ github.sha }} -t $IMAGE:latest . -f Dockerfile
-          docker push --all-tags $IMAGE
+          docker build -t $IMAGE:${{ github.sha }} . -f Dockerfile
+          docker push $IMAGE:${{ github.sha }}
 
       - name: Attest image
         uses: extenda/actions/binary-auth-attestation@v0
         with:
-          image-path: eu.gcr.io/extenda/${{ secrets.IMAGE_NAME }}
+          image-path: eu.gcr.io/extenda/${{ secrets.IMAGE_NAME }}:${{ github.sha }}
           service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
 
       - name: Deploy to staging
