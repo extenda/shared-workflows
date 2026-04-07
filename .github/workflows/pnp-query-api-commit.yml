@@ -6,10 +6,6 @@ on:
         required: true
       GCLOUD_AUTH_STAGING:
         required: true
-      IMAGE_NAME:
-        description: |
-          The name of the image to be created in GCR.
-        required: true
       PATH_TO_SOLUTION:
         description: |
           The path to the solution.
@@ -17,6 +13,10 @@ on:
       PATH_TO_UNIT_TESTS:
         description: |
           The path to the unit tests project/solution.
+        required: true
+      IMAGE_NAME:
+        description: |
+          The name of the image to be created in GCR.
         required: true
       SERVICE_BASE_URL_STAGING:
         description: 
@@ -28,35 +28,27 @@ on:
         required: false
 
     inputs:
-      has-k6-tests:
-        description: |
-          If true, runs k6 tests for this API. Requires "k6-tests-root-folder" and "k6-tests-file-names" to run k6 tests.  
-        type: boolean
-        required: true
-      k6-node-version:
-        description: |
-          Node version needed for k6 tests.
-        type: number
-        required: false
-        default: 18
-      k6-tests-root-folder:
-        description: |
-          k6 tests root folder.
-        type: string
-        required: false
-        default: 'test/k6'
-      k6-tests-file-names:
-        description: |
-          The k6 tests file names. Should follow the JSON string array format.
-        type: string
-        required: false
-        default: '["dist/api-tests-v1.js", "dist/api-tests-v2.js"]'
       dotnet-version:
         description: |
           The .NET version.
         type: number
         required: false
-        default: 8
+        default: 10
+      has-k6-tests:
+        description: |
+          If true, runs k6 tests for this API. Requires "k6-test-scripts" to run k6 tests.  
+        type: boolean
+        required: true
+      k6-test-scripts:
+        description: |
+          Glob pattern to select one or multiple k6 test scripts to run.
+        type: string
+        required: false
+        default: './test/k6/**/api*.ts'
+
+permissions:
+  contents: read
+  id-token: write
 
 jobs:
   test-opa-policies:
@@ -88,13 +80,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: extenda/actions/gcp-secret-manager@v0
-        with:
-          service-account-key: ${{ secrets.SECRET_AUTH }}
-          secrets: |
-            NEXUS_PASSWORD: nexus-password
-            NEXUS_USERNAME: nexus-username                        
-        
       - name: Determine version
         uses: extenda/actions/conventional-version@v0
         id: semver
@@ -106,10 +91,19 @@ jobs:
         with:
           dotnet-version: '${{ inputs.dotnet-version }}.0.x'
 
-      - name: Register nuget source
+      - uses: extenda/actions/gcp-secret-manager@v0
+        with:
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+          secrets: |
+            NEXUS_PASSWORD: nexus-password
+            NEXUS_USERNAME: nexus-username
+      
+      - name: Update nuget source
         run: |
-          dotnet nuget add source "https://repo.extendaretail.com/repository/nuget-hosted/" --name "Extenda" \
-            --username ${{ env.NEXUS_USERNAME }} --password ${{ env.NEXUS_PASSWORD }} \
+          dotnet nuget update source Extenda \
+            --username ${{ env.NEXUS_USERNAME }} \
+            --password ${{ env.NEXUS_PASSWORD }} \
+            --configfile nuget.config \
             --store-password-in-clear-text
 
       - name: Start Sonar Scanner
@@ -120,14 +114,17 @@ jobs:
           service-account-key: ${{ secrets.SECRET_AUTH }}
           dotnet-args: /d:sonar.scanner.scanAll=false
 
-      - name: Build dotnet solution
+      - name: Build solution
         run: |
-          dotnet build ${{ secrets.PATH_TO_SOLUTION }} --configuration Release \
+          dotnet build ${{ secrets.PATH_TO_SOLUTION }} \
+            --configuration Release \
             /p:Version=${{ steps.semver.outputs.semver }}
       
-      - name: Test dotnet solution
+      - name: Run unit tests
         run: |
-          dotnet test ${{ secrets.PATH_TO_UNIT_TESTS }} --configuration Release --no-build \
+          dotnet test ${{ secrets.PATH_TO_UNIT_TESTS }} \
+            --no-build \
+            --configuration Release \
             /p:CollectCoverage=true /p:CoverletOutputFormat=opencover
 
       - name: Analyze with Sonar  
@@ -154,6 +151,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '${{ inputs.dotnet-version }}.0.x'
+
       - uses: extenda/actions/gcp-secret-manager@v0
         with:
           service-account-key: ${{ secrets.SECRET_AUTH }}
@@ -161,32 +163,24 @@ jobs:
             NEXUS_PASSWORD: nexus-password
             NEXUS_USERNAME: nexus-username
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '${{ inputs.dotnet-version }}.0.x'
-
-      - name: Register nuget source
+      - name: Update nuget source
         run: |
-          dotnet nuget add source "https://repo.extendaretail.com/repository/nuget-hosted/" --name "Extenda" \
-            --username ${{ env.NEXUS_USERNAME }} --password ${{ env.NEXUS_PASSWORD }} \
+          dotnet nuget update source Extenda \
+            --username ${{ env.NEXUS_USERNAME }} \
+            --password ${{ env.NEXUS_PASSWORD }} \
+            --configfile nuget.config \
             --store-password-in-clear-text
-
-      - name: Build container image
-        run: |
-          dotnet publish ${{ secrets.PATH_TO_SOLUTION }} -r linux-x64 \
-            -p PublishProfile=DefaultContainer -p ContainerRepository=eu.gcr.io/extenda/${{ secrets.IMAGE_NAME }} \
-            -p ContainerImageTag=${{ github.sha }}
 
       - uses: extenda/actions/setup-gcloud@v0
         with:
           service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
 
-      - name: Build and push Docker
+      - name: Build and push image
         run: |
           gcloud --quiet auth configure-docker
-          IMAGE=eu.gcr.io/extenda/${{ secrets.IMAGE_NAME }}:${{ github.sha }}
-          docker push $IMAGE
+          IMAGE=eu.gcr.io/extenda/${{ secrets.IMAGE_NAME }}
+          docker build -t $IMAGE:${{ github.sha }} . -f Dockerfile
+          docker push $IMAGE:${{ github.sha }}
 
       - name: Attest image
         uses: extenda/actions/binary-auth-attestation@v0
@@ -216,10 +210,6 @@ jobs:
     needs: staging
     if: ${{ github.ref == 'refs/heads/master' && inputs.has-k6-tests == true }}
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        k6-test-file-name: ${{ fromJSON(inputs.k6-tests-file-names) }}
-
     steps:
       - uses: actions/checkout@v4
       
@@ -235,21 +225,11 @@ jobs:
         with:
           service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
           api-key: ${{ env.API_KEY }}
-
-      - uses: actions/setup-node@v3
-        with:
-          node-version: ${{ inputs.k6-node-version }}
-
-      - name: yarn webpack
-        run: |
-         cd ${{ inputs.k6-tests-root-folder }}
-         yarn install
-         yarn webpack
     
       - name: Run API tests
-        uses: k6io/action@v0.2.0
+        uses: extenda/actions/k6@v0
         with:
-          filename: ${{ inputs.k6-tests-root-folder }}/${{ matrix.k6-test-file-name }}
+          scripts: ${{ inputs.k6-test-scripts }}
           flags: --env IAM_TOKEN=${{ steps.testtoken.outputs.iam-token }} --env SERVICE_BASE_URL=${{ secrets.SERVICE_BASE_URL_STAGING }}
 
       - name: Notify Slack if failed
@@ -285,7 +265,7 @@ jobs:
         with:
           service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
 
-      - name: Add tag in GCR
+      - name: Add tag to image
         run: |
           gcloud container images add-tag \
             eu.gcr.io/extenda/${{ secrets.IMAGE_NAME }}:${{ github.sha }} \
