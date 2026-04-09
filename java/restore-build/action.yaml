@@ -19,7 +19,7 @@ runs:
         cache: maven
 
     - name: Restore build
-      uses: actions/cache/restore@v4
+      uses: actions/cache/restore@v5
       with:
         path: '**/target/**'
         key: cache-mvn-build-${{ github.run_id }}-${{ github.run_attempt }}
