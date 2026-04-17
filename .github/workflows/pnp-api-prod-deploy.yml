@@ -5,12 +5,6 @@ on:
       GCR_image_name:
         description: 'A name of the image to be created in GCR'
         required: true
-      service-name:
-        description: '[Deprecated] A name of the service in styra.'
-        required: false
-      permissions-prefix:
-        description: '[Deprecated] Permissions prefix in styra'
-        required: false
       slack-channel:
         description: 'A slack channel which needs to be notified in case of failure'
         required: true
@@ -46,22 +40,14 @@ on:
 jobs:
   prod:
     if: github.ref == 'refs/heads/master'
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-
-      - uses: extenda/actions/gcp-secret-manager@v0
-        with:
-          service-account-key: ${{ secrets.SECRET_AUTH }}
-          secrets: |
-            JIRA_USERNAME: jira-username
-            JIRA_PASSWORD: jira-password
-
-      - name: Determine version
-        uses: extenda/actions/conventional-version@v0
-        id: semver
 
       - name: Can I deploy - provider?
         if: ${{ inputs.do-pact-provider-tests == true }}
@@ -72,6 +58,10 @@ jobs:
           retry-while-unknown: 15
           retry-interval: 10
           dry-run: ${{ inputs.is-pact-provider-can-i-deploy-dry-run }}
+
+      - name: Determine version
+        uses: extenda/actions/conventional-version@v0
+        id: semver
        
       - name: Deploy to production
         uses: extenda/actions/cloud-deploy@v0
@@ -81,6 +71,13 @@ jobs:
           image: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.semver.outputs.release-version }}
           update-dns: always
       
+      - uses: extenda/actions/gcp-secret-manager@v0
+        with:
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+          secrets: |
+            JIRA_USERNAME: jira-username
+            JIRA_PASSWORD: jira-password
+
       - uses: extenda/actions/dora-metrics@v0
         with:
           product-name: Product And Price

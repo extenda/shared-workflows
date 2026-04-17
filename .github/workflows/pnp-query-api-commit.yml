@@ -46,15 +46,14 @@ on:
         required: false
         default: './test/k6/**/api*.ts'
 
-permissions:
-  contents: read
-  id-token: write
-
 jobs:
   test-opa-policies:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -75,8 +74,12 @@ jobs:
 
   test-application:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -87,7 +90,7 @@ jobs:
           build-number: ${{ github.run_number }}
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '${{ inputs.dotnet-version }}.0.x'
 
@@ -148,11 +151,14 @@ jobs:
     needs: test-application
     if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '${{ inputs.dotnet-version }}.0.x'
 
@@ -210,8 +216,11 @@ jobs:
     needs: staging
     if: ${{ github.ref == 'refs/heads/master' && inputs.has-k6-tests == true }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       
       - uses: extenda/actions/gcp-secret-manager@v0
         with:
@@ -250,8 +259,11 @@ jobs:
       needs.staging.result == 'success' &&
       (inputs.has-k6-tests == false || needs.acceptance.result == 'success')
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
