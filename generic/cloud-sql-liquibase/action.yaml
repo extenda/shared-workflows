@@ -33,7 +33,6 @@ runs:
       id: gcloud
       with:
         service-account-key: ${{ inputs.GCLOUD_AUTH }}
-        export-default-credentials: true
 
     - name: GCloud configure-docker
       shell: bash
