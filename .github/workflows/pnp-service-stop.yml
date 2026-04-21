@@ -28,6 +28,10 @@ on:
         type: boolean
         default: false
 
+permissions:
+  contents: read
+  id-token: write
+
 jobs:
   stop-service:
     runs-on: ubuntu-latest

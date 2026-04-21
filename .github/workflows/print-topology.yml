@@ -27,6 +27,9 @@ on:
         type: string
         required: false
         default: '[]'
+        
+permissions:
+  contents: write
 
 jobs:
   update-readme-topology:

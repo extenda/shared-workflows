@@ -68,8 +68,11 @@ on:
 jobs:
   test-opa-policies:
     runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -90,8 +93,12 @@ jobs:
 
   test-application:
     runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -110,12 +117,12 @@ jobs:
           build-number: ${{ github.run_number }}
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '${{ inputs.dotnet-version }}.0.x'
 
       - name: Setup NuGet
-        uses: NuGet/setup-nuget@v1
+        uses: NuGet/setup-nuget@v3
         with:
           nuget-version: 'latest'
   
@@ -173,8 +180,11 @@ jobs:
     needs: test-application
     if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: extenda/actions/gcp-secret-manager@v0
         with:
@@ -185,7 +195,7 @@ jobs:
             NUGET_API_KEY: nuget-api-key
 
       - name: Setup NuGet
-        uses: NuGet/setup-nuget@v1
+        uses: NuGet/setup-nuget@v3
         with:
           nuget-version: 'latest'
 
@@ -245,12 +255,15 @@ jobs:
     needs: staging
     if: ${{ github.ref == 'refs/heads/master' && inputs.has-k6-tests == true }}
     runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      id-token: write
     strategy:
       matrix:
         k6-test-file-name: ${{ fromJSON(inputs.k6-tests-file-names) }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       
       - uses: extenda/actions/gcp-secret-manager@v0
         with:
@@ -265,7 +278,7 @@ jobs:
           service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
           api-key: ${{ env.API_KEY }}
 
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@v6
         with:
           node-version: ${{ inputs.k6-node-version }}
 
@@ -299,8 +312,11 @@ jobs:
       needs.staging.result == 'success' &&
       (inputs.has-k6-tests == false || needs.acceptance.result == 'success')
     runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+      id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 

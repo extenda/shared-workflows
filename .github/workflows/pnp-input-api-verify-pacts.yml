@@ -36,8 +36,11 @@ jobs:
       PACT_PROVIDER_VERSION: ${{ github.event.client_payload.pact-provider-version }}
       PACT_URL: ${{ github.event.client_payload.pact-url }}
       PACT_VERIFICATION_RESULT_URL: ${{ github.event.client_payload.pact-verification-result-url }}
+    permissions:
+      contents: read
+      id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -57,21 +60,29 @@ jobs:
           build-number: ${{ github.run_number }}
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '${{ inputs.dotnet-version }}.0.x'
       
       - name: Register nuget source
         run: |
-          dotnet nuget add source "https://repo.extendaretail.com/repository/nuget-hosted/" --name "Extenda" --username ${{ env.NEXUS_USERNAME }} --password ${{ env.NEXUS_PASSWORD }} --store-password-in-clear-text
+          dotnet nuget add source "https://repo.extendaretail.com/repository/nuget-hosted/" \
+            --name "Extenda" \
+            --username ${{ env.NEXUS_USERNAME }} \
+            --password ${{ env.NEXUS_PASSWORD }} \
+            --store-password-in-clear-text
 
       - name: Build dotnet solution
         run: |
-          dotnet build ${{ secrets.path-to-sln }} --configuration Release /p:Version=${{ steps.semver.outputs.semver }} /p:FileVersion=${{ steps.semver.outputs.version }}    
+          dotnet build ${{ secrets.path-to-sln }} \
+            --configuration Release \
+            /p:Version=${{ steps.semver.outputs.semver }} /p:FileVersion=${{ steps.semver.outputs.version }}    
 
       - name: Run Unit Tests
         run: |
-          dotnet test ${{ secrets.path-to-unit-tests }} --configuration Release --no-restore
+          dotnet test ${{ secrets.path-to-unit-tests }} \
+            --no-restore \
+            --configuration Release
         env:
           GIT_BRANCH: ${{ github.ref_name }}
           GIT_COMMIT: ${{ github.sha }}
