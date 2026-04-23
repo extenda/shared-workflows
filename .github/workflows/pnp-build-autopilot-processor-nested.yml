@@ -428,10 +428,10 @@ jobs:
           update-dns: always
             
       - name: Trigger synthetic monitoring tests on staging
-        if: ${{ inputs.trigger-synthetic-monitoring-tests == true }} && ${{ inputs.release-version == false }}
+        if: ${{ inputs.trigger-synthetic-monitoring-tests == true && inputs.release-version == false }}
         uses: extenda/actions/repository-dispatch@v0
         with:
-          service-account-key: ${{ secrets.SECRET_AUTH }}
+          service-account-key: ${{ secrets.SECRET_AUTH }}
           repository: extenda/enterprise-pnp-common
           event-type: run_synthetic_monitoring_tests
           client-payload: |
