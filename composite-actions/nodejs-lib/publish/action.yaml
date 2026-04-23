@@ -11,6 +11,10 @@ inputs:
         description: 'GitHub Token to create releases'
         required: true
 
+permissions:
+    contents: write 
+    id-token: write
+    pull-requests: write
 
 runs:
   using: "composite"
@@ -84,8 +88,4 @@ runs:
       env:
         GITHUB_TOKEN: ${{ inputs.GITHUB_TOKEN }}
       shell: bash
-      permissions:
-        contents: write 
-        id-token: write
-        pull-requests: write
       run: npm run auth --if-present && NPM_TOKEN=$(gcloud auth print-access-token) npx semantic-release
