@@ -93,6 +93,14 @@ runs:
       shell: bash
       run: npm run test:cov
 
+    - name: Vulnerability scan
+      uses: extenda/actions/trivy-scan@v0
+      with:
+        image: eu.gcr.io/extenda/security:${{ github.sha }}
+        service-account-key: ${{ inputs.GCLOUD_AUTH || inputs.SECRET_AUTH }}
+        fail-on-vulnerabilities: true
+        notify-slack-on-vulnerabilities: false
+
     - name: Analyze with SonarCloud
       uses: extenda/actions/sonar-scanner@v0
       with:
