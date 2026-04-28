@@ -100,17 +100,41 @@ runs:
       id: scan-image
       shell: bash
       run: |
+        CANDIDATES=()
+
         if [ -n "${{ inputs.vulnerability-scan-image }}" ]; then
-          echo "image=${{ inputs.vulnerability-scan-image }}" >> "$GITHUB_OUTPUT"
-        elif [ -n "${IMAGE_NAME:-}" ]; then
-          echo "image=${IMAGE_NAME}:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
-        elif [ -n "${GITHUB_REPOSITORY#*/}" ]; then
-          echo "image=eu.gcr.io/extenda/${GITHUB_REPOSITORY#*/}:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
-        else
-          echo "Unable to resolve vulnerability scan image."
-          echo "Provide inputs.vulnerability-scan-image or set IMAGE_NAME in the caller workflow."
-          exit 1
+          CANDIDATES+=("${{ inputs.vulnerability-scan-image }}")
         fi
+
+        if [ -n "${IMAGE_NAME:-}" ]; then
+          CANDIDATES+=("${IMAGE_NAME}:${GITHUB_SHA}")
+        fi
+
+        if [ -n "${GITHUB_REPOSITORY#*/}" ]; then
+          CANDIDATES+=("eu.gcr.io/extenda/${GITHUB_REPOSITORY#*/}:${GITHUB_SHA}")
+        fi
+
+        # Common shared security image fallback used across projects.
+        CANDIDATES+=("eu.gcr.io/extenda/security:${GITHUB_SHA}")
+
+        for IMAGE in "${CANDIDATES[@]}"; do
+          echo "Trying vulnerability scan image: ${IMAGE}"
+          if docker image inspect "${IMAGE}" >/dev/null 2>&1; then
+            echo "image=${IMAGE}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if docker pull "${IMAGE}" >/dev/null 2>&1; then
+            echo "image=${IMAGE}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+        done
+
+        echo "Unable to locate a vulnerability scan image for ${GITHUB_SHA}."
+        echo "Tried:"
+        for IMAGE in "${CANDIDATES[@]}"; do
+          echo "- ${IMAGE}"
+        done
+        exit 1
 
     - name: Vulnerability scan
       uses: extenda/actions/trivy-scan@v0
