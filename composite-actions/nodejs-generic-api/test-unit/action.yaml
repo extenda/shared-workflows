@@ -7,9 +7,6 @@ inputs:
   GCLOUD_AUTH:
     description: "GCP Auth (staging)"
     required: false
-  vulnerability-scan-image:
-    description: "Container image to scan for vulnerabilities"
-    required: false
   slack-channel:
     description: Name of the channel to notify failing action
     required: false
@@ -59,7 +56,7 @@ runs:
       env:
         cache-name: cache-sonar-binary
       with:
-        path: /home/runner/.sonar/native-sonar-scanner
+        path: /home/runner/.sonar/cache
         key: ${{ runner.os }}-cache-sonar-binary
         restore-keys: |
           ${{ runner.os }}-build-${{ env.cache-name }}
@@ -100,34 +97,26 @@ runs:
       id: scan-image
       shell: bash
       run: |
-        IMAGE=""
-        if [ -n "${{ inputs.vulnerability-scan-image }}" ]; then
-          IMAGE="${{ inputs.vulnerability-scan-image }}"
-        elif [ -n "${IMAGE_NAME:-}" ]; then
-          IMAGE="${IMAGE_NAME}:${GITHUB_SHA}"
-        elif [ -n "${GITHUB_REPOSITORY#*/}" ]; then
-          IMAGE="eu.gcr.io/extenda/${GITHUB_REPOSITORY#*/}:${GITHUB_SHA}"
-        fi
+        IMAGE="${IMAGE_NAME:+${IMAGE_NAME}:${GITHUB_SHA}}"
 
-        if [ -z "${IMAGE}" ]; then
+        if [ -z "$IMAGE" ]; then
           echo "Unable to resolve vulnerability scan image tag."
-          echo "Provide inputs.vulnerability-scan-image or set IMAGE_NAME in the caller workflow."
+          echo "Set IMAGE_NAME in the caller workflow."
           exit 1
         fi
 
-        if [ ! -f Dockerfile ]; then
+        if [ ! -f "Dockerfile" ]; then
           echo "No Dockerfile found in repository root."
           exit 1
         fi
 
-        echo "Building local image for vulnerability scan: ${IMAGE}"
-        docker build -t "${IMAGE}" .
-        if ! docker image inspect "${IMAGE}" >/dev/null 2>&1; then
-          echo "Failed to build image ${IMAGE}."
+        echo "Building local image for vulnerability scan: $IMAGE"
+        if ! docker build --quiet -t "$IMAGE" .; then
+          echo "Failed to build image $IMAGE."
           exit 1
         fi
 
-        echo "image=${IMAGE}" >> "$GITHUB_OUTPUT"
+        echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
 
     - name: Vulnerability scan
       uses: extenda/actions/trivy-scan@v0
