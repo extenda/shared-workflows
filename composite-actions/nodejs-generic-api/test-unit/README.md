@@ -11,8 +11,9 @@ This is typical action, to run tests in nodejs api application.
   with:
     GCLOUD_AUTH: ${{ secrets.GCLOUD_AUTH_STAGING }}
     SECRET_AUTH: ${{ secrets.SECRET_AUTH }}
-    # Optional override if your image naming differs
-    # vulnerability-scan-image: eu.gcr.io/extenda/att-api:${{ github.sha }}
+    # Optional
+    # slack-channel: team-ci-alerts
+    # notify-slack-on-fail: true
 ```
 
 ### Requirements
@@ -24,10 +25,7 @@ This is typical action, to run tests in nodejs api application.
 - You must set Node.js version in `.nvmrc` file.
 - You should have a ```npm run check-openapi-schema``` script, to test you openapi schema.
 - You should have a ```npm run ts:check``` script, to check, whether your typescript code is valid.
-- Vulnerability scan image resolution order is:
-  1) ``vulnerability-scan-image``
-  2) ``${IMAGE_NAME}:${GITHUB_SHA}``
-  3) ``eu.gcr.io/extenda/${GITHUB_REPOSITORY#*/}:${GITHUB_SHA}``
-  4) ``eu.gcr.io/extenda/security:${GITHUB_SHA}``
-- The action checks local Docker first, then tries to pull each candidate from registry.
-- If no candidate image can be found, the job fails.
+- Set `IMAGE_NAME` in workflow `env`.
+- The action builds one local image in the test job using `docker build --quiet -t "${IMAGE_NAME}:${GITHUB_SHA}" .`.
+- Trivy scans this locally built image (`${IMAGE_NAME}:${GITHUB_SHA}`).
+- The job fails if `IMAGE_NAME` is missing, `Dockerfile` is missing, or local image build fails.

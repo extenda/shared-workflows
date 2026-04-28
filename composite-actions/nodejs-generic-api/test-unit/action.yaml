@@ -101,7 +101,7 @@ runs:
 
         if [ -z "$IMAGE" ]; then
           echo "Unable to resolve vulnerability scan image tag."
-          echo "Set IMAGE_NAME in the caller workflow."
+          echo "Set IMAGE_NAME in caller workflow."
           exit 1
         fi
 
