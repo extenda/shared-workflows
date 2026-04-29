@@ -56,7 +56,7 @@ runs:
       env:
         cache-name: cache-sonar-binary
       with:
-        path: /home/runner/.sonar/native-sonar-scanner
+        path: /home/runner/.sonar/cache
         key: ${{ runner.os }}-cache-sonar-binary
         restore-keys: |
           ${{ runner.os }}-build-${{ env.cache-name }}
@@ -92,6 +92,39 @@ runs:
     - name: Run unit tests with coverage
       shell: bash
       run: npm run test:cov
+
+    - name: Build vulnerability scan image
+      id: scan-image
+      shell: bash
+      run: |
+        IMAGE="${IMAGE_NAME:+${IMAGE_NAME}:${GITHUB_SHA}}"
+
+        if [ -z "$IMAGE" ]; then
+          echo "Unable to resolve vulnerability scan image tag."
+          echo "Set IMAGE_NAME in caller workflow."
+          exit 1
+        fi
+
+        if [ ! -f "Dockerfile" ]; then
+          echo "No Dockerfile found in repository root."
+          exit 1
+        fi
+
+        echo "Building local image for vulnerability scan: $IMAGE"
+        if ! docker build --quiet -t "$IMAGE" .; then
+          echo "Failed to build image $IMAGE."
+          exit 1
+        fi
+
+        echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+
+    - name: Vulnerability scan
+      uses: extenda/actions/trivy-scan@v0
+      with:
+        image: ${{ steps.scan-image.outputs.image }}
+        service-account-key: ${{ inputs.GCLOUD_AUTH }}
+        fail-on-vulnerabilities: true
+        notify-slack-on-vulnerabilities: false
 
     - name: Analyze with SonarCloud
       uses: extenda/actions/sonar-scanner@v0
