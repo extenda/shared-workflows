@@ -72,11 +72,14 @@ runs:
       run: |
         cat > .npmrc <<'EOF'
         @hiiretail:registry=https://europe-west1-npm.pkg.dev/extenda/npm/
-        //europe-west1-npm.pkg.dev/extenda/npm/:always-auth=true
         EOF
 
         npx --yes google-artifactregistry-auth --repo-config=.npmrc --credential-config=.npmrc
-        rg "_authToken|_auth=" .npmrc >/dev/null || (echo "No npm credentials written to .npmrc" && exit 1)
+
+        if ! grep -Eq "_authToken|_auth=" .npmrc; then
+          echo "No npm credentials written to .npmrc"
+          exit 1
+        fi
 
     - name: Install dependencies
       if: steps.cache-node-modules.outputs.cache-hit != 'true'
@@ -116,10 +119,10 @@ runs:
           exit 1
         fi
 
-        rg "_authToken|_auth=" .npmrc >/dev/null || {
+        if ! grep -Eq "_authToken|_auth=" .npmrc; then
           echo ".npmrc does not contain auth token entries required for private npm packages."
           exit 1
-        }
+        fi
 
         export DOCKER_BUILDKIT=1
 
