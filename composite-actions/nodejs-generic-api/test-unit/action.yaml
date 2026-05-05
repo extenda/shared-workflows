@@ -70,7 +70,10 @@ runs:
     - name: Run NPM auth script
       shell: bash
       run: |
-        # Runtime .npmrc for this workspace 
+        # Restrict permissions for credential files created in this step.
+        umask 077
+
+        # Runtime .npmrc for this workspace
         cat > .npmrc <<'EOF'
         @hiiretail:registry=https://europe-west1-npm.pkg.dev/extenda/npm/
         EOF
@@ -79,7 +82,7 @@ runs:
         npx --yes google-artifactregistry-auth --repo-config=.npmrc --credential-config=.npmrc
 
         # Also mirror to HOME for tools that read ~/.npmrc
-        cp .npmrc "$HOME/.npmrc"
+        install -m 600 .npmrc "$HOME/.npmrc"
 
     - name: Install dependencies
       if: steps.cache-node-modules.outputs.cache-hit != 'true'
