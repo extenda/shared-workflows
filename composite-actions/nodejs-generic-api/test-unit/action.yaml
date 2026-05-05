@@ -34,6 +34,7 @@ runs:
     - name: Copy test .env files
       shell: bash
       run: cp test/example.env .env
+
     - name: Copy .env files
       shell: bash
       run: find . -type f -name '*example.env' -execdir mv {} .env ';'
@@ -70,7 +71,7 @@ runs:
       shell: bash
       run: |
         echo "@hiiretail:registry=https://europe-west1-npm.pkg.dev/extenda/npm/" > .npmrc
-        npm run auth  -- --credential-config=./.npmrc
+        npm run auth -- --credential-config=./.npmrc
 
     - name: Install dependencies
       if: steps.cache-node-modules.outputs.cache-hit != 'true'
@@ -110,10 +111,20 @@ runs:
           exit 1
         fi
 
+        export DOCKER_BUILDKIT=1
+
+        BUILD_ARGS=()
+        if [ -f ".npmrc" ]; then
+          echo "Detected .npmrc, mounting as BuildKit secret."
+          BUILD_ARGS+=(--secret id=npmrc,src=.npmrc)
+        else
+          echo "No .npmrc found, building without npm secret."
+        fi
+
         echo "Building local image for vulnerability scan: $IMAGE"
-        if ! docker build --quiet -t "$IMAGE" .; then
+        if ! docker build "${BUILD_ARGS[@]}" --quiet -t "$IMAGE" .; then
           echo "Initial quiet Docker build failed. Retrying with full logs for debugging..."
-          docker build -t "$IMAGE" .
+          docker build "${BUILD_ARGS[@]}" -t "$IMAGE" .
           echo "Failed to build image $IMAGE."
           exit 1
         fi
