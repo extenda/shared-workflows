@@ -70,22 +70,16 @@ runs:
     - name: Run NPM auth script
       shell: bash
       run: |
-        # Repo .npmrc: registry mapping only
+        # Runtime .npmrc for this workspace (not committed)
         cat > .npmrc <<'EOF'
         @hiiretail:registry=https://europe-west1-npm.pkg.dev/extenda/npm/
         EOF
 
-        # Write credentials to HOME npmrc (reliable location in CI)
-        npx --yes google-artifactregistry-auth --repo-config=.npmrc --credential-config="$HOME/.npmrc"
+        # Write token into workspace .npmrc (backward-compatible for repos that COPY . .)
+        npx --yes google-artifactregistry-auth --repo-config=.npmrc --credential-config=.npmrc
 
-        if grep -Eq "_authToken|_auth=" "$HOME/.npmrc"; then
-          echo "NPMRC_SECRET_FILE=$HOME/.npmrc" >> "$GITHUB_ENV"
-        elif grep -Eq "_authToken|_auth=" .npmrc; then
-          echo "NPMRC_SECRET_FILE=.npmrc" >> "$GITHUB_ENV"
-        else
-          echo "No npm credentials written to either \$HOME/.npmrc or ./.npmrc"
-          exit 1
-        fi
+        # Also mirror to HOME for tools that read ~/.npmrc
+        cp .npmrc "$HOME/.npmrc"
 
     - name: Install dependencies
       if: steps.cache-node-modules.outputs.cache-hit != 'true'
@@ -125,17 +119,12 @@ runs:
           exit 1
         fi
 
-        if [ -z "${NPMRC_SECRET_FILE:-}" ] || [ ! -f "${NPMRC_SECRET_FILE}" ]; then
-          echo "NPMRC secret file is missing. Expected file: ${NPMRC_SECRET_FILE:-<unset>}"
-          exit 1
-        fi
-
         export DOCKER_BUILDKIT=1
 
         echo "Building local image for vulnerability scan: $IMAGE"
-        if ! docker build --secret id=npmrc,src="${NPMRC_SECRET_FILE}" --quiet -t "$IMAGE" .; then
+        if ! docker build --secret id=npmrc,src=.npmrc --quiet -t "$IMAGE" .; then
           echo "Initial quiet Docker build failed. Retrying with full logs for debugging..."
-          docker build --secret id=npmrc,src="${NPMRC_SECRET_FILE}" -t "$IMAGE" .
+          docker build --secret id=npmrc,src=.npmrc -t "$IMAGE" .
           echo "Failed to build image $IMAGE."
           exit 1
         fi
