@@ -81,8 +81,10 @@ runs:
         # Write token into workspace .npmrc (backward-compatible for repos that COPY . .)
         npx --yes google-artifactregistry-auth --repo-config=.npmrc --credential-config=.npmrc
 
-        # Also mirror to HOME for tools that read ~/.npmrc
-        install -m 600 .npmrc "$HOME/.npmrc"
+        # Use dedicated npm user config without overwriting existing HOME config.
+        NPM_USERCONFIG="$RUNNER_TEMP/.npmrc"
+        install -m 600 .npmrc "$NPM_USERCONFIG"
+        echo "NPM_CONFIG_USERCONFIG=$NPM_USERCONFIG" >> "$GITHUB_ENV"
 
     - name: Install dependencies
       if: steps.cache-node-modules.outputs.cache-hit != 'true'
