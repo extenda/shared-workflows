@@ -70,7 +70,7 @@ runs:
     - name: Run NPM auth script
       shell: bash
       run: |
-        # Runtime .npmrc for this workspace (not committed)
+        # Runtime .npmrc for this workspace 
         cat > .npmrc <<'EOF'
         @hiiretail:registry=https://europe-west1-npm.pkg.dev/extenda/npm/
         EOF
