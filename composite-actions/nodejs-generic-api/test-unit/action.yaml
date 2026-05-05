@@ -70,14 +70,20 @@ runs:
     - name: Run NPM auth script
       shell: bash
       run: |
+        # Repo .npmrc: registry mapping only
         cat > .npmrc <<'EOF'
         @hiiretail:registry=https://europe-west1-npm.pkg.dev/extenda/npm/
         EOF
 
-        npx --yes google-artifactregistry-auth --repo-config=.npmrc --credential-config=.npmrc
+        # Write credentials to HOME npmrc (reliable location in CI)
+        npx --yes google-artifactregistry-auth --repo-config=.npmrc --credential-config="$HOME/.npmrc"
 
-        if ! grep -Eq "_authToken|_auth=" .npmrc; then
-          echo "No npm credentials written to .npmrc"
+        if grep -Eq "_authToken|_auth=" "$HOME/.npmrc"; then
+          echo "NPMRC_SECRET_FILE=$HOME/.npmrc" >> "$GITHUB_ENV"
+        elif grep -Eq "_authToken|_auth=" .npmrc; then
+          echo "NPMRC_SECRET_FILE=.npmrc" >> "$GITHUB_ENV"
+        else
+          echo "No npm credentials written to either \$HOME/.npmrc or ./.npmrc"
           exit 1
         fi
 
@@ -119,25 +125,17 @@ runs:
           exit 1
         fi
 
-        if ! grep -Eq "_authToken|_auth=" .npmrc; then
-          echo ".npmrc does not contain auth token entries required for private npm packages."
+        if [ -z "${NPMRC_SECRET_FILE:-}" ] || [ ! -f "${NPMRC_SECRET_FILE}" ]; then
+          echo "NPMRC secret file is missing. Expected file: ${NPMRC_SECRET_FILE:-<unset>}"
           exit 1
         fi
 
         export DOCKER_BUILDKIT=1
 
-        BUILD_ARGS=()
-        if [ -f ".npmrc" ]; then
-          echo "Detected .npmrc, mounting as BuildKit secret."
-          BUILD_ARGS+=(--secret id=npmrc,src=.npmrc)
-        else
-          echo "No .npmrc found, building without npm secret."
-        fi
-
         echo "Building local image for vulnerability scan: $IMAGE"
-        if ! docker build "${BUILD_ARGS[@]}" --quiet -t "$IMAGE" .; then
+        if ! docker build --secret id=npmrc,src="${NPMRC_SECRET_FILE}" --quiet -t "$IMAGE" .; then
           echo "Initial quiet Docker build failed. Retrying with full logs for debugging..."
-          docker build "${BUILD_ARGS[@]}" -t "$IMAGE" .
+          docker build --secret id=npmrc,src="${NPMRC_SECRET_FILE}" -t "$IMAGE" .
           echo "Failed to build image $IMAGE."
           exit 1
         fi
