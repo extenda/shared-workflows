@@ -34,6 +34,7 @@ permissions:
 jobs:
   update-readme-topology:
     runs-on: ubuntu-latest
+    if: github.actor != 'dependabot[bot]'
 
     steps:
       - name: Checkout repository
