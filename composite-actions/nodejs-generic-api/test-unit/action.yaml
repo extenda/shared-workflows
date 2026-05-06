@@ -73,18 +73,15 @@ runs:
         # Restrict permissions for credential files created in this step.
         umask 077
 
-        # Runtime .npmrc for this workspace
+        # Base npm config for this workspace and job-scoped user config.
         cat > .npmrc <<'EOF'
         @hiiretail:registry=https://europe-west1-npm.pkg.dev/extenda/npm/
         EOF
+        install -m 600 .npmrc "$RUNNER_TEMP/.npmrc"
+        echo "NPM_CONFIG_USERCONFIG=$RUNNER_TEMP/.npmrc" >> "$GITHUB_ENV"
 
-        # Write token into workspace .npmrc (backward-compatible for repos that COPY . .)
-        npx --yes google-artifactregistry-auth --repo-config=.npmrc --credential-config=.npmrc
-
-        # Use dedicated npm user config without overwriting existing HOME config.
-        NPM_USERCONFIG="$RUNNER_TEMP/.npmrc"
-        install -m 600 .npmrc "$NPM_USERCONFIG"
-        echo "NPM_CONFIG_USERCONFIG=$NPM_USERCONFIG" >> "$GITHUB_ENV"
+        # Service-owned auth hook (if present) should populate npm credentials.
+        NPM_CONFIG_USERCONFIG="$RUNNER_TEMP/.npmrc" npm run auth --if-present
 
     - name: Install dependencies
       if: steps.cache-node-modules.outputs.cache-hit != 'true'
@@ -127,9 +124,9 @@ runs:
         export DOCKER_BUILDKIT=1
 
         echo "Building local image for vulnerability scan: $IMAGE"
-        if ! docker build --secret id=npmrc,src=.npmrc --quiet -t "$IMAGE" .; then
+        if ! docker build --secret id=npmrc,src="$RUNNER_TEMP/.npmrc" --quiet -t "$IMAGE" .; then
           echo "Initial quiet Docker build failed. Retrying with full logs for debugging..."
-          docker build --secret id=npmrc,src=.npmrc -t "$IMAGE" .
+          docker build --secret id=npmrc,src="$RUNNER_TEMP/.npmrc" -t "$IMAGE" .
           echo "Failed to build image $IMAGE."
           exit 1
         fi
@@ -140,7 +137,7 @@ runs:
       uses: extenda/actions/trivy-scan@v0
       with:
         image: ${{ steps.scan-image.outputs.image }}
-        service-account-key: ${{ inputs.GCLOUD_AUTH }}
+        service-account-key: ${{ inputs.GCLOUD_AUTH || inputs.SECRET_AUTH }}
         fail-on-vulnerabilities: true
         notify-slack-on-vulnerabilities: false
 
