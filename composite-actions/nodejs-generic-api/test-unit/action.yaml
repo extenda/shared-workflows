@@ -74,41 +74,21 @@ runs:
       run: |
         umask 077
 
-        # Workspace npm config with private registry mapping.
-        cat > .npmrc <<'EOF'
+        # Ensure base registry mapping exists in workspace.
+        if [ ! -f ".npmrc" ]; then
+          cat > .npmrc <<'EOF'
         @hiiretail:registry=https://europe-west1-npm.pkg.dev/extenda/npm/
         EOF
-
-        # Candidate npmrc for secret mounting.
-        install -m 600 .npmrc "$RUNNER_TEMP/.npmrc"
-
-        # Service-owned auth hook. Some repos write token to different npmrc paths.
-        NPM_CONFIG_USERCONFIG="$RUNNER_TEMP/.npmrc" npm run auth --if-present
-
-        # Resolve where credentials actually ended up.
-        if grep -Eq "_authToken|_auth=" "$RUNNER_TEMP/.npmrc"; then
-          AUTH_NPMRC="$RUNNER_TEMP/.npmrc"
-        elif [ -f "$HOME/.npmrc" ] && grep -Eq "_authToken|_auth=" "$HOME/.npmrc"; then
-          AUTH_NPMRC="$HOME/.npmrc"
-        elif grep -Eq "_authToken|_auth=" ".npmrc"; then
-          AUTH_NPMRC=".npmrc"
-        else
-          echo "No npm credentials found in RUNNER_TEMP, HOME, or workspace .npmrc"
-          exit 1
+        elif ! grep -q '^@hiiretail:registry=' .npmrc; then
+          echo '@hiiretail:registry=https://europe-west1-npm.pkg.dev/extenda/npm/' >> .npmrc
         fi
 
-        echo "NPMRC_SECRET_FILE=$AUTH_NPMRC" >> "$GITHUB_ENV"
+        # Service-owned auth hook (recommended standard).
+        npm run auth --if-present
 
-        # Ensure workspace .npmrc has credentials too (legacy Dockerfiles use COPY . . then npm ci).
-        if [ "$AUTH_NPMRC" != ".npmrc" ]; then
-          cat "$AUTH_NPMRC" > .npmrc
-        fi
-
-        # Extract token for legacy Dockerfile build-arg fallback.
-        TOKEN_LINE="$(grep -E '//europe-west1-npm\.pkg\.dev/extenda/npm/:(_authToken|_auth)=' "$AUTH_NPMRC" | head -n 1 || true)"
-        if [ -n "$TOKEN_LINE" ]; then
-          TOKEN_VALUE="${TOKEN_LINE#*=}"
-          echo "NPM_TOKEN=$TOKEN_VALUE" >> "$GITHUB_ENV"
+        # If auth ended up in HOME npmrc, mirror it to workspace for legacy Dockerfiles.
+        if [ -f "$HOME/.npmrc" ] && grep -Eq "_authToken|_auth=" "$HOME/.npmrc" && ! grep -Eq "_authToken|_auth=" ".npmrc"; then
+          cp "$HOME/.npmrc" .npmrc
         fi
 
     - name: Install dependencies
@@ -151,17 +131,10 @@ runs:
 
         export DOCKER_BUILDKIT=1
 
-        BUILD_ARGS=(--secret id=npmrc,src="${NPMRC_SECRET_FILE}")
-
-        # Legacy fallback for Dockerfiles that do plain `RUN npm ci` (no secret mount).
-        if [ -n "${NPM_TOKEN:-}" ]; then
-          BUILD_ARGS+=(--build-arg "NPM_TOKEN=${NPM_TOKEN}")
-        fi
-
         echo "Building local image for vulnerability scan: $IMAGE"
-        if ! docker build "${BUILD_ARGS[@]}" --quiet -t "$IMAGE" .; then
+        if ! docker build --secret id=npmrc,src=.npmrc --quiet -t "$IMAGE" .; then
           echo "Initial quiet Docker build failed. Retrying with full logs for debugging..."
-          docker build "${BUILD_ARGS[@]}" -t "$IMAGE" .
+          docker build --secret id=npmrc,src=.npmrc -t "$IMAGE" .
           echo "Failed to build image $IMAGE."
           exit 1
         fi
