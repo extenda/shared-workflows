@@ -70,18 +70,17 @@ runs:
     - name: Run NPM auth script
       shell: bash
       run: |
-        # Restrict permissions for credential files created in this step.
         umask 077
-
-        # Base npm config for this workspace and job-scoped user config.
-        cat > .npmrc <<'EOF'
+        cat > "$RUNNER_TEMP/.npmrc" <<'EOF'
         @hiiretail:registry=https://europe-west1-npm.pkg.dev/extenda/npm/
         EOF
-        install -m 600 .npmrc "$RUNNER_TEMP/.npmrc"
-        echo "NPM_CONFIG_USERCONFIG=$RUNNER_TEMP/.npmrc" >> "$GITHUB_ENV"
 
-        # Service-owned auth hook (if present) should populate npm credentials.
         NPM_CONFIG_USERCONFIG="$RUNNER_TEMP/.npmrc" npm run auth --if-present
+
+        if ! grep -Eq "_authToken|_auth=" "$RUNNER_TEMP/.npmrc"; then
+          echo "No npm credentials written to $RUNNER_TEMP/.npmrc"
+          exit 1
+        fi
 
     - name: Install dependencies
       if: steps.cache-node-modules.outputs.cache-hit != 'true'
