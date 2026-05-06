@@ -34,6 +34,7 @@ runs:
     - name: Copy test .env files
       shell: bash
       run: cp test/example.env .env
+
     - name: Copy .env files
       shell: bash
       run: find . -type f -name '*example.env' -execdir mv {} .env ';'
@@ -76,14 +77,14 @@ runs:
           exit 1
         fi
 
-        if ! npm run | rg -q '^  auth$'; then
+        if ! npm run | grep -Eq '^[[:space:]]+auth$'; then
           echo "Missing npm auth script in package.json."
           echo "Please add an auth script, for example:"
-          echo "\"auth\": \"npx --yes google-artifactregistry-auth \""
+          echo "\"auth\": \"npx --yes google-artifactregistry-auth\""
           exit 1
         fi
 
-        npm run auth  -- --credential-config=./.npmrc
+        npm run auth -- --credential-config=./.npmrc
 
     - name: Install dependencies
       if: steps.cache-node-modules.outputs.cache-hit != 'true'
