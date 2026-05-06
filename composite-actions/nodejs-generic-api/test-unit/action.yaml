@@ -44,7 +44,7 @@ runs:
     - uses: extenda/actions/setup-gcloud@v0
       id: gcloud
       with:
-        service-account-key: ${{ inputs.GCLOUD_AUTH }}
+        service-account-key: ${{ inputs.GCLOUD_AUTH || inputs.SECRET_AUTH }}
 
     - name: GCloud configure-docker
       shell: bash
@@ -74,22 +74,15 @@ runs:
       run: |
         umask 077
 
-        # Ensure base registry mapping exists in workspace.
+        # Use repository-owned npm config only.
         if [ ! -f ".npmrc" ]; then
-          cat > .npmrc <<'EOF'
-        @hiiretail:registry=https://europe-west1-npm.pkg.dev/extenda/npm/
-        EOF
-        elif ! grep -q '^@hiiretail:registry=' .npmrc; then
-          echo '@hiiretail:registry=https://europe-west1-npm.pkg.dev/extenda/npm/' >> .npmrc
+          echo "Missing .npmrc in repository root."
+          echo "Please commit .npmrc and provide npm auth script in package.json."
+          exit 1
         fi
 
         # Service-owned auth hook (recommended standard).
         npm run auth --if-present
-
-        # If auth ended up in HOME npmrc, mirror it to workspace for legacy Dockerfiles.
-        if [ -f "$HOME/.npmrc" ] && grep -Eq "_authToken|_auth=" "$HOME/.npmrc" && ! grep -Eq "_authToken|_auth=" ".npmrc"; then
-          cp "$HOME/.npmrc" .npmrc
-        fi
 
     - name: Install dependencies
       if: steps.cache-node-modules.outputs.cache-hit != 'true'
@@ -145,7 +138,7 @@ runs:
       uses: extenda/actions/trivy-scan@v0
       with:
         image: ${{ steps.scan-image.outputs.image }}
-        service-account-key: ${{ inputs.GCLOUD_AUTH }}
+        service-account-key: ${{ inputs.GCLOUD_AUTH || inputs}}
         fail-on-vulnerabilities: true
         notify-slack-on-vulnerabilities: false
 
