@@ -34,6 +34,7 @@ runs:
     - name: Copy test .env files
       shell: bash
       run: cp test/example.env .env
+
     - name: Copy .env files
       shell: bash
       run: find . -type f -name '*example.env' -execdir mv {} .env ';'
@@ -56,7 +57,7 @@ runs:
       env:
         cache-name: cache-sonar-binary
       with:
-        path: /home/runner/.sonar/native-sonar-scanner
+        path: /home/runner/.sonar/cache
         key: ${{ runner.os }}-cache-sonar-binary
         restore-keys: |
           ${{ runner.os }}-build-${{ env.cache-name }}
@@ -69,8 +70,21 @@ runs:
     - name: Run NPM auth script
       shell: bash
       run: |
-        echo "@hiiretail:registry=https://europe-west1-npm.pkg.dev/extenda/npm/" > .npmrc
-        npm run auth  -- --credential-config=./.npmrc
+        if [ ! -f ".npmrc" ]; then
+          echo "Missing .npmrc in repository root."
+          echo "Please commit .npmrc with private registry mapping."
+          echo "Example: @hiiretail:registry=https://europe-west1-npm.pkg.dev/extenda/npm/"
+          exit 1
+        fi
+
+        if ! npm run | grep -Eq '^[[:space:]]+auth$'; then
+          echo "Missing npm auth script in package.json."
+          echo "Please add an auth script, for example:"
+          echo "\"auth\": \"npx --yes google-artifactregistry-auth\""
+          exit 1
+        fi
+
+        npm run auth -- --credential-config=./.npmrc
 
     - name: Install dependencies
       if: steps.cache-node-modules.outputs.cache-hit != 'true'
@@ -92,6 +106,41 @@ runs:
     - name: Run unit tests with coverage
       shell: bash
       run: npm run test:cov
+
+    - name: Build vulnerability scan image
+      id: scan-image
+      shell: bash
+      run: |
+        IMAGE="${IMAGE_NAME:+${IMAGE_NAME}:${GITHUB_SHA}}"
+
+        if [ -z "$IMAGE" ]; then
+          echo "Unable to resolve vulnerability scan image tag."
+          echo "Set IMAGE_NAME in caller workflow."
+          exit 1
+        fi
+
+        if [ ! -f "Dockerfile" ]; then
+          echo "No Dockerfile found in repository root."
+          exit 1
+        fi
+
+        echo "Building local image for vulnerability scan: $IMAGE"
+        if ! docker build --quiet -t "$IMAGE" .; then
+          echo "Initial quiet Docker build failed. Retrying with full logs for debugging..."
+          docker build -t "$IMAGE" .
+          echo "Failed to build image $IMAGE."
+          exit 1
+        fi
+
+        echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+
+    - name: Vulnerability scan
+      uses: extenda/actions/trivy-scan@v0
+      with:
+        image: ${{ steps.scan-image.outputs.image }}
+        service-account-key: ${{ inputs.GCLOUD_AUTH }}
+        fail-on-vulnerabilities: true
+        notify-slack-on-vulnerabilities: false
 
     - name: Analyze with SonarCloud
       uses: extenda/actions/sonar-scanner@v0
