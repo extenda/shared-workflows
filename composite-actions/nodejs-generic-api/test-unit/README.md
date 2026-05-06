@@ -25,6 +25,8 @@ This is typical action, to run tests in nodejs api application.
 - You must set Node.js version in `.nvmrc` file.
 - You should have a ```npm run check-openapi-schema``` script, to test you openapi schema.
 - You should have a ```npm run ts:check``` script, to check, whether your typescript code is valid.
+- You must commit `.npmrc` in the repository root.
+- You should provide `npm run auth` in `package.json` (the action calls `npm run auth --if-present`).
 - Set `IMAGE_NAME` in workflow `env`.
 - The action builds one local image in the test job using `docker build --quiet -t "${IMAGE_NAME}:${GITHUB_SHA}" .`.
 - Trivy scans this locally built image (`${IMAGE_NAME}:${GITHUB_SHA}`).

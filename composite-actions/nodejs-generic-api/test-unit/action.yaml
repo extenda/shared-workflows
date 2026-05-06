@@ -1,5 +1,6 @@
 name: "Run unit tests"
 description: "Run unit tests for the service"
+
 inputs:
   SECRET_AUTH:
     description: "GCP Auth"
@@ -15,6 +16,7 @@ inputs:
     default: false
     type: boolean
     required: false
+
 runs:
   using: "composite"
   steps:
@@ -34,6 +36,7 @@ runs:
     - name: Copy test .env files
       shell: bash
       run: cp test/example.env .env
+
     - name: Copy .env files
       shell: bash
       run: find . -type f -name '*example.env' -execdir mv {} .env ';'
@@ -41,7 +44,7 @@ runs:
     - uses: extenda/actions/setup-gcloud@v0
       id: gcloud
       with:
-        service-account-key: ${{ inputs.GCLOUD_AUTH }}
+        service-account-key: ${{ inputs.GCLOUD_AUTH || inputs.SECRET_AUTH }}
 
     - name: GCloud configure-docker
       shell: bash
@@ -69,8 +72,17 @@ runs:
     - name: Run NPM auth script
       shell: bash
       run: |
-        echo "@hiiretail:registry=https://europe-west1-npm.pkg.dev/extenda/npm/" > .npmrc
-        npm run auth  -- --credential-config=./.npmrc
+        umask 077
+
+        # Use repository-owned npm config only.
+        if [ ! -f ".npmrc" ]; then
+          echo "Missing .npmrc in repository root."
+          echo "Please commit .npmrc and provide npm auth script in package.json."
+          exit 1
+        fi
+
+        # Service-owned auth hook (recommended standard).
+        npm run auth --if-present
 
     - name: Install dependencies
       if: steps.cache-node-modules.outputs.cache-hit != 'true'
@@ -110,10 +122,12 @@ runs:
           exit 1
         fi
 
+        export DOCKER_BUILDKIT=1
+
         echo "Building local image for vulnerability scan: $IMAGE"
-        if ! docker build --quiet -t "$IMAGE" .; then
+        if ! docker build --secret id=npmrc,src=.npmrc --quiet -t "$IMAGE" .; then
           echo "Initial quiet Docker build failed. Retrying with full logs for debugging..."
-          docker build -t "$IMAGE" .
+          docker build --secret id=npmrc,src=.npmrc -t "$IMAGE" .
           echo "Failed to build image $IMAGE."
           exit 1
         fi
@@ -141,6 +155,6 @@ runs:
       with:
         text: |
           *Unit test failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
-          Test failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+          Test failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{ github.job }}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
         channel: ${{ inputs.slack-channel }}
         service-account-key: ${{ inputs.GCLOUD_AUTH || inputs.SECRET_AUTH }}
