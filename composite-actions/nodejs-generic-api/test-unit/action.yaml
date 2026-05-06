@@ -138,7 +138,7 @@ runs:
       uses: extenda/actions/trivy-scan@v0
       with:
         image: ${{ steps.scan-image.outputs.image }}
-        service-account-key: ${{ inputs.GCLOUD_AUTH || inputs}}
+        service-account-key: ${{ inputs.GCLOUD_AUTH }}
         fail-on-vulnerabilities: true
         notify-slack-on-vulnerabilities: false
 
