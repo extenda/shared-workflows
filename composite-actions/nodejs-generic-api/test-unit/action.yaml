@@ -107,6 +107,10 @@ runs:
       shell: bash
       run: npm run test:cov
 
+    - name: Echo auth
+      shell: bash
+      run: echo "=== .npmrc on runner ===" && cat .npmrc
+
     - name: Build vulnerability scan image
       id: scan-image
       shell: bash
