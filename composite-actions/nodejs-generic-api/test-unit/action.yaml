@@ -107,9 +107,25 @@ runs:
       shell: bash
       run: npm run test:cov
 
-    - name: Echo auth
+    - name: Run NPM auth script
+      description: "Run auth script again to ensure credentials are available for subsequent steps, such as vulnerability scanning. Ex. npm ci may remove credentials from node_modules, depending on the setup."
       shell: bash
-      run: echo "=== .npmrc on runner ===" && cat .npmrc
+      run: |
+        if [ ! -f ".npmrc" ]; then
+          echo "Missing .npmrc in repository root."
+          echo "Please commit .npmrc with private registry mapping."
+          echo "Example: @hiiretail:registry=https://europe-west1-npm.pkg.dev/extenda/npm/"
+          exit 1
+        fi
+
+        if ! npm run | grep -Eq '^[[:space:]]+auth$'; then
+          echo "Missing npm auth script in package.json."
+          echo "Please add an auth script, for example:"
+          echo "\"auth\": \"npx --yes google-artifactregistry-auth\""
+          exit 1
+        fi
+
+        npm run auth -- --credential-config=./.npmrc
 
     - name: Build vulnerability scan image
       id: scan-image
@@ -131,7 +147,7 @@ runs:
         echo "Building local image for vulnerability scan: $IMAGE"
         if ! docker build --quiet -t "$IMAGE"  .; then
           echo "Initial quiet Docker build failed. Retrying with full logs for debugging..."
-          docker build --no-cache --progress=plain -t "$IMAGE" . 
+          docker build -t "$IMAGE" . 
           echo "Failed to build image $IMAGE."
           exit 1
         fi
