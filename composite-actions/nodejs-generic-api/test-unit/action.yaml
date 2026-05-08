@@ -108,7 +108,6 @@ runs:
       run: npm run test:cov
 
     - name: Run NPM auth script
-      description: "Run auth script again to ensure credentials are available for subsequent steps, such as vulnerability scanning. Ex. npm ci may remove credentials from node_modules, depending on the setup."
       shell: bash
       run: |
         if [ ! -f ".npmrc" ]; then
