@@ -127,7 +127,7 @@ runs:
         echo "Building local image for vulnerability scan: $IMAGE"
         if ! docker build --quiet -t "$IMAGE"  .; then
           echo "Initial quiet Docker build failed. Retrying with full logs for debugging..."
-          docker build --progress=plain -t "$IMAGE" . 
+          docker build --no-cache --progress=plain -t "$IMAGE" . 
           echo "Failed to build image $IMAGE."
           exit 1
         fi
