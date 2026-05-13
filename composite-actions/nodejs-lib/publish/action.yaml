@@ -13,6 +13,9 @@ inputs:
 
 runs:
   using: "composite"
+  permissions:
+    contents: write
+    id-token: write
   steps:
     - uses: actions/checkout@v4
 
@@ -83,7 +86,4 @@ runs:
       env:
         GITHUB_TOKEN: ${{ inputs.GITHUB_TOKEN }}
       shell: bash
-      permissions:
-        contents: write
-        id-token: write
       run: npm run auth --if-present && NPM_TOKEN=$(gcloud auth print-access-token) npx semantic-release
