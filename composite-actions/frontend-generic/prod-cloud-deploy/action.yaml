@@ -35,6 +35,10 @@ inputs:
     description: 'Node.js version to use'
     required: false
     default: '20'
+  node-version-file:
+    description: 'File containing the Node.js version to use'
+    required: false
+    default: ''
 
 runs:
   using: 'composite'
@@ -88,8 +92,14 @@ runs:
         service-account-key: ${{ inputs.GCLOUD_AUTH_STAGING }}
 
     - uses: actions/setup-node@v4
+      if: inputs.node-version-file == ''
       with:
         node-version: ${{ inputs.node-version }}
+
+    - uses: actions/setup-node@v4
+      if: inputs.node-version-file != ''
+      with:
+        node-version-file: ${{ inputs.node-version-file }}
 
     - name: Auth to Nexus npm registry
       uses: extenda/actions/nexus-auth-npm@v0
