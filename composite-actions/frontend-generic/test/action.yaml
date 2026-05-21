@@ -73,14 +73,8 @@ runs:
 
     - name: Install Node
       uses: actions/setup-node@v4
-      if: inputs.node-version-file == ''
       with:
-        node-version: ${{ inputs.node-version }}
-
-    - name: Install Node from version file
-      uses: actions/setup-node@v4
-      if: inputs.node-version-file != ''
-      with:
+        node-version: ${{ inputs.node-version-file == '' && inputs.node-version || '' }}
         node-version-file: ${{ inputs.node-version-file }}
 
     - name: Auth to Nexus npm registry
