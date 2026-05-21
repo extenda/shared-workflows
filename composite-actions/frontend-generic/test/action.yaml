@@ -11,6 +11,14 @@ inputs:
     description: 'Use GAR auth workflow (true/false)'
     required: false
     default: 'false'
+  node-version:
+    description: 'Node.js version to use'
+    required: false
+    default: '20'
+  node-version-file:
+    description: 'File containing the Node.js version to use'
+    required: false
+    default: ''
 runs:
   using: 'composite'
   steps:
@@ -66,7 +74,8 @@ runs:
     - name: Install Node
       uses: actions/setup-node@v4
       with:
-        node-version: 20
+        node-version: ${{ inputs.node-version-file == '' && inputs.node-version || '' }}
+        node-version-file: ${{ inputs.node-version-file }}
 
     - name: Auth to Nexus npm registry
       if: inputs.GAR_WORKFLOW != 'true'
