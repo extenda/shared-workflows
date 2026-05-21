@@ -18,6 +18,10 @@ inputs:
   IMAGE:
     description: "Image name for the service (without tag)"
     required: true
+  node-version:
+    description: 'Node.js version to use'
+    required: false
+    default: '20'
 
 runs:
   using: "composite"
@@ -57,7 +61,7 @@ runs:
 
     - uses: actions/setup-node@v4
       with:
-        node-version: 20
+        node-version: ${{ inputs.node-version }}
 
     - name: Create release
       uses: extenda/actions/conventional-release@v0
