@@ -82,13 +82,13 @@ runs:
       shell: bash
       run: |
         gcloud --quiet auth configure-docker
-        docker build --provenance=false --build-arg LD_CLIENT_ID=${{ env.LD_CLIENT_ID }} -t ${{ inputs.image }}:${{ github.sha }} .
-        docker push ${{ inputs.image }}:${{ github.sha }}
+        docker build --provenance=false --build-arg LD_CLIENT_ID=${{ env.LD_CLIENT_ID }} -t ${{ inputs.IMAGE }}:${{ github.sha }} .
+        docker push ${{ inputs.IMAGE }}:${{ github.sha }}
 
     - name: Attest image
       uses: extenda/actions/binary-auth-attestation@v0
       with:
-        image-path: ${{ inputs.image }}:${{ github.sha }}
+        image-path: ${{ inputs.IMAGE }}:${{ github.sha }}
         service-account-key: ${{ inputs.GCLOUD_AUTH_STAGING }}
 
     - uses: actions/setup-node@v4
@@ -142,8 +142,8 @@ runs:
       shell: bash
       run: |
         gcloud container images add-tag \
-            ${{ inputs.image }}:${{ github.sha }} \
-            ${{ inputs.image }}:${{ steps.release.outputs.release-tag }}
+            ${{ inputs.IMAGE }}:${{ github.sha }} \
+            ${{ inputs.IMAGE }}:${{ steps.release.outputs.release-tag }}
 
     - uses: extenda/actions/conventional-version@v0
       id: semver
@@ -160,4 +160,4 @@ runs:
         secrets-account-key: ${{ inputs.SECRET_AUTH }}
         service-account-key: ${{ inputs.GCLOUD_AUTH_PROD }}
         update-dns: always
-        image: ${{ inputs.image }}:${{ steps.semver.outputs.release-tag }}
+        image: ${{ inputs.IMAGE }}:${{ steps.semver.outputs.release-tag }}
