@@ -345,6 +345,9 @@ jobs:
       inputs.use-scanngo-acceptance &&
       needs.staging.result == 'success'
     runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      id-token: write
     needs: staging
     steps:
       - uses: actions/checkout@v4
