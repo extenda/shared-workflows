@@ -313,6 +313,9 @@ jobs:
       (needs.docker-build.result == 'success') &&
       (needs.liquibase-staging.result == 'success' || needs.liquibase-staging.result == 'skipped')
     runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      id-token: write
     needs: [docker-build, liquibase-staging]
     steps:
       - uses: actions/checkout@v4
@@ -473,6 +476,9 @@ jobs:
       (needs.staging.result == 'success') &&
       (needs.liquibase-prod.result == 'success' || needs.liquibase-prod.result == 'skipped')
     runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      id-token: write
     needs: [acceptance, staging, liquibase-prod]
     steps:
       - uses: actions/checkout@v4
