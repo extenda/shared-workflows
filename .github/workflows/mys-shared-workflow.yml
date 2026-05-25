@@ -232,6 +232,9 @@ jobs:
       id: semver
 
     - name: Release Tag Create
+      permissions:
+        contents: write
+        id-token: write
       if: github.ref == 'refs/heads/master'
       uses: extenda/actions/conventional-release@v0
       id: release
@@ -251,6 +254,9 @@ jobs:
         service-account-key: ${{ secrets.secret-auth }}        
 
   onprem-release:
+    permissions:
+      contents: write
+      id-token: write
     if: |
       always() &&
       ((github.ref == 'refs/heads/master' && needs.build-test-sonarqube.result == 'success') ||
@@ -517,6 +523,9 @@ jobs:
           service-account-key: ${{ secrets.secret-auth }}
   
   docker-build:
+    permissions:
+      contents: read
+      id-token: write
     if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-22.04
     needs: build-test-sonarqube
@@ -587,6 +596,9 @@ jobs:
           service-account-key: ${{ secrets.secret-auth }}
 
   staging:
+    permissions:
+      contents: write
+      id-token: write
     runs-on: ubuntu-22.04
     needs: docker-build
     steps:
@@ -612,6 +624,9 @@ jobs:
           service-account-key: ${{ secrets.secret-auth }}
 
   acceptance:
+    permissions:
+      contents: read
+      id-token: write
     if: ${{ inputs.use-acceptance }}
     runs-on: ubuntu-22.04
     needs: staging
@@ -640,6 +655,9 @@ jobs:
           service-account-key: ${{ secrets.secret-auth }}
 
   production:
+    permissions:
+      contents: write
+      id-token: write
     if: |
       always() &&
       (needs.acceptance.result == 'success' || needs.acceptance.result == 'skipped') &&
