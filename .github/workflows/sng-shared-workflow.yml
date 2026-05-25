@@ -179,6 +179,9 @@ jobs:
   docker-build:
     if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      id-token: write
     needs: build
     steps:
       - uses: actions/checkout@v4
