@@ -39,7 +39,7 @@ on:
         description: 'Java version used in the project'
         type: string
         required: false
-        default: '17'
+        default: '21'
       use-old-setup-java:
         description: 'If true uses the java setup step of version 1'
         type: boolean
@@ -198,7 +198,7 @@ jobs:
               --input  ${{ inputs.working-directory || '.' }}src/main/kotlin \
               --config  ${{ inputs.working-directory || '.' }}pnp-detekt-plugin.yml \
               --classpath "${{ inputs.working-directory || '.' }}target/classes:$(cat cp.txt)" \
-              --jvm-target 21 \
+              --jvm-target ${{ inputs.java-version }} \
               --plugins ~/.m2/repository/com/retailsvc/pnp-processors-core-common/0.140.3/pnp-processors-core-common-0.140.3.jar \
 
       - name: Analyze with Sonar
@@ -213,7 +213,7 @@ jobs:
         if: ${{ inputs.native-image == true }}
         with:
           distribution: 'graalvm'
-          java-version: '17'
+          java-version: ${{ inputs.java-version }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           
       - name: Package native image
