@@ -10,6 +10,10 @@ inputs:
   GCLOUD_AUTH_STAGING:
     description: 'GCP Auth for staging environment (used for vulnerability scan)'
     required: true
+  SKIP_VULNERABILITY_SCAN:
+    description: 'Whether to skip vulnerability scan (true/false)'
+    required: false
+    default: 'false'
   GAR_WORKFLOW:
     description: 'Use GAR auth workflow (true/false)'
     required: false
@@ -149,6 +153,7 @@ runs:
     - name: Build vulnerability scan image
       id: scan-image
       shell: bash
+      if: inputs.SKIP_VULNERABILITY_SCAN != 'true'
       run: |
         IMAGE="${IMAGE_NAME:+${IMAGE_NAME}:${GITHUB_SHA}}"
 
@@ -174,6 +179,7 @@ runs:
         echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
 
     - name: Vulnerability scan
+      if: inputs.SKIP_VULNERABILITY_SCAN != 'true'
       uses: extenda/actions/trivy-scan@v0
       with:
         image: ${{ steps.scan-image.outputs.image }}
