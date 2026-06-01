@@ -150,6 +150,13 @@ runs:
       if: inputs.BUILD_TOOL == 'yarn'
       run: yarn run build
 
+    - name: Run NPM auth script
+      if: inputs.GAR_WORKFLOW == 'true'
+      shell: bash
+      run: |
+        echo "@hiiretail:registry=https://europe-west1-npm.pkg.dev/extenda/npm/" > .npmrc
+        npm run auth  -- --credential-config=./.npmrc
+
     - name: Build vulnerability scan image
       id: scan-image
       shell: bash
