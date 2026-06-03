@@ -137,12 +137,13 @@ runs:
     - name: Build Docker
       shell: sh
       run: |
+        RUNTIME_VERSION=$(echo "${{ inputs.dotnet-version }}" | sed 's/\.x$//')
         IMAGE=eu.gcr.io/extenda/${{ inputs.clan }}/${{ inputs.application-name }}
         dotnet publish ${{ inputs.dotnet-service-project }} \
               --os linux \
               --arch x64 \
               /t:PublishContainer \
-              /p:ContainerBaseImage=mcr.microsoft.com/dotnet/aspnet:9.0-noble-chiseled \
+              /p:ContainerBaseImage=mcr.microsoft.com/dotnet/aspnet:${RUNTIME_VERSION}-noble-chiseled \
               /p:ContainerRepository=$IMAGE \
               /p:ContainerImageTag=${{ steps.safe-version.outputs.tag }} \
               /p:Version=${{ steps.semver.outputs.semver }} \
