@@ -161,6 +161,4 @@ runs:
       uses: extenda/shared-workflows/composite-actions/lossprevention/pushattestimage@master
       with:
         secret-auth: ${{ inputs.secret-push-attest-auth }}
-        image: |
-          eu.gcr.io/extenda/${{ inputs.clan }}/${{ inputs.application-name }}:${{ steps.safe-version.outputs.tag }}
-          eu.gcr.io/extenda/${{ inputs.clan }}/${{ inputs.application-name }}:latest
+        image: eu.gcr.io/extenda/${{ inputs.clan }}/${{ inputs.application-name }}:${{ steps.safe-version.outputs.tag }}
