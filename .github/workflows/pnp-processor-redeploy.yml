@@ -26,7 +26,7 @@ on:
 
 jobs:
   redeploy-to-staging:
-    uses: extenda/shared-workflows/.github/workflows/pnp-processor-deploy-autopilot.yml@v0
+    uses: extenda/shared-workflows/.github/workflows/pnp-processor-deploy-autopilot.yml@fix/gcloud-571-gke-plugin
     secrets:
       GCR_image_name: ${{ secrets.GCR_image_name }}
       slack-channel: ${{ secrets.slack-channel }}
