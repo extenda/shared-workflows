@@ -50,6 +50,9 @@ jobs:
     permissions:
       contents: read
       id-token: write
+    env:
+      # secrets cannot be used in `if` conditions; mapped to env var to enable conditional step execution
+      DORA_COMPONENT: ${{ secrets.dora-component }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -95,7 +98,7 @@ jobs:
           update-dns: always
 
       - name: Trigger synthetic monitoring tests on staging
-        if: ${{ inputs.trigger-synthetic-monitoring-tests == true }} && ${{ inputs.release-version == false }}
+        if: ${{ inputs.trigger-synthetic-monitoring-tests == true && inputs.release-version == false }}
         uses: extenda/actions/repository-dispatch@v0
         with:
           service-account-key: ${{ secrets.SECRET_AUTH }}
@@ -108,7 +111,7 @@ jobs:
             }
 
       - name: Trigger synthetic monitoring tests on prod
-        if: ${{ inputs.trigger-synthetic-monitoring-tests == true }} && ${{ inputs.release-version == true }}
+        if: ${{ inputs.trigger-synthetic-monitoring-tests == true && inputs.release-version == true }}
         uses: extenda/actions/repository-dispatch@v0
         with:
           service-account-key: ${{ secrets.SECRET_AUTH }}
@@ -121,7 +124,7 @@ jobs:
             }
           
       - name: Dora Component
-        if: ${{ inputs.release-version == true && inputs.dora-component != ''}}
+        if: ${{ inputs.release-version == true && env.DORA_COMPONENT != ''}}
         uses: extenda/actions/dora-metrics@v0
         with:
           product-name: Product And Price
