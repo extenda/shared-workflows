@@ -168,17 +168,19 @@ jobs:
           version: ${{ steps.semver.outputs.version }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
           working-directory: ${{ inputs.working-directory || '.' }}
-      
+
       - name: Kafka Streams lint - fetch detekt config file
         if: ${{ inputs.enable-kafka-streams-lint == true }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-            curl -sSL \
+          DETEKT_FILE="${{ inputs.working-directory || '.' }}/pnp-detekt-plugin.yml"
+          
+          curl -sSL \
             -H "Authorization: Bearer $GITHUB_TOKEN" \
             -H "Accept: application/vnd.github.v3.raw" \
             "https://api.github.com/repos/extenda/shared-workflows/contents/.github/configs/pnp-detekt-plugin.yml" \
-            -o ${{ inputs.working-directory || '.' }}/pnp-detekt-plugin.yml
+            -o "$DETEKT_FILE"
 
       - name: Kafka Streams lint - get Detekt plugin for kafka streams
         if: ${{ inputs.enable-kafka-streams-lint == true }}
