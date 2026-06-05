@@ -194,44 +194,20 @@ jobs:
 
       - name: Kafka Streams lint - download Detekt CLI
         if: ${{ inputs.enable-kafka-streams-lint == true }}
-        shell: bash
         run: |
-          set -euo pipefail
-          mkdir -p lib
-
-          curl -fsSL -o "lib/detekt-cli.jar" \
-            "https://github.com/detekt/detekt/releases/download/v1.23.8/detekt-cli-1.23.8-all.jar"
-
-          ls -lh "lib/detekt-cli.jar"
-          jar tf "lib/detekt-cli.jar" | grep -E "io/gitlab/arturbosch/detekt/cli/Main.class|dev/detekt/cli/Main.class"
+          curl -sLo lib/detekt-cli.jar \
+            https://github.com/detekt/detekt/releases/download/v1.23.8/detekt-cli-1.23.8-all.jar
 
       - name: Kafka Streams lint - verify with Detekt
         if: ${{ inputs.enable-kafka-streams-lint == true }}
-        shell: bash
         run: |
-          set -euo pipefail
-
-          # Detekt 1.23.8 does not accept jvm target 25; use a supported value.
-          DETEKT_JVM_TARGET="21"
-
-          DETEKT_CLASSPATH="target/classes:$(cat cp.txt)"
-          LIB_JARS_CLASSPATH="$(find lib -maxdepth 1 -type f -name '*.jar' -printf ':%p' | tr -d '\n')"
-
-          DETEKT_PLUGIN_JAR="$HOME/.m2/repository/com/retailsvc/pnp-processors-core-common/0.140.3/pnp-processors-core-common-0.140.3.jar"
-          KAFKA_STREAMS_JAR_FROM_CP="$(tr ':' '\n' < cp.txt | grep -E '/kafka-streams-[^/]+\.jar$' | head -n 1 || true)"
-
-          DETEKT_PLUGINS="$DETEKT_PLUGIN_JAR"
-          if [[ -n "$KAFKA_STREAMS_JAR_FROM_CP" ]]; then
-            # Detekt loads custom rules via a dedicated classloader; include kafka-streams there as well.
-            DETEKT_PLUGINS="$DETEKT_PLUGINS,$KAFKA_STREAMS_JAR_FROM_CP"
-          fi
-
-          java -jar "lib/detekt-cli.jar" \
-            --input "src/main/kotlin" \
-            --config "pnp-detekt-plugin.yml" \
-            --classpath "${DETEKT_CLASSPATH}${LIB_JARS_CLASSPATH}" \
-            --jvm-target "$DETEKT_JVM_TARGET" \
-            --plugins "$DETEKT_PLUGINS"
+          java -cp "target/classes:lib/*" \
+            io.gitlab.arturbosch.detekt.cli.Main \
+              --input src/main/kotlin \
+              --config pnp-detekt-plugin.yml \
+              --classpath "target/classes:$(cat cp.txt)" \
+              --jvm-target 21 \
+              --plugins ~/.m2/repository/com/retailsvc/pnp-processors-core-common/0.140.3/pnp-processors-core-common-0.140.3.jar \
 
       - name: Analyze with Sonar
         uses: extenda/actions/sonar-scanner@v0
