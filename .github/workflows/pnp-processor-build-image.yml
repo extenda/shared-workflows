@@ -187,38 +187,36 @@ jobs:
 
       - name: Kafka Streams lint - download Detekt CLI
         if: ${{ inputs.enable-kafka-streams-lint == true }}
-        shell: bash
         run: |
           set -euo pipefail
           BASE_DIR="${{ inputs.working-directory || '.' }}"
-          DETEKT_JAR="$BASE_DIR/lib/detekt-cli.jar"
-
           mkdir -p "$BASE_DIR/lib"
 
-          # -f makes curl fail on HTTP errors (prevents saving HTML error pages as .jar)
-          curl -fsSL --retry 3 --retry-delay 2 \
-            -o "$DETEKT_JAR" \
-            https://github.com/detekt/detekt/releases/download/v1.23.8/detekt-cli-1.23.8-all.jar
+          curl -fsSL \
+            -o "$BASE_DIR/lib/detekt-cli.jar" \
+            "https://github.com/detekt/detekt/releases/download/v1.23.8/detekt-cli-1.23.8-all.jar"
 
-          # Validate jar is readable and has Detekt CLI classes
-          jar tf "$DETEKT_JAR" >/dev/null
-          jar tf "$DETEKT_JAR" | grep -Eq 'io/gitlab/arturbosch/detekt/cli/Main.class|dev/detekt/cli/Main.class'
+          ls -lh "$BASE_DIR/lib/detekt-cli.jar"
+          jar tf "$BASE_DIR/lib/detekt-cli.jar" | grep -E "io/gitlab/arturbosch/detekt/cli/Main.class|dev/detekt/cli/Main.class"
 
       - name: Kafka Streams lint - verify with Detekt
         if: ${{ inputs.enable-kafka-streams-lint == true }}
-        shell: bash
         run: |
           set -euo pipefail
           BASE_DIR="${{ inputs.working-directory || '.' }}"
-          DETEKT_JAR="$BASE_DIR/lib/detekt-cli.jar"
 
-          java -jar "$DETEKT_JAR" \
+          test -f "$BASE_DIR/lib/detekt-cli.jar"
+          test -f "$BASE_DIR/cp.txt"
+          test -f "$BASE_DIR/pnp-detekt-plugin.yml"
+
+          java -jar "$BASE_DIR/lib/detekt-cli.jar" --version
+
+          java -jar "$BASE_DIR/lib/detekt-cli.jar" \
             --input "$BASE_DIR/src/main/kotlin" \
             --config "$BASE_DIR/pnp-detekt-plugin.yml" \
             --classpath "$BASE_DIR/target/classes:$(cat "$BASE_DIR/cp.txt")" \
             --jvm-target "${{ inputs.java-version }}" \
             --plugins "$HOME/.m2/repository/com/retailsvc/pnp-processors-core-common/0.140.3/pnp-processors-core-common-0.140.3.jar"
-
       - name: Analyze with Sonar
         uses: extenda/actions/sonar-scanner@v0
         with:
