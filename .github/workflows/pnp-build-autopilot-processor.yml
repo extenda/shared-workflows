@@ -194,22 +194,33 @@ jobs:
 
       - name: Kafka Streams lint - download Detekt CLI
         if: ${{ inputs.enable-kafka-streams-lint == true }}
+        shell: bash
         run: |
+          set -euo pipefail
           BASE_DIR="${{ inputs.working-directory || '.' }}"
           mkdir -p "$BASE_DIR/lib"
-          curl -sSL -o "$BASE_DIR/lib/detekt-cli.jar" \
-            https://github.com/detekt/detekt/releases/download/v1.23.8/detekt-cli-1.23.8-all.jar
+
+          curl -fsSL -o "$BASE_DIR/lib/detekt-cli.jar" \
+            "https://github.com/detekt/detekt/releases/download/v1.23.8/detekt-cli-1.23.8-all.jar"
+
+          ls -lh "$BASE_DIR/lib/detekt-cli.jar"
+          jar tf "$BASE_DIR/lib/detekt-cli.jar" | grep -E "io/gitlab/arturbosch/detekt/cli/Main.class|dev/detekt/cli/Main.class"
 
       - name: Kafka Streams lint - verify with Detekt
         if: ${{ inputs.enable-kafka-streams-lint == true }}
+        shell: bash
         run: |
+          set -euo pipefail
           BASE_DIR="${{ inputs.working-directory || '.' }}"
+
+          # Detekt 1.23.8 does not accept jvm target 25; use a supported value.
+          DETEKT_JVM_TARGET="21"
 
           java -jar "$BASE_DIR/lib/detekt-cli.jar" \
             --input "$BASE_DIR/src/main/kotlin" \
             --config "$BASE_DIR/pnp-detekt-plugin.yml" \
             --classpath "$BASE_DIR/target/classes:$(cat "$BASE_DIR/cp.txt")" \
-            --jvm-target "${{ inputs.java-version }}" \
+            --jvm-target "$DETEKT_JVM_TARGET" \
             --plugins "$HOME/.m2/repository/com/retailsvc/pnp-processors-core-common/0.140.3/pnp-processors-core-common-0.140.3.jar"
 
       - name: Analyze with Sonar
