@@ -197,29 +197,27 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          BASE_DIR="${{ inputs.working-directory || '.' }}"
-          mkdir -p "$BASE_DIR/lib"
+          mkdir -p lib
 
-          curl -fsSL -o "$BASE_DIR/lib/detekt-cli.jar" \
+          curl -fsSL -o "lib/detekt-cli.jar" \
             "https://github.com/detekt/detekt/releases/download/v1.23.8/detekt-cli-1.23.8-all.jar"
 
-          ls -lh "$BASE_DIR/lib/detekt-cli.jar"
-          jar tf "$BASE_DIR/lib/detekt-cli.jar" | grep -E "io/gitlab/arturbosch/detekt/cli/Main.class|dev/detekt/cli/Main.class"
+          ls -lh "lib/detekt-cli.jar"
+          jar tf "lib/detekt-cli.jar" | grep -E "io/gitlab/arturbosch/detekt/cli/Main.class|dev/detekt/cli/Main.class"
 
       - name: Kafka Streams lint - verify with Detekt
         if: ${{ inputs.enable-kafka-streams-lint == true }}
         shell: bash
         run: |
           set -euo pipefail
-          BASE_DIR="${{ inputs.working-directory || '.' }}"
 
           # Detekt 1.23.8 does not accept jvm target 25; use a supported value.
           DETEKT_JVM_TARGET="21"
 
-          java -jar "$BASE_DIR/lib/detekt-cli.jar" \
-            --input "$BASE_DIR/src/main/kotlin" \
-            --config "$BASE_DIR/pnp-detekt-plugin.yml" \
-            --classpath "$BASE_DIR/target/classes:$(cat "$BASE_DIR/cp.txt")" \
+          java -jar "lib/detekt-cli.jar" \
+            --input "src/main/kotlin" \
+            --config "pnp-detekt-plugin.yml" \
+            --classpath "target/classes:$(cat "cp.txt")" \
             --jvm-target "$DETEKT_JVM_TARGET" \
             --plugins "$HOME/.m2/repository/com/retailsvc/pnp-processors-core-common/0.140.3/pnp-processors-core-common-0.140.3.jar"
 
@@ -245,7 +243,6 @@ jobs:
           args: verify -Dpackaging=native-image -s settings.xml
           version: ${{ steps.semver.outputs.version }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
-          working-directory: ${{ inputs.working-directory || '.' }}
 
       - name: Publish pacts
         if: ${{ inputs.do-pact-consumer-tests == true }}
@@ -457,4 +454,3 @@ jobs:
             Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
           channel: ${{ inputs.slack-channel }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
-
