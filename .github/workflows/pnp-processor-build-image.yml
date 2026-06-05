@@ -201,22 +201,21 @@ jobs:
 
       - name: Kafka Streams lint - verify with Detekt
         if: ${{ inputs.enable-kafka-streams-lint == true }}
+        shell: bash
         run: |
           set -euo pipefail
           BASE_DIR="${{ inputs.working-directory || '.' }}"
 
-          test -f "$BASE_DIR/lib/detekt-cli.jar"
-          test -f "$BASE_DIR/cp.txt"
-          test -f "$BASE_DIR/pnp-detekt-plugin.yml"
-
-          java -jar "$BASE_DIR/lib/detekt-cli.jar" --version
+          # Detekt 1.23.8 supports up to JVM target 22.
+          DETEKT_JVM_TARGET="21"
 
           java -jar "$BASE_DIR/lib/detekt-cli.jar" \
             --input "$BASE_DIR/src/main/kotlin" \
             --config "$BASE_DIR/pnp-detekt-plugin.yml" \
             --classpath "$BASE_DIR/target/classes:$(cat "$BASE_DIR/cp.txt")" \
-            --jvm-target "${{ inputs.java-version }}" \
+            --jvm-target "$DETEKT_JVM_TARGET" \
             --plugins "$HOME/.m2/repository/com/retailsvc/pnp-processors-core-common/0.140.3/pnp-processors-core-common-0.140.3.jar"
+
       - name: Analyze with Sonar
         uses: extenda/actions/sonar-scanner@v0
         with:
