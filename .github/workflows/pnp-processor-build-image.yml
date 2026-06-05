@@ -188,22 +188,23 @@ jobs:
       - name: Kafka Streams lint - download Detekt CLI
         if: ${{ inputs.enable-kafka-streams-lint == true }}
         run: |
-          curl -s -L --create-dirs -o ${{ inputs.working-directory || '.' }}lib/detekt-cli.jar \
+          BASE="${{ inputs.working-directory || '.' }}"
+          mkdir -p "$BASE/lib"
+          curl -sSL \
+            -o "$BASE/lib/detekt-cli.jar" \
             https://github.com/detekt/detekt/releases/download/v1.23.8/detekt-cli-1.23.8-all.jar
-      
 
       - name: Kafka Streams lint - verify with Detekt
         if: ${{ inputs.enable-kafka-streams-lint == true }}
         run: |
           BASE="${{ inputs.working-directory || '.' }}"
 
-          java -cp "$BASE/target/classes:lib/*" \
-            io.gitlab.arturbosch.detekt.cli.Main \
+          java -jar "$BASE/lib/detekt-cli.jar" \
             --input "$BASE/src/main/kotlin" \
             --config "$BASE/pnp-detekt-plugin.yml" \
-            --classpath "$BASE/target/classes:$(cat cp.txt)" \
+            --classpath "$BASE/target/classes:$(cat "$BASE/cp.txt")" \
             --jvm-target "${{ inputs.java-version }}" \
-            --plugins ~/.m2/repository/com/retailsvc/pnp-processors-core-common/0.140.3/pnp-processors-core-common-0.140.3.jar
+            --plugins "$HOME/.m2/repository/com/retailsvc/pnp-processors-core-common/0.140.3/pnp-processors-core-common-0.140.3.jar"
 
       - name: Analyze with Sonar
         uses: extenda/actions/sonar-scanner@v0
