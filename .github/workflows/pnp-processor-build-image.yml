@@ -195,13 +195,15 @@ jobs:
       - name: Kafka Streams lint - verify with Detekt
         if: ${{ inputs.enable-kafka-streams-lint == true }}
         run: |
-          java -cp "${{ inputs.working-directory || '.' }}target/classes:lib/*" \
+          BASE="${{ inputs.working-directory || '.' }}"
+
+          java -cp "$BASE/target/classes:lib/*" \
             io.gitlab.arturbosch.detekt.cli.Main \
-              --input  ${{ inputs.working-directory || '.' }}src/main/kotlin \
-              --config  ${{ inputs.working-directory || '.' }}pnp-detekt-plugin.yml \
-              --classpath "${{ inputs.working-directory || '.' }}target/classes:$(cat cp.txt)" \
-              --jvm-target ${{ inputs.java-version }} \
-              --plugins ~/.m2/repository/com/retailsvc/pnp-processors-core-common/0.140.3/pnp-processors-core-common-0.140.3.jar \
+            --input "$BASE/src/main/kotlin" \
+            --config "$BASE/pnp-detekt-plugin.yml" \
+            --classpath "$BASE/target/classes:$(cat cp.txt)" \
+            --jvm-target "${{ inputs.java-version }}" \
+            --plugins ~/.m2/repository/com/retailsvc/pnp-processors-core-common/0.140.3/pnp-processors-core-common-0.140.3.jar
 
       - name: Analyze with Sonar
         uses: extenda/actions/sonar-scanner@v0
