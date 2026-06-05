@@ -214,10 +214,13 @@ jobs:
           # Detekt 1.23.8 does not accept jvm target 25; use a supported value.
           DETEKT_JVM_TARGET="21"
 
+          DETEKT_CLASSPATH="target/classes:$(cat cp.txt)"
+          LIB_JARS_CLASSPATH="$(find lib -maxdepth 1 -type f -name '*.jar' -printf ':%p' | tr -d '\n')"
+
           java -jar "lib/detekt-cli.jar" \
             --input "src/main/kotlin" \
             --config "pnp-detekt-plugin.yml" \
-            --classpath "target/classes:$(cat "cp.txt")" \
+            --classpath "${DETEKT_CLASSPATH}${LIB_JARS_CLASSPATH}" \
             --jvm-target "$DETEKT_JVM_TARGET" \
             --plugins "$HOME/.m2/repository/com/retailsvc/pnp-processors-core-common/0.140.3/pnp-processors-core-common-0.140.3.jar"
 
