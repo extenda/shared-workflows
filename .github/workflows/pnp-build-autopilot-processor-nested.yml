@@ -235,10 +235,19 @@ jobs:
 
           DETEKT_PLUGIN_JAR="$HOME/.m2/repository/com/retailsvc/pnp-processors-core-common/0.169.0/pnp-processors-core-common-0.169.0.jar"
           KAFKA_STREAMS_JAR="$(tr ':' '\n' < "$BASE_DIR/cp.txt" | grep -E '/kafka-streams-[^/]+\.jar$' | head -n1 || true)"
-          DETEKT_PLUGINS="$DETEKT_PLUGIN_JAR"
-          if [[ -n "$KAFKA_STREAMS_JAR" ]]; then
-            DETEKT_PLUGINS="$DETEKT_PLUGINS:$KAFKA_STREAMS_JAR"
+
+          if [[ ! -f "$DETEKT_PLUGIN_JAR" ]]; then
+            echo "Detekt plugin jar not found: $DETEKT_PLUGIN_JAR"
+            exit 1
           fi
+
+          if [[ -z "$KAFKA_STREAMS_JAR" || ! -f "$KAFKA_STREAMS_JAR" ]]; then
+            echo "Kafka Streams jar not found in cp.txt; required for custom detekt rule classloading"
+            exit 1
+          fi
+
+          # Detekt expects multiple plugin paths as a comma-separated list.
+          DETEKT_PLUGINS="$DETEKT_PLUGIN_JAR,$KAFKA_STREAMS_JAR"
 
           java -jar "$BASE_DIR/lib/detekt-cli.jar" \
             --input "$BASE_DIR/src/main/kotlin" \
