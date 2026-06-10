@@ -187,7 +187,8 @@ runs:
         echo "Building local image for vulnerability scan: $IMAGE"
         if ! docker build --quiet -t "$IMAGE" .; then
           echo "Initial quiet Docker build failed. Retrying with full logs for debugging..."
-          docker build -t "$IMAGE" .
+          gcloud --quiet auth configure-docker
+          docker build --provenance=false --build-arg LD_CLIENT_ID=${{ env.LD_CLIENT_ID }} -t "$IMAGE" .
           echo "Failed to build image $IMAGE."
           exit 1
         fi
