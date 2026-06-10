@@ -153,6 +153,12 @@ runs:
       if: inputs.BUILD_TOOL == 'yarn'
       run: yarn run build
 
+    - uses: extenda/actions/gcp-secret-manager@v0
+      with:
+        service-account-key: ${{ inputs.GCLOUD_AUTH_PROD }}
+        secrets: |
+          LD_CLIENT_ID: ${{ inputs.LD_CLIENT_ID }}
+
     - name: Run NPM auth script
       if: inputs.GAR_WORKFLOW == 'true'
       shell: bash
