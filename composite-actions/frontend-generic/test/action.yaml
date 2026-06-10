@@ -26,6 +26,9 @@ inputs:
     description: 'File containing the Node.js version to use'
     required: false
     default: ''
+  LD_CLIENT_ID:
+    description: 'LaunchDarkly client ID in Secret Manager'
+    required: true
 runs:
   using: 'composite'
   steps:
