@@ -67,7 +67,7 @@ runs:
 
     - uses: extenda/actions/gcp-secret-manager@v0
       with:
-        service-account-key: ${{ inputs.GCLOUD_AUTH_PROD }}
+        service-account-key: ${{ inputs.GCLOUD_AUTH_STAGING }}
         secrets: |
           LD_CLIENT_ID: ${{ inputs.LD_CLIENT_ID }}
 
