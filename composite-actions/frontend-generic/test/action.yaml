@@ -28,7 +28,7 @@ inputs:
     default: ''
   LD_CLIENT_ID:
     description: 'LaunchDarkly client ID in Secret Manager'
-    required: true
+    required: false
 runs:
   using: 'composite'
   steps:
@@ -154,6 +154,7 @@ runs:
       run: yarn run build
 
     - uses: extenda/actions/gcp-secret-manager@v0
+      if: inputs.LD_CLIENT_ID != ''
       with:
         service-account-key: ${{ inputs.GCLOUD_AUTH_STAGING }}
         secrets: |
@@ -187,8 +188,10 @@ runs:
         echo "Building local image for vulnerability scan: $IMAGE"
         if ! docker build --quiet -t "$IMAGE" .; then
           echo "Initial quiet Docker build failed. Retrying with full logs for debugging..."
-          gcloud --quiet auth configure-docker
-          docker build --provenance=false --build-arg LD_CLIENT_ID=${{ env.LD_CLIENT_ID }} -t "$IMAGE" .
+          if command -v gcloud &>/dev/null; then
+            gcloud --quiet auth configure-docker
+          fi
+          docker build --provenance=false ${LD_CLIENT_ID:+--build-arg LD_CLIENT_ID=$LD_CLIENT_ID} -t "$IMAGE" .
           echo "Failed to build image $IMAGE."
           exit 1
         fi
