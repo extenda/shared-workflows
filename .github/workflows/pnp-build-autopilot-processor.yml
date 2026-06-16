@@ -120,6 +120,11 @@ jobs:
             GITHUB-TOKEN: github-token
             NEXUS_PASSWORD: nexus-password
             NEXUS_USERNAME: nexus-username
+    
+      - name: Setup gcloud
+        uses: extenda/actions/setup-gcloud@v0
+        with:
+          service-account-key: ${{ secrets.SECRET_AUTH }}
 
       - name: Set up JDK
         if: ${{ inputs.use-old-setup-java == false }}
@@ -260,13 +265,6 @@ jobs:
           retry-interval: 10
           dry-run: ${{ inputs.is-pact-provider-can-i-deploy-dry-run }}
           env: "staging"
-
-      - name: Setup gcloud
-        if: github.ref == 'refs/heads/master'
-        uses: extenda/actions/setup-gcloud@v0
-        id: gcloud
-        with:
-          service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
 
       - name: Authenticate docker
         if: github.ref == 'refs/heads/master'
