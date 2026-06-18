@@ -231,6 +231,8 @@ jobs:
           service-account-key: ${{ secrets.secret-auth }}
           secrets: |
             API_KEY: api-key-hiidentity-staff
+            NEXUS_PASSWORD: nexus-password
+            NEXUS_USERNAME: nexus-username
 
       - name: IAM token
         id: testtoken
@@ -238,6 +240,14 @@ jobs:
         with:
           service-account-key: ${{ secrets.gcloud-auth-staging }}
           api-key: ${{ env.API_KEY }}
+
+      - name: Update nuget source
+        run: |
+          dotnet nuget update source Extenda \
+            --username ${{ env.NEXUS_USERNAME }} \
+            --password ${{ env.NEXUS_PASSWORD }} \
+            --configfile nuget.config \
+            --store-password-in-clear-text
 
       - name: Run smoke tests
         run: |
