@@ -180,7 +180,7 @@ jobs:
         if: ${{ inputs.enable-kafka-streams-lint == true }}
         uses: extenda/actions/maven@v0
         with:
-          args: dependency:get -Dartifact=com.retailsvc:pnp-processors-core-common:0.169.2:jar
+          args: dependency:get -Dartifact=com.retailsvc:pnp-processors-core-common:0.171.2:jar
           service-account-key: ${{ secrets.SECRET_AUTH }}
       
       - name: Kafka Streams lint - build classpath with maven
@@ -212,7 +212,7 @@ jobs:
               --config pnp-detekt-plugin.yml \
               --classpath "target/classes:$(cat cp.txt)" \
               --jvm-target 21 \
-              --plugins ~/.m2/repository/com/retailsvc/pnp-processors-core-common/0.169.2/pnp-processors-core-common-0.169.2.jar \
+              --plugins ~/.m2/repository/com/retailsvc/pnp-processors-core-common/0.171.2/pnp-processors-core-common-0.171.2.jar \
 
       - name: Analyze with Sonar
         uses: extenda/actions/sonar-scanner@v0
