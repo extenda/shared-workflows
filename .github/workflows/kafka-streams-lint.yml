@@ -62,21 +62,19 @@ jobs:
           args: >
             compile -Denforcer.skip=true -q
             dependency:get -Dartifact=com.retailsvc:pnp-processors-core-common:0.125.0:jar
-            dependency:build-classpath -DincludeScope=test -Dmdep.outputFile=cp.txt
-            dependency:copy-dependencies -DoutputDirectory=lib
+            dependency:copy-dependencies -DincludeScope=test -DoutputDirectory=lib
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
       - name: Download Detekt CLI
         run: |
-          mkdir -p lib
-          curl -sLo lib/detekt-cli.jar \
+          curl -sLo detekt-cli.jar \
             https://github.com/detekt/detekt/releases/download/v1.23.8/detekt-cli-1.23.8-all.jar
       
       - name: Verify with Detekt
         run: |
-          java -cp "target/classes:$(cat cp.txt):lib/*" \
+          java -cp "detekt-cli.jar:target/classes:lib/*" \
             io.gitlab.arturbosch.detekt.cli.Main \
               --input src/main/kotlin \
               --config detekt.yml \
-              --classpath "target/classes:$(cat cp.txt)" \
+              --classpath "target/classes:lib/*" \
               --plugins ~/.m2/repository/com/retailsvc/pnp-processors-core-common/0.125.0/pnp-processors-core-common-0.125.0.jar
