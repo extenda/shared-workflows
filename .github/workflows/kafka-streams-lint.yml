@@ -62,7 +62,7 @@ jobs:
           args: >
             compile -Denforcer.skip=true -q
             dependency:get -Dartifact=com.retailsvc:pnp-processors-core-common:0.125.0:jar
-            dependency:build-classpath -DincludeScope=runtime -Dmdep.outputFile=cp.txt
+            dependency:build-classpath -DincludeScope=test -Dmdep.outputFile=cp.txt
             dependency:copy-dependencies -DoutputDirectory=lib
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
