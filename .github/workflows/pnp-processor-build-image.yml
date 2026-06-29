@@ -168,7 +168,7 @@ jobs:
         if: ${{ inputs.enable-kafka-streams-lint == true }}
         uses: extenda/actions/maven@v0
         with:
-          args: dependency:get -Dartifact=com.retailsvc:pnp-processors-core-common:0.173.1:jar
+          args: dependency:get -Dartifact=com.retailsvc:pnp-processors-core-common:0.169.2:jar
           service-account-key: ${{ secrets.SECRET_AUTH }}
           working-directory: ${{ inputs.working-directory || '.' }}
           
@@ -214,12 +214,23 @@ jobs:
           # Detekt 1.23.8 supports up to JVM target 22.
           DETEKT_JVM_TARGET="21"
 
+          # 1. Start with your custom rule jar
+          PLUGINS_CP="$HOME/.m2/repository/com/retailsvc/pnp-processors-core-common/0.169.2/pnp-processors-core-common-0.169.2.jar"
+
+          # 2. Append all project dependencies copied into /lib (skipping the detekt-cli jar itself)
+          for jar in "$BASE_DIR"/lib/*.jar; do
+            if [[ "$jar" != *"detekt-cli.jar" ]]; then
+              PLUGINS_CP="$PLUGINS_CP:$jar"
+            fi
+          done
+
+          # 3. Run Detekt with the expanded plugins classpath
           java -jar "$BASE_DIR/lib/detekt-cli.jar" \
             --input "$BASE_DIR/src/main/kotlin" \
             --config "$BASE_DIR/pnp-detekt-plugin.yml" \
             --classpath "$BASE_DIR/target/classes:$(cat "$BASE_DIR/cp.txt")" \
             --jvm-target "$DETEKT_JVM_TARGET" \
-            --plugins "$HOME/.m2/repository/com/retailsvc/pnp-processors-core-common/0.173.1/pnp-processors-core-common-0.173.1.jar"
+            --plugins "$PLUGINS_CP"
 
       - name: Analyze with Sonar
         uses: extenda/actions/sonar-scanner@v0
