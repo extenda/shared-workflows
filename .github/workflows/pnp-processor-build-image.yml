@@ -219,7 +219,7 @@ jobs:
             --config "$BASE_DIR/pnp-detekt-plugin.yml" \
             --classpath "$BASE_DIR/target/classes:$(cat "$BASE_DIR/cp.txt")" \
             --jvm-target "$DETEKT_JVM_TARGET" \
-            --plugins "$HOME/.m2/repository/com/retailsvc/pnp-processors-core-common/0.169.2/pnp-processors-core-common-0.169.2.jar"
+            --plugins "$HOME/.m2/repository/com/retailsvc/pnp-processors-core-common/0.169.2/pnp-processors-core-common-0.173.1.jar"
 
       - name: Analyze with Sonar
         uses: extenda/actions/sonar-scanner@v0
