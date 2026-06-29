@@ -168,7 +168,7 @@ jobs:
         if: ${{ inputs.enable-kafka-streams-lint == true }}
         uses: extenda/actions/maven@v0
         with:
-          args: dependency:get -Dartifact=com.retailsvc:pnp-processors-core-common:0.169.2:jar
+          args: dependency:get -Dartifact=com.retailsvc:pnp-processors-core-common:0.173.1:jar
           service-account-key: ${{ secrets.SECRET_AUTH }}
           working-directory: ${{ inputs.working-directory || '.' }}
           
