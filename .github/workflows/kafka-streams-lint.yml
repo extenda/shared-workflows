@@ -10,7 +10,7 @@ on:
         description: 'The Java version.'
         type: number
         required: false
-        default: 25 #
+        default: 21
       jdk-distribution:
         description: 'The JDK distribution.'
         type: string
@@ -56,14 +56,22 @@ jobs:
           java-version: ${{ inputs.java-version }}
           cache: maven
 
-      - name: Prepare Classes and Dependencies
+      - name: Get detekt plugin for kafka streams
         uses: extenda/actions/maven@v0
         with:
-          args: >
-            compile -Denforcer.skip=true -q
-            dependency:get -Dartifact=com.retailsvc:pnp-processors-core-common:0.125.0:jar
-            dependency:build-classpath -DincludeScope=test -Dmdep.outputFile=cp.txt
-            dependency:copy-dependencies -DoutputDirectory=lib
+          args: dependency:get -Dartifact=com.retailsvc:pnp-processors-core-common:0.173.1:jar
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+      
+      - name: Build classpath with Maven
+        uses: extenda/actions/maven@v0
+        with:
+          args: dependency:build-classpath -DincludeScope=runtime -Dmdep.outputFile=cp.txt -q
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+
+      - name: Build classpath lib dir with Maven
+        uses: extenda/actions/maven@v0
+        with:
+          args: dependency:copy-dependencies -DoutputDirectory=lib -q
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
       - name: Download Detekt CLI
@@ -74,9 +82,9 @@ jobs:
       
       - name: Verify with Detekt
         run: |
-          java -cp "target/classes:$(cat cp.txt):lib/*" \
+          java -cp "target/classes:lib/*" \
             io.gitlab.arturbosch.detekt.cli.Main \
               --input src/main/kotlin \
               --config detekt.yml \
               --classpath "target/classes:$(cat cp.txt)" \
-              --plugins ~/.m2/repository/com/retailsvc/pnp-processors-core-common/0.125.0/pnp-processors-core-common-0.125.0.jar
+              --plugins ~/.m2/repository/com/retailsvc/pnp-processors-core-common/0.173.1/pnp-processors-core-common-0.173.1.jar
