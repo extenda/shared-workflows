@@ -4,7 +4,7 @@
 // decorator (walk components.schemas, delete tagged nodes).
 function StripOtherCountries({ country }) {
   if (!country) {
-    throw new Error('country-filter/strip-other-countries requires a `country` option');
+    throw new Error('openapi/strip-other-countries requires a `country` option');
   }
   return {
     Root: {
@@ -25,14 +25,14 @@ function StripOtherCountries({ country }) {
           for (const branch of before) {
             if (!schema.oneOf.includes(branch)) {
               console.log(
-                `country-filter: removed '${refName(branch?.$ref)}' from '${schemaName}.oneOf' (x-country != ${country})`
+                `openapi: removed '${refName(branch?.$ref)}' from '${schemaName}.oneOf' (x-country != ${country})`
               );
             }
           }
 
           if (schema.oneOf.length === 0) {
             throw new Error(
-              `country-filter: no branch of '${schemaName}' tagged x-country: ${country} — add ` +
+              `openapi: no branch of '${schemaName}' tagged x-country: ${country} — add ` +
                 `one before configuring redocly.yaml's '${country}' apis entry.`
             );
           }
@@ -46,14 +46,14 @@ function StripOtherCountries({ country }) {
             Object.assign(schema, branchSchema);
             delete schema['x-country'];
             delete schema['title'];
-            console.log(`country-filter: '${branchName}' is copied into '${schemaName}'`);
+            console.log(`openapi: '${branchName}' is copied into '${schemaName}'`);
           }
         }
 
         for (const [schemaName, schema] of Object.entries(schemas)) {
           if (schema?.['x-country'] && !isReferenced(schemas, schemaName)) {
             delete schemas[schemaName];
-            console.log(`country-filter: dropped unreferenced component '${schemaName}'`);
+            console.log(`openapi: dropped unreferenced component '${schemaName}'`);
           }
         }
       }
@@ -73,12 +73,31 @@ function isReferenced(schemas, name) {
   return JSON.stringify(schemas).includes(`#/components/schemas/${name}`);
 }
 
-module.exports = function countryFilterPlugin() {
+// Overrides info.version from the API_VERSION env var when set, so each adapter stamps its
+// own build version onto the shared engine spec as part of the same bundle pass — no pom filtering
+// or text substitution. No-op when the env var is empty (the engine's literal ${project.version}
+// token is left in place, which is fine for local/acceptance runs where the version is cosmetic).
+function SetVersion() {
   return {
-    id: 'country-filter',
+    Info: {
+      leave(info) {
+        const version = process.env.API_VERSION;
+        if (version) {
+          info.version = version;
+          console.log(`openapi: set info.version = ${version}`);
+        }
+      }
+    }
+  };
+}
+
+module.exports = function openapiPlugin() {
+  return {
+    id: 'openapi',
     decorators: {
       oas3: {
-        'strip-other-countries': StripOtherCountries
+        'strip-other-countries': StripOtherCountries,
+        'set-version': SetVersion
       }
     }
   };

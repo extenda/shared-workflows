@@ -1,19 +1,24 @@
 name: 'Fiscal API country filtering'
 description: >-
-  Replaces the fiscal-engine's shared openapi.yaml, IN PLACE, with a country-scoped bundle that
+  Materializes the fiscal-engine's shared openapi.yaml from the fiscal-engine dependency,
+  optionally stamps `info.version`, then replaces it IN PLACE with a country-scoped bundle that
   strips every other country's `x-country`-tagged documentation via a Redocly decorator (see the
-  engine's `Fiscal-Attributes` oneOf, src/main/resources/schemas/v1/openapi.yaml), then re-runs
-  `jar:jar` so the already-built jar picks up the change. The engine serves whatever classpath
-  resource ends up at /schemas/v1/openapi.yaml verbatim — no engine code change needed. Run it any
-  time after a normal `mvn package` (a full `package` re-runs `resources:resources` and would
-  clobber a filtered file, which is why the re-jar happens here instead of asking every caller to
-  order steps around that). Does no checkout of its own (an `actions/checkout` step here would run
-  `git clean -ffdx` by default and wipe `target/`).
+  engine's `Fiscalize-Attributes`/`Cancel-Attributes` oneOf, src/main/resources/schemas/v1/openapi.yaml),
+  and re-runs `jar:jar` so the already-built jar picks up the change. The engine serves whatever
+  classpath resource ends up at /schemas/v1/openapi.yaml verbatim — no engine code and no per-country
+  pom change needed. Run it after a normal `mvn package`. Does no checkout of its own (an
+  `actions/checkout` step here would run `git clean -ffdx` by default and wipe `target/`).
 
 inputs:
   country:
     required: true
     description: The lower-case api name from this action's redocly.yaml `apis:` map, e.g. 'belgium'.
+  version:
+    required: false
+    description: >-
+      When set, replaces the engine spec's literal `${project.version}` token so the served
+      `info.version` is the adapter's build version. When empty, the token is left as-is.
+    default: ''
   schema-dir:
     required: false
     description: Directory (relative to the workspace root) containing the built openapi.yaml.
@@ -22,6 +27,19 @@ inputs:
 runs:
   using: composite
   steps:
+    # The adapter ships no spec of its own — the engine dependency owns openapi.yaml. Unpack it into
+    # the build output so the steps below (and the re-jar) operate on a real file. Same pattern the
+    # callers already use for the engine's Liquibase changesets.
+    - name: Materialize the engine's OpenAPI spec
+      shell: bash
+      run: |
+        ./mvnw -q dependency:unpack-dependencies \
+          -DincludeArtifactIds=fiscal-engine \
+          -Dincludes=schemas/v1/openapi.yaml \
+          -DoutputDirectory=target/openapi-engine-spec
+        mkdir -p "${{ inputs.schema-dir }}"
+        cp target/openapi-engine-spec/schemas/v1/openapi.yaml "${{ inputs.schema-dir }}/openapi.yaml"
+
     # redocly/cli is pinned by digest below for immutability. Dependabot's docker ecosystem only
     # scans Dockerfile/docker-compose.yml `FROM`/`image:` fields, not `docker run` invocations
     # inside a composite action's shell script — this is NOT auto-updated. Check
@@ -40,10 +58,14 @@ runs:
     # Bundles openapi.yaml and overwrites it in place with the country-filtered result — the
     # bundler reads the whole document graph before it writes any output, so reading and writing
     # the same path is safe.
+    # API_VERSION is passed through to the container's env (docker `-e NAME` forwards the host
+    # value); the `set-version` decorator reads it and overrides info.version. Empty => no-op.
     - name: Bundle the ${{ inputs.country }} spec in place
       shell: bash
+      env:
+        API_VERSION: ${{ inputs.version }}
       run: |
-        docker run --rm -v "$PWD/${{ inputs.schema-dir }}:/spec" redocly/cli:2.35.1@sha256:404c57d791f2a9d08973bb568da2e070bbc7bb96c94248eba38493537b78abb5 \
+        docker run --rm -e API_VERSION -v "$PWD/${{ inputs.schema-dir }}:/spec" redocly/cli:2.35.1@sha256:404c57d791f2a9d08973bb568da2e070bbc7bb96c94248eba38493537b78abb5 \
           bundle ${{ inputs.country }} --config redocly.yaml -o openapi.yaml
 
     # Decorators only run during `bundle`, not `lint` — linting the pre-bundle source wouldn't
