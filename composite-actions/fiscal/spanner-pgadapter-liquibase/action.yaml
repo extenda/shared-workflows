@@ -4,7 +4,6 @@ description: >-
   database by fronting it with PGAdapter. The PG-dialect counterpart to
   generic/cloud-sql-liquibase (which targets Cloud SQL) and a deliberate
   alternative to extenda/actions/liquibase-spanner (which is GoogleSQL dialect).
-  Designed to be lifted into extenda/shared-workflows/generic/ unchanged.
 
 inputs:
   service-account-key:

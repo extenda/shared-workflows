@@ -9,9 +9,8 @@ It is the PG-dialect counterpart to `extenda/shared-workflows/generic/cloud-sql-
 engine standardised on one portable Postgres SQL codepath, so its changesets are applied with
 plain Postgres Liquibase here too — see engine decisions #9/#10.
 
-This is a repo-local composite action (`./.github/shared-workflows/spanner-pgadapter-liquibase`). It is
-written to lift into `extenda/shared-workflows/generic/spanner-pgadapter-liquibase@v0` unchanged;
-update the `uses:` reference when it moves.
+This is a shared composite action, consumed as
+`extenda/shared-workflows/composite-actions/fiscal/spanner-pgadapter-liquibase@v0`.
 
 ## Inputs
 

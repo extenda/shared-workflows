@@ -27,7 +27,7 @@ runs:
     # inside a composite action's shell script — this is NOT auto-updated. Check
     # https://hub.docker.com/r/redocly/cli/tags periodically and bump both occurrences by hand.
 
-    # redocly.yaml and decorators/ live in THIS action's own repo (experience-fiscal-common), not
+    # redocly.yaml and decorators/ live in THIS action's own repo (extenda/shared-workflows), not
     # the caller's checkout — `docker run -v $PWD:/spec` only mounts the caller's workspace, so
     # they have to be staged alongside the spec before redocly can see them.
     - name: Stage the country-filter config next to the built spec

@@ -2,8 +2,7 @@ name: 'Spanner (PG-dialect) execute SQL'
 description: >-
   Execute caller-supplied SQL against a PostgreSQL-dialect Cloud Spanner database
   by fronting it with PGAdapter and using the standard psql client. Domain-agnostic
-  (the SQL is an input), so it can be lifted into extenda/shared-workflows/generic/
-  unchanged. A sibling of spanner-pgadapter-liquibase for ad-hoc DML/DDL.
+  (the SQL is an input). A sibling of spanner-pgadapter-liquibase for ad-hoc DML/DDL.
 
 inputs:
   service-account-key:

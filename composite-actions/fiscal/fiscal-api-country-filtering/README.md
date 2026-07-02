@@ -9,8 +9,8 @@ serves whatever classpath resource ends up at `/schemas/v1/openapi.yaml` verbati
 with the filtered content is enough to make e.g. Belgium's live service never document Portugal's
 attribute keys — **no engine code change needed**.
 
-This is a repo-local composite action
-(`./.github/shared-workflows/fiscal-api-country-filtering`) in `experience-fiscal-common`, shared
+This is a shared composite action
+(`extenda/shared-workflows/composite-actions/fiscal/fiscal-api-country-filtering`), shared
 across all country repos that fiscalize via `fiscal-engine`.
 
 ## Usage
@@ -25,7 +25,7 @@ separate job.
 
 ```yaml
 - run: ./mvnw package -DskipTests
-- uses: extenda/experience-fiscal-common/.github/shared-workflows/fiscal-api-country-filtering@master
+- uses: extenda/shared-workflows/composite-actions/fiscal/fiscal-api-country-filtering@v0
   with:
     country: belgium
 - run: docker build -t $IMAGE .  # picks up the re-jarred, Belgium-only target/*.jar
