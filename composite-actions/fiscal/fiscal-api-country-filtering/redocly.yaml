@@ -1,0 +1,8 @@
+extends: [recommended]
+
+plugins: ['decorators/country-filter.js']
+
+apis:
+  belgium:
+    root: openapi.yaml
+    decorators: { country-filter/strip-other-countries: { country: belgium } }

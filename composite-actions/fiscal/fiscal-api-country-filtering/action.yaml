@@ -1,0 +1,62 @@
+name: 'Fiscal API country filtering'
+description: >-
+  Replaces the fiscal-engine's shared openapi.yaml, IN PLACE, with a country-scoped bundle that
+  strips every other country's `x-country`-tagged documentation via a Redocly decorator (see the
+  engine's `Fiscal-Attributes` oneOf, src/main/resources/schemas/v1/openapi.yaml), then re-runs
+  `jar:jar` so the already-built jar picks up the change. The engine serves whatever classpath
+  resource ends up at /schemas/v1/openapi.yaml verbatim — no engine code change needed. Run it any
+  time after a normal `mvn package` (a full `package` re-runs `resources:resources` and would
+  clobber a filtered file, which is why the re-jar happens here instead of asking every caller to
+  order steps around that). Does no checkout of its own (an `actions/checkout` step here would run
+  `git clean -ffdx` by default and wipe `target/`).
+
+inputs:
+  country:
+    required: true
+    description: The lower-case api name from this action's redocly.yaml `apis:` map, e.g. 'belgium'.
+  schema-dir:
+    required: false
+    description: Directory (relative to the workspace root) containing the built openapi.yaml.
+    default: 'target/classes/schemas/v1'
+
+runs:
+  using: composite
+  steps:
+    # redocly/cli is pinned by digest below for immutability. Dependabot's docker ecosystem only
+    # scans Dockerfile/docker-compose.yml `FROM`/`image:` fields, not `docker run` invocations
+    # inside a composite action's shell script — this is NOT auto-updated. Check
+    # https://hub.docker.com/r/redocly/cli/tags periodically and bump both occurrences by hand.
+
+    # redocly.yaml and decorators/ live in THIS action's own repo (experience-fiscal-common), not
+    # the caller's checkout — `docker run -v $PWD:/spec` only mounts the caller's workspace, so
+    # they have to be staged alongside the spec before redocly can see them.
+    - name: Stage the country-filter config next to the built spec
+      shell: bash
+      run: |
+        rm -rf "${{ inputs.schema-dir }}/redocly.yaml" "${{ inputs.schema-dir }}/decorators"
+        cp "${{ github.action_path }}/redocly.yaml" "${{ inputs.schema-dir }}/redocly.yaml"
+        cp -r "${{ github.action_path }}/decorators" "${{ inputs.schema-dir }}/decorators"
+
+    # Bundles openapi.yaml and overwrites it in place with the country-filtered result — the
+    # bundler reads the whole document graph before it writes any output, so reading and writing
+    # the same path is safe.
+    - name: Bundle the ${{ inputs.country }} spec in place
+      shell: bash
+      run: |
+        docker run --rm -v "$PWD/${{ inputs.schema-dir }}:/spec" redocly/cli:2.35.1@sha256:404c57d791f2a9d08973bb568da2e070bbc7bb96c94248eba38493537b78abb5 \
+          bundle ${{ inputs.country }} --config redocly.yaml -o openapi.yaml
+
+    # Decorators only run during `bundle`, not `lint` — linting the pre-bundle source wouldn't
+    # exercise the country-filtering transformation at all, so lint the bundled (now in-place)
+    # result instead.
+    - name: Lint the bundled ${{ inputs.country }} spec
+      shell: bash
+      run: |
+        docker run --rm -v "$PWD/${{ inputs.schema-dir }}:/spec" redocly/cli:2.35.1@sha256:404c57d791f2a9d08973bb568da2e070bbc7bb96c94248eba38493537b78abb5 lint openapi.yaml
+
+    # target/classes/schemas/v1/openapi.yaml was already zipped into the jar by the caller's own
+    # `mvn package`. jar:jar just re-zips target/classes — no recompile, no test run — so the jar
+    # on disk picks up the file we just overwrote.
+    - name: Re-jar with the filtered spec
+      shell: bash
+      run: ./mvnw jar:jar
