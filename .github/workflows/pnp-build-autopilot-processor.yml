@@ -402,7 +402,7 @@ jobs:
 
       - name: Deploy to Autopilot staging
         if: ${{ inputs.release-version == false }}
-        uses: extenda/actions/cloud-deploy@v0
+        uses: extenda/actions/cloud-deploy@fix/gcloud-571-gke-plugin
         with:
           secrets-account-key: ${{ secrets.SECRET_AUTH }}
           service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
