@@ -5,7 +5,8 @@ inputs:
   SECRET_AUTH:
     required: true
   STYRA_TOKEN:
-    required: true
+    required: false
+    default: ''
   permission-prefix:
     type: string
     required: true
@@ -16,13 +17,7 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - uses: actions/checkout@v3
-
-    - uses: extenda/actions/gcp-secret-manager@v0
-      with:
-        service-account-key: ${{ inputs.SECRET_AUTH }}
-        secrets: |
-          STYRA_TOKEN: styra-das-token
+    - uses: actions/checkout@v6
 
     - name: OPA/Rego unit tests
       uses: extenda/actions/opa-policy-test@v0
@@ -30,4 +25,3 @@ runs:
         service-account-key: ${{ inputs.SECRET_AUTH }}
         permission-prefix: ${{ inputs.permission-prefix }}
         service-name: ${{ inputs.service-name }}
-        styra-das-token: ${{ inputs.STYRA_TOKEN }}
