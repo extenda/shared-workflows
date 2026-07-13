@@ -230,6 +230,9 @@ jobs:
   liquibase-staging:
     if: ${{ inputs.liquibase-path }}
     runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      id-token: write
     needs: docker-build
     steps:
       - uses: actions/checkout@v4
@@ -394,6 +397,9 @@ jobs:
       (needs.acceptance.result == 'success' || needs.acceptance.result == 'skipped') &&
       (needs.staging.result == 'success')
     runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      id-token: write
     needs: [acceptance, staging]
     steps:
       - uses: actions/checkout@v4
