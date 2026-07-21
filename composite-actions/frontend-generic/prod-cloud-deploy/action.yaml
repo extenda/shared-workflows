@@ -1,39 +1,47 @@
-name: 'Cloud deploy prod'
-description: 'Cloud deploy prod'
+name: "Cloud deploy prod"
+description: "Cloud deploy prod"
 inputs:
   SECRET_AUTH:
-    description: 'GCP Auth'
+    description: "GCP Auth"
     required: true
   GCLOUD_AUTH_STAGING:
-    description: 'GCP Auth (staging)'
+    description: "GCP Auth (staging)"
     required: true
   GCLOUD_AUTH_PROD:
-    description: 'GCP Auth (prod)'
+    description: "GCP Auth (prod)"
     required: true
   GITHUB_TOKEN:
-    description: 'GH token to create a release'
+    description: "GH token to create a release"
   LD_CLIENT_ID:
-    description: 'LaunchDarkly client ID in Secret Manager'
+    description: "LaunchDarkly client ID in Secret Manager"
     required: true
   IMAGE:
-    description: 'Image name for the service (without tag)'
+    description: "Image name for the service (without tag)"
     required: true
   DEPLOY_TO_STAGE:
-    description: 'Deploy to staging'
+    description: "Deploy to staging"
     required: false
   RUN_E2E_TESTS:
-    description: 'Run e2e tests'
+    description: "Run e2e tests"
     required: false
   BUILD_TOOL:
-    description: 'Build tool'
+    description: "Build tool"
     required: false
   GAR_WORKFLOW:
-    description: 'Use GAR auth workflow (true/false)'
+    description: "Use GAR auth workflow (true/false)"
     required: false
-    default: 'false'
+    default: "false"
+  node-version:
+    description: "Node.js version to use"
+    required: false
+    default: "20"
+  node-version-file:
+    description: "File containing the Node.js version to use"
+    required: false
+    default: ""
 
 runs:
-  using: 'composite'
+  using: "composite"
   steps:
     - uses: actions/checkout@v4
       with:
@@ -50,7 +58,7 @@ runs:
       uses: extenda/actions/setup-gcloud@v0
       with:
         service-account-key: ${{ inputs.SECRET_AUTH }}
-        export-default-credentials: 'true'
+        export-default-credentials: "true"
 
     - uses: extenda/actions/setup-gcloud@v0
       id: gcloud
@@ -74,18 +82,24 @@ runs:
       shell: bash
       run: |
         gcloud --quiet auth configure-docker
-        docker build --provenance=false --build-arg LD_CLIENT_ID=${{ env.LD_CLIENT_ID }} -t ${{ inputs.image }}:${{ github.sha }} .
-        docker push ${{ inputs.image }}:${{ github.sha }}
+        docker build --provenance=false --build-arg LD_CLIENT_ID=${{ env.LD_CLIENT_ID }} -t ${{ inputs.IMAGE }}:${{ github.sha }} .
+        docker push ${{ inputs.IMAGE }}:${{ github.sha }}
 
     - name: Attest image
       uses: extenda/actions/binary-auth-attestation@v0
       with:
-        image-path: ${{ inputs.image }}:${{ github.sha }}
+        image-path: ${{ inputs.IMAGE }}:${{ github.sha }}
         service-account-key: ${{ inputs.GCLOUD_AUTH_STAGING }}
 
     - uses: actions/setup-node@v4
+      if: inputs.node-version-file == ''
       with:
-        node-version: 20
+        node-version: ${{ inputs.node-version }}
+
+    - uses: actions/setup-node@v4
+      if: inputs.node-version-file != ''
+      with:
+        node-version-file: ${{ inputs.node-version-file }}
 
     - name: Auth to Nexus npm registry
       uses: extenda/actions/nexus-auth-npm@v0
@@ -113,6 +127,7 @@ runs:
       with:
         GCLOUD_AUTH_STAGING: ${{ inputs.GCLOUD_AUTH_STAGING }}
         BUILD_TOOL: ${{ inputs.BUILD_TOOL }}
+        GAR_WORKFLOW: ${{ inputs.GAR_WORKFLOW }}
 
     - uses: extenda/actions/setup-gcloud@v0
       with:
@@ -128,8 +143,8 @@ runs:
       shell: bash
       run: |
         gcloud container images add-tag \
-            ${{ inputs.image }}:${{ github.sha }} \
-            ${{ inputs.image }}:${{ steps.release.outputs.release-tag }}
+            ${{ inputs.IMAGE }}:${{ github.sha }} \
+            ${{ inputs.IMAGE }}:${{ steps.release.outputs.release-tag }}
 
     - uses: extenda/actions/conventional-version@v0
       id: semver
@@ -146,4 +161,4 @@ runs:
         secrets-account-key: ${{ inputs.SECRET_AUTH }}
         service-account-key: ${{ inputs.GCLOUD_AUTH_PROD }}
         update-dns: always
-        image: ${{ inputs.image }}:${{ steps.semver.outputs.release-tag }}
+        image: ${{ inputs.IMAGE }}:${{ steps.semver.outputs.release-tag }}

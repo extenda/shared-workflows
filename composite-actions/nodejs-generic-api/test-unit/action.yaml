@@ -167,6 +167,7 @@ runs:
         sonar-host: https://sonarcloud.io
         service-account-key: ${{ inputs.SECRET_AUTH }}
         sonar-scanner: node
+        npm-args: node_modules/.bin/sonar-scanner-npm
 
     - name: Notify Slack if failed
       if: ${{ github.ref == 'refs/heads/master' && failure() && inputs.notify-slack-on-fail }}

@@ -1,0 +1,12 @@
+extends: [recommended]
+
+plugins: ['decorators/openapi.js']
+
+# Applies to every api below: stamps info.version from the API_VERSION env var when set.
+decorators:
+  openapi/set-version: on
+
+apis:
+  belgium:
+    root: openapi.yaml
+    decorators: { openapi/strip-other-countries: { country: belgium } }

@@ -128,10 +128,15 @@ jobs:
             GITHUB-TOKEN: github-token
             NEXUS_PASSWORD: nexus-password
             NEXUS_USERNAME: nexus-username
+      
+      - name: Setup gcloud
+        uses: extenda/actions/setup-gcloud@v0
+        with:
+          service-account-key: ${{ secrets.SECRET_AUTH }}
 
       - name: Set up JDK
         if: ${{ inputs.use-old-setup-java == false }}
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v5
         with:
           distribution: ${{ inputs.jdk-distribution }}
           java-version: ${{ inputs.java-version }}
@@ -139,7 +144,7 @@ jobs:
 
       - name: Set up JDK
         if: ${{ inputs.use-old-setup-java == true }}
-        uses: actions/setup-java@v1
+        uses: actions/setup-java@v5
         with:
           distribution: ${{ inputs.jdk-distribution }}
           java-version: ${{ inputs.java-version }}
@@ -168,23 +173,25 @@ jobs:
           version: ${{ steps.semver.outputs.version }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
           working-directory: ${{ inputs.working-directory || '.' }}
-      
+
       - name: Kafka Streams lint - fetch detekt config file
         if: ${{ inputs.enable-kafka-streams-lint == true }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-            curl -sSL \
+          DETEKT_FILE="${{ inputs.working-directory || '.' }}/pnp-detekt-plugin.yml"
+          
+          curl -sSL \
             -H "Authorization: Bearer $GITHUB_TOKEN" \
             -H "Accept: application/vnd.github.v3.raw" \
             "https://api.github.com/repos/extenda/shared-workflows/contents/.github/configs/pnp-detekt-plugin.yml" \
-            -o ${{ inputs.working-directory || '.' }}/pnp-detekt-plugin.yml
+            -o "$DETEKT_FILE"
 
       - name: Kafka Streams lint - get Detekt plugin for kafka streams
         if: ${{ inputs.enable-kafka-streams-lint == true }}
         uses: extenda/actions/maven@v0
         with:
-          args: dependency:get -Dartifact=com.retailsvc:pnp-processors-core-common:0.140.3:jar
+          args: dependency:get -Dartifact=com.retailsvc:pnp-processors-core-common:0.173.2:jar
           service-account-key: ${{ secrets.SECRET_AUTH }}
           working-directory: ${{ inputs.working-directory || '.' }}
       
@@ -207,20 +214,52 @@ jobs:
       - name: Kafka Streams lint - download Detekt CLI
         if: ${{ inputs.enable-kafka-streams-lint == true }}
         run: |
-          curl -s -L --create-dirs -o ${{ inputs.working-directory || '.' }}/lib/detekt-cli.jar \
-            https://github.com/detekt/detekt/releases/download/v1.23.8/detekt-cli-1.23.8-all.jar
-      
+          set -euo pipefail
+          BASE_DIR="${{ inputs.working-directory || '.' }}"
+          mkdir -p "$BASE_DIR/lib"
+
+          curl -fsSL \
+            -o "$BASE_DIR/lib/detekt-cli.jar" \
+            "https://github.com/detekt/detekt/releases/download/v1.23.8/detekt-cli-1.23.8-all.jar"
+
+          ls -lh "$BASE_DIR/lib/detekt-cli.jar"
+          jar tf "$BASE_DIR/lib/detekt-cli.jar" | grep -E "io/gitlab/arturbosch/detekt/cli/Main.class|dev/detekt/cli/Main.class"
 
       - name: Kafka Streams lint - verify with Detekt
         if: ${{ inputs.enable-kafka-streams-lint == true }}
+        shell: bash
         run: |
-          java -cp "${{ inputs.working-directory || '.' }}/target/classes:${{ inputs.working-directory || '.' }}/lib/*" \
-            io.gitlab.arturbosch.detekt.cli.Main \
-              --input  ${{ inputs.working-directory || '.' }}/src/main/kotlin \
-              --config  ${{ inputs.working-directory || '.' }}/pnp-detekt-plugin.yml \
-              --classpath "${{ inputs.working-directory || '.' }}/target/classes:$(cat ${{ inputs.working-directory || '.' }}/cp.txt)" \
-              --jvm-target 21 \
-              --plugins ~/.m2/repository/com/retailsvc/pnp-processors-core-common/0.140.3/pnp-processors-core-common-0.140.3.jar \
+          set -euo pipefail
+          BASE_DIR="${{ inputs.working-directory || '.' }}"
+
+          # Detekt 1.23.8 supports up to JVM target 22; use 21 for this repo.
+          DETEKT_JVM_TARGET="21"
+
+          DETEKT_CLASSPATH="$BASE_DIR/target/classes:$(cat "$BASE_DIR/cp.txt")"
+          LIB_JARS_CLASSPATH="$(find "$BASE_DIR/lib" -maxdepth 1 -type f -name '*.jar' -printf ':%p' | tr -d '\n')"
+
+          DETEKT_PLUGIN_JAR="$HOME/.m2/repository/com/retailsvc/pnp-processors-core-common/0.173.2/pnp-processors-core-common-0.173.2.jar"
+          KAFKA_STREAMS_JAR="$(tr ':' '\n' < "$BASE_DIR/cp.txt" | grep -E '/kafka-streams-[^/]+\.jar$' | head -n1 || true)"
+
+          if [[ ! -f "$DETEKT_PLUGIN_JAR" ]]; then
+            echo "Detekt plugin jar not found: $DETEKT_PLUGIN_JAR"
+            exit 1
+          fi
+
+          if [[ -z "$KAFKA_STREAMS_JAR" || ! -f "$KAFKA_STREAMS_JAR" ]]; then
+            echo "Kafka Streams jar not found in cp.txt; required for custom detekt rule classloading"
+            exit 1
+          fi
+
+          # Detekt expects multiple plugin paths as a comma-separated list.
+          DETEKT_PLUGINS="$DETEKT_PLUGIN_JAR,$KAFKA_STREAMS_JAR"
+
+          java -jar "$BASE_DIR/lib/detekt-cli.jar" \
+            --input "$BASE_DIR/src/main/kotlin" \
+            --config "$BASE_DIR/pnp-detekt-plugin.yml" \
+            --classpath "${DETEKT_CLASSPATH}${LIB_JARS_CLASSPATH}" \
+            --jvm-target "$DETEKT_JVM_TARGET" \
+            --plugins "$DETEKT_PLUGINS"
 
       - name: Analyze with Sonar
         uses: extenda/actions/sonar-scanner@v0
@@ -233,7 +272,7 @@ jobs:
         if: ${{ inputs.native-image == true && github.ref == 'refs/heads/master' }}
         with:
           version: 'latest'
-          java-version: '17'
+          java-version: ${{ inputs.java-version }}
           components: 'native-image'
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -274,13 +313,6 @@ jobs:
           retry-interval: 10
           dry-run: ${{ inputs.is-pact-provider-can-i-deploy-dry-run }}
           env: "staging"
-
-      - name: Setup gcloud
-        if: github.ref == 'refs/heads/master'
-        uses: extenda/actions/setup-gcloud@v0
-        id: gcloud
-        with:
-          service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
 
       - name: Authenticate docker
         if: github.ref == 'refs/heads/master'
@@ -457,4 +489,3 @@ jobs:
             Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
           channel: ${{ inputs.slack-channel }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
-

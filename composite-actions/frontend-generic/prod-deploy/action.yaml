@@ -18,6 +18,14 @@ inputs:
   IMAGE:
     description: "Image name for the service (without tag)"
     required: true
+  node-version:
+    description: 'Node.js version to use'
+    required: false
+    default: '20'
+  node-version-file:
+    description: 'File containing the Node.js version to use'
+    required: false
+    default: ''
 
 runs:
   using: "composite"
@@ -46,18 +54,24 @@ runs:
       shell: bash
       run: |
         gcloud --quiet auth configure-docker
-        docker build --build-arg LD_CLIENT_ID=${{ env.LD_CLIENT_ID }} -t ${{ inputs.image }}:${{ github.sha }} .
-        docker push ${{ inputs.image }}:${{ github.sha }}
+        docker build --build-arg LD_CLIENT_ID=${{ env.LD_CLIENT_ID }} -t ${{ inputs.IMAGE }}:${{ github.sha }} .
+        docker push ${{ inputs.IMAGE }}:${{ github.sha }}
 
     - name: Attest image
       uses: extenda/actions/binary-auth-attestation@v0
       with:
-        image-path: ${{ inputs.image }}:${{ github.sha }}
+        image-path: ${{ inputs.IMAGE }}:${{ github.sha }}
         service-account-key: ${{ inputs.GCLOUD_AUTH_STAGING }}
 
     - uses: actions/setup-node@v4
+      if: inputs.node-version-file == ''
       with:
-        node-version: 20
+        node-version: ${{ inputs.node-version }}
+
+    - uses: actions/setup-node@v4
+      if: inputs.node-version-file != ''
+      with:
+        node-version-file: ${{ inputs.node-version-file }}
 
     - name: Create release
       uses: extenda/actions/conventional-release@v0
@@ -73,8 +87,8 @@ runs:
       shell: bash
       run: |
         gcloud container images add-tag \
-            ${{ inputs.image }}:${{ github.sha }} \
-            ${{ inputs.image }}:${{ steps.release.outputs.release-tag }}
+            ${{ inputs.IMAGE }}:${{ github.sha }} \
+            ${{ inputs.IMAGE }}:${{ steps.release.outputs.release-tag }}
 
     - name: Auth to Nexus npm registry
       uses: extenda/actions/nexus-auth-npm@v0
@@ -93,4 +107,4 @@ runs:
       uses: extenda/actions/cloud-run@v0
       with:
         service-account-key: ${{ inputs.GCLOUD_AUTH_PROD }}
-        image: ${{ inputs.image }}:${{ steps.semver.outputs.release-tag }}
+        image: ${{ inputs.IMAGE }}:${{ steps.semver.outputs.release-tag }}

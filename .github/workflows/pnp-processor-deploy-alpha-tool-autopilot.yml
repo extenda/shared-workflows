@@ -1,4 +1,4 @@
-name: deploy-k8s-service
+name: Deploy Alpha Maintenance Tool
 
 on:
   workflow_call:
@@ -38,11 +38,10 @@ on:
         type: string
         required: false
         default: 'v'
-      trigger-synthetic-monitoring-tests:
-        description: 'If true runs synthetic monitoring tests'
-        type: boolean
+      workflow-env-vars:
+        description: 'key/value pairs separated by commas to pass as deploy environment variables'
+        type: string
         required: false
-        default: true
 jobs:
   deploy:
     if: github.ref == 'refs/heads/master'
@@ -50,9 +49,6 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    env:
-      # secrets cannot be used in `if` conditions; mapped to env var to enable conditional step execution
-      DORA_COMPONENT: ${{ secrets.dora-component }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -67,7 +63,7 @@ jobs:
             PACT_BROKER_PASSWORD: pact-broker-password
             JIRA_USERNAME: jira-username
             JIRA_PASSWORD: jira-password
-
+      
       - name: Determine version
         uses: extenda/actions/conventional-version@v0
         id: semver
@@ -86,6 +82,8 @@ jobs:
           service-definition: ${{ inputs.service-definition }}
           image: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.semver.outputs.release-version }}
           update-dns: always
+          workflow-env-vars: ${{ inputs.workflow-env-vars }}
+
 
       - name: Deploy to Autopilot prod
         if: ${{ inputs.release-version == true }}
@@ -96,35 +94,10 @@ jobs:
           service-definition: ${{ inputs.service-definition }}
           image: eu.gcr.io/extenda/${{ secrets.GCR_image_name }}:${{ steps.semver.outputs.release-version }}
           update-dns: always
+          workflow-env-vars: ${{ inputs.workflow-env-vars }}
 
-      - name: Trigger synthetic monitoring tests on staging
-        if: ${{ inputs.trigger-synthetic-monitoring-tests == true && inputs.release-version == false }}
-        uses: extenda/actions/repository-dispatch@v0
-        with:
-          service-account-key: ${{ secrets.SECRET_AUTH }}
-          repository: extenda/enterprise-pnp-common
-          event-type: run_synthetic_monitoring_tests
-          client-payload: |
-            {
-              "synthetic_monitoring_script_input": "run_all",
-              "env":"dev"
-            }
-
-      - name: Trigger synthetic monitoring tests on prod
-        if: ${{ inputs.trigger-synthetic-monitoring-tests == true && inputs.release-version == true }}
-        uses: extenda/actions/repository-dispatch@v0
-        with:
-          service-account-key: ${{ secrets.SECRET_AUTH }}
-          repository: extenda/enterprise-pnp-common
-          event-type: run_synthetic_monitoring_tests
-          client-payload: |
-            {
-              "synthetic_monitoring_script_input": "run_all",
-              "env":"com"
-            }
-          
       - name: Dora Component
-        if: ${{ inputs.release-version == true && env.DORA_COMPONENT != ''}}
+        if: ${{ inputs.release-version == true && inputs.dora-component != ''}}
         uses: extenda/actions/dora-metrics@v0
         with:
           product-name: Product And Price
@@ -150,5 +123,3 @@ jobs:
             Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
           channel: ${{ secrets.slack-channel }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
-      
- 

@@ -1,0 +1,83 @@
+name: 'Spanner (PG-dialect) execute SQL'
+description: >-
+  Execute caller-supplied SQL against a PostgreSQL-dialect Cloud Spanner database
+  by fronting it with PGAdapter and using the standard psql client. Domain-agnostic
+  (the SQL is an input). A sibling of spanner-pgadapter-liquibase for ad-hoc DML/DDL.
+
+inputs:
+  service-account-key:
+    description: 'GCP service-account key (JSON) with access to the Spanner database.'
+    required: true
+  project:
+    description: 'GCP project hosting the Spanner instance.'
+    required: true
+  instance:
+    description: 'Spanner instance id.'
+    required: false
+    default: 'fiscal-signing'
+  database:
+    description: 'Spanner database id (must be PostgreSQL dialect).'
+    required: true
+  sql:
+    description: 'SQL to execute. May contain multiple semicolon-separated statements.'
+    required: true
+  pgadapter-image:
+    description: >-
+      PGAdapter image. Pinned by digest for immutability (Dependabot's docker ecosystem only
+      scans Dockerfile/docker-compose.yml, not action.yaml inputs, so this is NOT auto-updated —
+      check https://console.cloud.google.com/artifacts/docker/cloud-spanner-pg-adapter/us/gcr.io/pgadapter
+      periodically and bump both the tag and digest together by hand.
+    required: false
+    default: 'gcr.io/cloud-spanner-pg-adapter/pgadapter:v0.55.0@sha256:30bb42ded681effccf83f93e5f5107c1ef9e5e48513d0f7e1d30c7bfc69fa5fa'
+
+runs:
+  using: composite
+  steps:
+    # Authenticate via the trusted action. It writes the credential file, registers it for
+    # log masking, and exports GOOGLE_APPLICATION_CREDENTIALS — so the key value is never
+    # interpolated into a shell command or handled by this action directly.
+    - uses: extenda/actions/setup-gcloud@v0
+      with:
+        service-account-key: ${{ inputs.service-account-key }}
+
+    - name: Start PGAdapter
+      shell: bash
+      run: |
+        if [ -z "${GOOGLE_APPLICATION_CREDENTIALS:-}" ]; then
+          echo "GOOGLE_APPLICATION_CREDENTIALS not set; setup-gcloud must run first" >&2
+          exit 1
+        fi
+        # Mount the credential FILE (a path, not the secret value) and let PGAdapter pick it
+        # up via Application Default Credentials.
+        docker run -d --name pgadapter \
+          -p 5432:5432 \
+          -v "${GOOGLE_APPLICATION_CREDENTIALS}:/var/run/secrets/gcp-credentials.json:ro" \
+          -e GOOGLE_APPLICATION_CREDENTIALS=/var/run/secrets/gcp-credentials.json \
+          "${{ inputs.pgadapter-image }}" \
+          -p "${{ inputs.project }}" -i "${{ inputs.instance }}" -x
+        # PGAdapter is the last thing to open the port; wait until it accepts TCP.
+        for i in $(seq 1 30); do
+          if (exec 3<>/dev/tcp/localhost/5432) 2>/dev/null; then echo "PGAdapter ready"; exit 0; fi
+          sleep 1
+        done
+        echo "PGAdapter did not become ready" >&2
+        docker logs pgadapter || true
+        exit 1
+
+    - name: Execute SQL
+      shell: bash
+      # SQL is passed via the environment and piped to psql's stdin, so its contents are
+      # never interpolated into the command line. PGAdapter authenticates to Spanner via the
+      # mounted key; the client-side username/password are unused.
+      env:
+        SQL: ${{ inputs.sql }}
+        DATABASE: ${{ inputs.database }}
+      run: |
+        printf '%s\n' "${SQL}" | psql \
+          "postgresql://spanner:spanner@localhost:5432/${DATABASE}?sslmode=disable" \
+          -v ON_ERROR_STOP=1
+
+    - name: Stop PGAdapter
+      if: always()
+      shell: bash
+      run: docker rm -f pgadapter || true

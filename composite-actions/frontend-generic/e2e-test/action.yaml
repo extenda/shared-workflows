@@ -9,6 +9,10 @@ inputs:
   BUILD_TOOL:
     description: "Build tool"
     required: false
+  GAR_WORKFLOW:
+    description: "Use GAR auth workflow (true/false)"
+    required: false
+    default: "false"
 
 outputs:
   e2e_test_failed:
@@ -18,6 +22,19 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Auth to GCP
+      if: inputs.GAR_WORKFLOW == 'true'
+      uses: extenda/actions/setup-gcloud@v0
+      with:
+        service-account-key: ${{ inputs.GCLOUD_AUTH_STAGING }}
+
+    - name: Run NPM auth script
+      if: inputs.GAR_WORKFLOW == 'true'
+      shell: bash
+      run: |
+        echo "@hiiretail:registry=https://europe-west1-npm.pkg.dev/extenda/npm/" > .npmrc
+        npm run auth  -- --credential-config=./.npmrc
+
     - name: Cache node_modules
       uses: actions/cache@v4
       if: inputs.BUILD_TOOL == 'npm'

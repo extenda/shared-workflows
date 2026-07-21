@@ -1,0 +1,355 @@
+name: PNP query API commit workflow
+on:
+  workflow_call:
+    secrets:
+      secret-auth:
+        required: true
+      gcloud-auth-staging:
+        required: true
+      gcloud-auth-prod:
+        required: true
+    inputs:
+      path-to-solution:
+        description: |
+          The path to the solution.
+        type: string
+        required: true
+      path-to-unit-tests:
+        description: |
+          The path to the unit/integration tests.
+        type: string
+        required: true
+      path-to-smoke-tests:
+        description: |
+          The path to the smoke tests.
+        type: string
+        required: true
+      image-name:
+        description: |
+          The name of the image to be created in GCR.
+        type: string
+        required: true
+      service-base-url-staging:
+        description: 
+          The base url of the service in staging.
+        type: string
+        required: true
+      product-component:
+        description: |
+          The product component of the service. Used for logging the deployment and bugs in DORA.
+        type: string
+        required: true
+      slack-channel:
+        description: |
+          The slack channel which needs to be notified in case of failure.
+        type: string
+        required: false
+
+jobs:
+  test-opa-policies:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Test OPA policies
+        uses: extenda/actions/opa-policy-test@v0
+        with:
+          service-account-key: ${{ secrets.gcloud-auth-staging }}
+
+      - name: Notify Slack if failed
+        if: failure() && github.ref == 'refs/heads/master'
+        uses: extenda/actions/slack-notify@v0
+        with:
+          text: |
+            *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+          channel: ${{ inputs.slack-channel }}
+          service-account-key: ${{ secrets.secret-auth }}
+
+  test-application:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Determine version
+        uses: extenda/actions/conventional-version@v0
+        id: semver
+        with:
+          build-number: ${{ github.run_number }}
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - uses: extenda/actions/gcp-secret-manager@v0
+        with:
+          service-account-key: ${{ secrets.secret-auth }}
+          secrets: |
+            NEXUS_PASSWORD: nexus-password
+            NEXUS_USERNAME: nexus-username
+      
+      - name: Update nuget source
+        run: |
+          dotnet nuget update source Extenda \
+            --username ${{ env.NEXUS_USERNAME }} \
+            --password ${{ env.NEXUS_PASSWORD }} \
+            --configfile nuget.config \
+            --store-password-in-clear-text
+
+      - name: Start Sonar Scanner
+        uses: extenda/actions/sonar-scanner@v0
+        with:
+          sonar-host: https://sonarcloud.io
+          sonar-scanner: dotnet
+          service-account-key: ${{ secrets.secret-auth }}
+          dotnet-args: /d:sonar.scanner.scanAll=false
+
+      - name: Build solution
+        run: |
+          dotnet build ${{ inputs.path-to-solution }} \
+            --configuration Release \
+            /p:Version=${{ steps.semver.outputs.semver }}
+      
+      - name: Run unit tests
+        run: |
+          dotnet test ${{ inputs.path-to-unit-tests }} \
+            --no-build \
+            --configuration Release \
+            /p:CollectCoverage=true /p:CoverletOutputFormat=opencover
+
+      - name: Analyze with Sonar  
+        uses: extenda/actions/sonar-scanner@v0
+        with:
+          sonar-host: https://sonarcloud.io
+          sonar-scanner: dotnet
+          service-account-key: ${{ secrets.secret-auth }}
+      
+      - name: Notify Slack if failed
+        if: failure() && github.ref == 'refs/heads/master'
+        uses: extenda/actions/slack-notify@v0
+        with:
+          text: |
+            *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+          channel: ${{ inputs.slack-channel }}
+          service-account-key: ${{ secrets.secret-auth }}
+
+  staging:
+    needs: [test-opa-policies, test-application]
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - uses: extenda/actions/gcp-secret-manager@v0
+        with:
+          service-account-key: ${{ secrets.secret-auth }}
+          secrets: |
+            NEXUS_PASSWORD: nexus-password
+            NEXUS_USERNAME: nexus-username
+
+      - name: Update nuget source
+        run: |
+          dotnet nuget update source Extenda \
+            --username ${{ env.NEXUS_USERNAME }} \
+            --password ${{ env.NEXUS_PASSWORD }} \
+            --configfile nuget.config \
+            --store-password-in-clear-text
+
+      - uses: extenda/actions/setup-gcloud@v0
+        with:
+          service-account-key: ${{ secrets.gcloud-auth-staging }}
+
+      - name: Build and push image
+        run: |
+          gcloud --quiet auth configure-docker
+          IMAGE=eu.gcr.io/extenda/${{ inputs.image-name }}
+          docker build -t $IMAGE:${{ github.sha }} . -f Dockerfile
+          docker push $IMAGE:${{ github.sha }}
+
+      - name: Attest image
+        uses: extenda/actions/binary-auth-attestation@v0
+        with:
+          image-path: eu.gcr.io/extenda/${{ inputs.image-name }}:${{ github.sha }}
+          service-account-key: ${{ secrets.gcloud-auth-staging }}
+
+      - name: Deploy to staging
+        uses: extenda/actions/cloud-deploy@v0
+        with:
+          secrets-account-key: ${{ secrets.secret-auth }}
+          service-account-key: ${{ secrets.gcloud-auth-staging }}
+          image: eu.gcr.io/extenda/${{ inputs.image-name }}:${{ github.sha }}
+          update-dns: always
+      
+      - name: Notify Slack if failed
+        if: failure()
+        uses: extenda/actions/slack-notify@v0
+        with:
+          text: |
+            *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+          channel: ${{ inputs.slack-channel }}
+          service-account-key: ${{ secrets.secret-auth }}
+
+  smoke:
+    needs: staging
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - uses: extenda/actions/gcp-secret-manager@v0
+        with:
+          service-account-key: ${{ secrets.secret-auth }}
+          secrets: |
+            API_KEY: api-key-hiidentity-staff
+            NEXUS_PASSWORD: nexus-password
+            NEXUS_USERNAME: nexus-username
+
+      - name: IAM token
+        id: testtoken
+        uses: extenda/actions/iam-test-token@v0
+        with:
+          service-account-key: ${{ secrets.gcloud-auth-staging }}
+          api-key: ${{ env.API_KEY }}
+
+      - name: Update nuget source
+        run: |
+          dotnet nuget update source Extenda \
+            --username ${{ env.NEXUS_USERNAME }} \
+            --password ${{ env.NEXUS_PASSWORD }} \
+            --configfile nuget.config \
+            --store-password-in-clear-text
+
+      - name: Run smoke tests
+        run: |
+          dotnet test ${{ inputs.path-to-smoke-tests }} \
+            --configuration Release
+        env:
+          SERVICE_BASE_URL: ${{ inputs.service-base-url-staging }}
+          IAM_TOKEN: ${{ steps.testtoken.outputs.iam-token }}
+
+      - name: Notify Slack if failed
+        if: failure()
+        uses: extenda/actions/slack-notify@v0
+        with:
+          text: |
+            *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+          channel: ${{ inputs.slack-channel }}
+          service-account-key: ${{ secrets.secret-auth }}
+
+  release:
+    needs: smoke
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Create release
+        uses: extenda/actions/conventional-release@v0
+        id: release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: extenda/actions/setup-gcloud@v0
+        with:
+          service-account-key: ${{ secrets.gcloud-auth-staging }}
+
+      - name: Add tag to image
+        run: |
+          gcloud container images add-tag \
+            eu.gcr.io/extenda/${{ inputs.image-name }}:${{ github.sha }} \
+            eu.gcr.io/extenda/${{ inputs.image-name }}:${{ steps.release.outputs.version }}
+      
+      - name: Notify Slack if failed
+        if: failure()
+        uses: extenda/actions/slack-notify@v0
+        with:
+          text: |
+            *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+          channel: ${{ inputs.slack-channel }}
+          service-account-key: ${{ secrets.secret-auth }}
+
+  prod:
+    needs: release
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Determine version
+        uses: extenda/actions/conventional-version@v0
+        id: semver
+       
+      - name: Deploy to production
+        uses: extenda/actions/cloud-deploy@v0
+        with:
+          secrets-account-key: ${{ secrets.secret-auth }}
+          service-account-key: ${{ secrets.gcloud-auth-prod }}
+          image: eu.gcr.io/extenda/${{ inputs.image-name }}:${{ steps.semver.outputs.release-version }}
+          update-dns: always
+      
+      - uses: extenda/actions/gcp-secret-manager@v0
+        with:
+          service-account-key: ${{ secrets.secret-auth }}
+          secrets: |
+            JIRA_USERNAME: jira-username
+            JIRA_PASSWORD: jira-password
+
+      - uses: extenda/actions/dora-metrics@v0
+        with:
+          product-name: Product And Price
+          product-component: ${{ inputs.product-component }}
+          jira-username: ${{ env.JIRA_USERNAME }}
+          jira-password: ${{ env.JIRA_PASSWORD }}
+          jira-project-key: EA
+
+      - name: Notify Slack if failed
+        if: failure()
+        uses: extenda/actions/slack-notify@v0
+        with:
+          text: |
+            *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+          channel: ${{ inputs.slack-channel }}
+          service-account-key: ${{ secrets.secret-auth }}

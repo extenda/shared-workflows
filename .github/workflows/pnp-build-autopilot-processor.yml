@@ -120,10 +120,15 @@ jobs:
             GITHUB-TOKEN: github-token
             NEXUS_PASSWORD: nexus-password
             NEXUS_USERNAME: nexus-username
+    
+      - name: Setup gcloud
+        uses: extenda/actions/setup-gcloud@v0
+        with:
+          service-account-key: ${{ secrets.SECRET_AUTH }}
 
       - name: Set up JDK
         if: ${{ inputs.use-old-setup-java == false }}
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v5
         with:
           distribution: ${{ inputs.jdk-distribution }}
           java-version: ${{ inputs.java-version }}
@@ -131,7 +136,7 @@ jobs:
 
       - name: Set up JDK
         if: ${{ inputs.use-old-setup-java == true }}
-        uses: actions/setup-java@v1
+        uses: actions/setup-java@v5
         with:
           distribution: ${{ inputs.jdk-distribution }}
           java-version: ${{ inputs.java-version }}
@@ -175,7 +180,7 @@ jobs:
         if: ${{ inputs.enable-kafka-streams-lint == true }}
         uses: extenda/actions/maven@v0
         with:
-          args: dependency:get -Dartifact=com.retailsvc:pnp-processors-core-common:0.140.3:jar
+          args: dependency:get -Dartifact=com.retailsvc:pnp-processors-core-common:0.173.2:jar
           service-account-key: ${{ secrets.SECRET_AUTH }}
       
       - name: Kafka Streams lint - build classpath with maven
@@ -197,7 +202,6 @@ jobs:
         run: |
           curl -sLo lib/detekt-cli.jar \
             https://github.com/detekt/detekt/releases/download/v1.23.8/detekt-cli-1.23.8-all.jar
-      
 
       - name: Kafka Streams lint - verify with Detekt
         if: ${{ inputs.enable-kafka-streams-lint == true }}
@@ -208,7 +212,7 @@ jobs:
               --config pnp-detekt-plugin.yml \
               --classpath "target/classes:$(cat cp.txt)" \
               --jvm-target 21 \
-              --plugins ~/.m2/repository/com/retailsvc/pnp-processors-core-common/0.140.3/pnp-processors-core-common-0.140.3.jar \
+              --plugins ~/.m2/repository/com/retailsvc/pnp-processors-core-common/0.173.2/pnp-processors-core-common-0.173.2.jar \
 
       - name: Analyze with Sonar
         uses: extenda/actions/sonar-scanner@v0
@@ -221,7 +225,7 @@ jobs:
         if: ${{ inputs.native-image == true && github.ref == 'refs/heads/master' }}
         with:
           version: 'latest'
-          java-version: '17'
+          java-version: ${{ inputs.java-version }}
           components: 'native-image'
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -232,7 +236,6 @@ jobs:
           args: verify -Dpackaging=native-image -s settings.xml
           version: ${{ steps.semver.outputs.version }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
-          working-directory: ${{ inputs.working-directory || '.' }}
 
       - name: Publish pacts
         if: ${{ inputs.do-pact-consumer-tests == true }}
@@ -262,13 +265,6 @@ jobs:
           retry-interval: 10
           dry-run: ${{ inputs.is-pact-provider-can-i-deploy-dry-run }}
           env: "staging"
-
-      - name: Setup gcloud
-        if: github.ref == 'refs/heads/master'
-        uses: extenda/actions/setup-gcloud@v0
-        id: gcloud
-        with:
-          service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
 
       - name: Authenticate docker
         if: github.ref == 'refs/heads/master'
@@ -415,7 +411,7 @@ jobs:
           update-dns: always
 
       - name: Trigger synthetic monitoring tests on staging
-        if: ${{ inputs.trigger-synthetic-monitoring-tests == true }} && ${{ inputs.release-version == false }}
+        if: ${{ inputs.trigger-synthetic-monitoring-tests == true && inputs.release-version == false }}
         uses: extenda/actions/repository-dispatch@v0
         with:
           service-account-key: ${{ secrets.SECRET_AUTH }}
@@ -444,4 +440,3 @@ jobs:
             Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
           channel: ${{ inputs.slack-channel }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
-
