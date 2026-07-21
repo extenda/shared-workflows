@@ -213,3 +213,4 @@ runs:
         sonar-host: https://sonarcloud.io
         service-account-key: ${{ inputs.SECRET_AUTH }}
         main-branch: master
+        npm-args: node_modules/.bin/sonar-scanner-npm
