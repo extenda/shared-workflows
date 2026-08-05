@@ -82,6 +82,15 @@ runs:
         username: spanner
         password: spanner
 
+    # The readiness loop above only proves PGAdapter accepted a raw TCP connection: it can pass
+    # and then have PGAdapter exit soon after (e.g. it fails to validate the target instance/
+    # database), leaving Liquibase's later JDBC attempt with a plain "connection refused" and no
+    # clue why. Dump the container's logs unconditionally, before teardown removes them.
+    - name: Dump PGAdapter logs
+      if: always()
+      shell: bash
+      run: docker logs pgadapter 2>&1 || true
+
     - name: Stop PGAdapter
       if: always()
       shell: bash

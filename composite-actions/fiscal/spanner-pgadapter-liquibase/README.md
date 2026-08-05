@@ -34,6 +34,8 @@ This is a shared composite action, consumed as
   PGAdapter converts Liquibase's transactional DDL into Spanner DDL batches.
 - The fiscal changesets ship on the `fiscal-engine` jar, so callers extract them first
   (e.g. `mvn dependency:unpack-dependencies`) and pass the directory as `search-path`.
-- **Not yet validated in CI against a real Spanner instance.** The PGAdapter flags and the
-  `liquibase-github-actions/update` input names should be confirmed on a first run before
-  relying on it for prod.
+- **PGAdapter logs are always dumped** (a "Dump PGAdapter logs" step, `if: always()`) right
+  before the container is torn down. The readiness check before it only confirms PGAdapter
+  accepted a raw TCP connection, not that it's still alive by the time Liquibase connects — if
+  the Liquibase step fails with a connection error, check this step's output for why PGAdapter
+  itself exited.
