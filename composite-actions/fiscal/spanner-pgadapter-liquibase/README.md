@@ -23,6 +23,7 @@ This is a shared composite action, consumed as
 | `search-path` | yes | – | Directory containing the changelog and its includes. |
 | `changelog-file` | no | `changelog-master.yaml` | Changelog file, relative to `search-path`. |
 | `pgadapter-image` | no | pinned in `action.yaml` | PGAdapter image (tag+digest). |
+| `liquibase-image` | no | pinned in `action.yaml` | Liquibase image (tag+digest); bundles the PostgreSQL JDBC driver. |
 
 ## Notes / validation status
 
@@ -34,6 +35,8 @@ This is a shared composite action, consumed as
   PGAdapter converts Liquibase's transactional DDL into Spanner DDL batches.
 - The fiscal changesets ship on the `fiscal-engine` jar, so callers extract them first
   (e.g. `mvn dependency:unpack-dependencies`) and pass the directory as `search-path`.
-- **Not yet validated in CI against a real Spanner instance.** The PGAdapter flags and the
-  `liquibase-github-actions/update` input names should be confirmed on a first run before
-  relying on it for prod.
+- Liquibase runs as a **self-managed** `docker run --network host` (not the
+  `liquibase-github-actions/update` container action). `--network host` is what lets the
+  container reach PGAdapter on the runner's `localhost:5432`, and the `search-path` is
+  bind-mounted and referenced by a container path — a containerised action would see neither
+  the host `localhost` nor the host path. Linux-only semantics; correct on `ubuntu-latest`.

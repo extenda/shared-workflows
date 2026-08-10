@@ -34,6 +34,14 @@ inputs:
       periodically and bump both the tag and digest together by hand.
     required: false
     default: 'gcr.io/cloud-spanner-pg-adapter/pgadapter:v0.55.0@sha256:30bb42ded681effccf83f93e5f5107c1ef9e5e48513d0f7e1d30c7bfc69fa5fa'
+  liquibase-image:
+    description: >-
+      Liquibase image. Pinned by digest for immutability (Dependabot's docker ecosystem only
+      scans Dockerfile/docker-compose.yml, not action.yaml inputs, so this is NOT auto-updated —
+      check https://hub.docker.com/r/liquibase/liquibase/tags periodically and bump both the tag
+      and digest together by hand). The official image bundles the PostgreSQL JDBC driver.
+    required: false
+    default: 'liquibase/liquibase:4.25.1@sha256:c1ade9ef79b5966b0bd49f9a49c021fca08a90527008bb8d6346f31ab6070e67'
 
 runs:
   using: composite
@@ -52,6 +60,9 @@ runs:
           echo "GOOGLE_APPLICATION_CREDENTIALS not set; setup-gcloud must run first" >&2
           exit 1
         fi
+        # Best-effort clean of any leftover container from a crashed prior run (a no-op on
+        # ephemeral GitHub-hosted runners; guards reused/self-hosted runners against a name clash).
+        docker rm -f pgadapter 2>/dev/null || true
         # Mount the credential FILE (a path, not the secret value) and let PGAdapter pick it
         # up via Application Default Credentials.
         docker run -d --name pgadapter \
@@ -69,18 +80,45 @@ runs:
         docker logs pgadapter || true
         exit 1
 
-    # ddl_transaction_mode=AutocommitExplicitTransaction makes PGAdapter turn the
-    # transactional DDL Liquibase emits into Spanner DDL batches (Spanner forbids
-    # DDL inside explicit transactions). PGAdapter authenticates to Spanner via the
-    # mounted key, so the client-side username/password are unused.
+    # Liquibase runs as a SELF-MANAGED container (not the liquibase-github-actions/update
+    # container action, which the runner executes in an isolated network + filesystem
+    # namespace where `localhost` is not the host and host paths are not mounted). Here this
+    # action controls both:
+    #   * --network host makes the container's localhost:5432 the runner's localhost, where
+    #     PGAdapter published its port (-p 5432:5432) — so no URL change and no PGAdapter
+    #     change are needed. (Linux-only semantics; correct on GitHub-hosted ubuntu-latest.)
+    #   * the search-path dir is bind-mounted and referenced by a CONTAINER path.
+    # Settings are passed as LIQUIBASE_* env vars (same convention as
+    # extenda/actions/liquibase-spanner), so `update` is the only positional token and there
+    # is no CLI arg-ordering ambiguity. JAVA_HOME is deliberately NOT forwarded, so the
+    # runner's host JAVA_HOME cannot leak in and misdirect the launcher.
+    # ddl_transaction_mode=AutocommitExplicitTransaction makes PGAdapter turn the transactional
+    # DDL Liquibase emits into Spanner DDL batches (Spanner forbids DDL inside explicit
+    # transactions). PGAdapter authenticates to Spanner via the mounted key, so the client-side
+    # username/password are unused.
     - name: Run Liquibase update
-      uses: liquibase-github-actions/update@db87f3cf24f450dd01a6784a4cd7feec97a21676 # v4.25.1
-      with:
-        changelogFile: ${{ inputs.changelog-file }}
-        searchPath: ${{ inputs.search-path }}
-        url: 'jdbc:postgresql://localhost:5432/${{ inputs.database }}?options=-c%20spanner.ddl_transaction_mode=AutocommitExplicitTransaction'
-        username: spanner
-        password: spanner
+      shell: bash
+      env:
+        SEARCH_PATH: ${{ inputs.search-path }}
+        LIQUIBASE_IMAGE: ${{ inputs.liquibase-image }}
+        LIQUIBASE_COMMAND_CHANGELOG_FILE: ${{ inputs.changelog-file }}
+        LIQUIBASE_COMMAND_URL: 'jdbc:postgresql://localhost:5432/${{ inputs.database }}?options=-c%20spanner.ddl_transaction_mode=AutocommitExplicitTransaction'
+        LIQUIBASE_COMMAND_USERNAME: spanner
+        LIQUIBASE_COMMAND_PASSWORD: spanner
+        LIQUIBASE_SEARCH_PATH: /liquibase/changelog
+      run: |
+        set -euo pipefail
+        # Absolute path required so `docker -v` treats it as a bind mount, not a named volume.
+        SEARCH_PATH="$(realpath "${SEARCH_PATH}")"
+        docker run --rm --network host \
+          -v "${SEARCH_PATH}:/liquibase/changelog:ro" \
+          -e LIQUIBASE_SEARCH_PATH \
+          -e LIQUIBASE_COMMAND_CHANGELOG_FILE \
+          -e LIQUIBASE_COMMAND_URL \
+          -e LIQUIBASE_COMMAND_USERNAME \
+          -e LIQUIBASE_COMMAND_PASSWORD \
+          "${LIQUIBASE_IMAGE}" \
+          update
 
     - name: Stop PGAdapter
       if: always()
