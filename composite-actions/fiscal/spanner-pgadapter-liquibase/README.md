@@ -28,9 +28,12 @@ This is a shared composite action, consumed as
 ## Notes / validation status
 
 - **Credentials** are handled by `extenda/actions/setup-gcloud@v0` (same as
-  `cloud-sql-liquibase`): the action exports `GOOGLE_APPLICATION_CREDENTIALS`, and only that
-  file *path* is mounted into the PGAdapter container, which then uses Application Default
-  Credentials. The key value is never interpolated into a shell command or written by hand.
+  `cloud-sql-liquibase`): the action exports `GOOGLE_APPLICATION_CREDENTIALS`, and its
+  job-scoped credential *directory* is mounted into the PGAdapter container at its original
+  host path, which then uses Application Default Credentials. The directory (not just the one
+  file) is mounted because under Workload Identity Federation the exported config references a
+  second OIDC-token file in the same dir by absolute path. The key value is never interpolated
+  into a shell command or written by hand.
 - Sets `spanner.ddl_transaction_mode=AutocommitExplicitTransaction` on the connection so
   PGAdapter converts Liquibase's transactional DDL into Spanner DDL batches.
 - The fiscal changesets ship on the `fiscal-engine` jar, so callers extract them first
