@@ -34,14 +34,21 @@ inputs:
       periodically and bump both the tag and digest together by hand.
     required: false
     default: 'gcr.io/cloud-spanner-pg-adapter/pgadapter:v0.55.0@sha256:30bb42ded681effccf83f93e5f5107c1ef9e5e48513d0f7e1d30c7bfc69fa5fa'
-  liquibase-image:
+  liquibase-version:
     description: >-
-      Liquibase image. Pinned by digest for immutability (Dependabot's docker ecosystem only
-      scans Dockerfile/docker-compose.yml, not action.yaml inputs, so this is NOT auto-updated —
-      check https://hub.docker.com/r/liquibase/liquibase/tags periodically and bump both the tag
-      and digest together by hand). The official image bundles the PostgreSQL JDBC driver.
+      Liquibase version, used as the tag of the liquibase/liquibase base image the action
+      builds from (see this action's Dockerfile). 5.x Community images ship no JDBC drivers,
+      so the PostgreSQL driver is installed on top with LPM.
     required: false
-    default: 'liquibase/liquibase:4.25.1@sha256:c1ade9ef79b5966b0bd49f9a49c021fca08a90527008bb8d6346f31ab6070e67'
+    default: '5.0.3'
+  postgres-driver-version:
+    description: >-
+      PostgreSQL JDBC driver version installed into the Liquibase image with LPM. Pinned to an
+      exact version so rebuilds are reproducible. Which versions exist depends on the LPM index
+      of the chosen liquibase-version (42.7.11 resolves on 5.0.3 but not on 5.0.2), so set this
+      to '' to accept whatever driver that release offers.
+    required: false
+    default: '42.7.11'
 
 runs:
   using: composite
@@ -52,6 +59,21 @@ runs:
     - uses: extenda/actions/setup-gcloud@v0
       with:
         service-account-key: ${{ inputs.service-account-key }}
+
+    # Built (not pulled) because Liquibase 5.x ships no JDBC drivers — see the Dockerfile.
+    # Built before PGAdapter starts so a build failure costs nothing to tear down.
+    - name: Build Liquibase image
+      shell: bash
+      env:
+        LIQUIBASE_VERSION: ${{ inputs.liquibase-version }}
+        POSTGRES_DRIVER_VERSION: ${{ inputs.postgres-driver-version }}
+      run: |
+        set -euo pipefail
+        docker build \
+          --build-arg "LIQUIBASE_VERSION=${LIQUIBASE_VERSION}" \
+          --build-arg "POSTGRES_DRIVER_VERSION=${POSTGRES_DRIVER_VERSION}" \
+          -t liquibase-pg:local \
+          "${{ github.action_path }}"
 
     - name: Start PGAdapter
       shell: bash
@@ -106,7 +128,6 @@ runs:
       shell: bash
       env:
         SEARCH_PATH: ${{ inputs.search-path }}
-        LIQUIBASE_IMAGE: ${{ inputs.liquibase-image }}
         LIQUIBASE_COMMAND_CHANGELOG_FILE: ${{ inputs.changelog-file }}
         LIQUIBASE_COMMAND_URL: 'jdbc:postgresql://localhost:5432/${{ inputs.database }}?options=-c%20spanner.ddl_transaction_mode=AutocommitExplicitTransaction'
         LIQUIBASE_COMMAND_USERNAME: spanner
@@ -123,7 +144,7 @@ runs:
           -e LIQUIBASE_COMMAND_URL \
           -e LIQUIBASE_COMMAND_USERNAME \
           -e LIQUIBASE_COMMAND_PASSWORD \
-          "${LIQUIBASE_IMAGE}" \
+          liquibase-pg:local \
           update
 
     - name: Stop PGAdapter

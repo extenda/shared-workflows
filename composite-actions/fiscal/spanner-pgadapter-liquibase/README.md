@@ -23,7 +23,8 @@ This is a shared composite action, consumed as
 | `search-path` | yes | – | Directory containing the changelog and its includes. |
 | `changelog-file` | no | `changelog-master.yaml` | Changelog file, relative to `search-path`. |
 | `pgadapter-image` | no | pinned in `action.yaml` | PGAdapter image (tag+digest). |
-| `liquibase-image` | no | pinned in `action.yaml` | Liquibase image (tag+digest); bundles the PostgreSQL JDBC driver. |
+| `liquibase-version` | no | `5.0.3` | Liquibase version; tag of the base image the action builds from. |
+| `postgres-driver-version` | no | `42.7.11` | PostgreSQL JDBC driver version installed with LPM. Set to `''` to take whatever the chosen Liquibase release offers. |
 
 ## Notes / validation status
 
@@ -43,3 +44,16 @@ This is a shared composite action, consumed as
   container reach PGAdapter on the runner's `localhost:5432`, and the `search-path` is
   bind-mounted and referenced by a container path — a containerised action would see neither
   the host `localhost` nor the host path. Linux-only semantics; correct on `ubuntu-latest`.
+- The Liquibase image is **built by this action** from its `Dockerfile` rather than pulled.
+  Liquibase 5.x Community images ship **no JDBC drivers** (only h2), so the stock image fails
+  with `Cannot find database driver: org.postgresql.Driver`; the driver is installed on top
+  with [LPM](https://docs.liquibase.com/community/integration-guide-5-0/connect-liquibase-with-postgresql)
+  (`lpm add postgresql@<version> --global`). Both versions are `--build-arg`s fed from the
+  `liquibase-version` / `postgres-driver-version` inputs, whose defaults are the pinned
+  baseline — keep the Dockerfile `ARG` defaults in sync with the `action.yaml` defaults.
+  Because the `FROM` tag is parameterised it is not Dependabot-scannable; bump the defaults by
+  hand (check [Liquibase tags](https://hub.docker.com/r/liquibase/liquibase/tags)).
+  Note the two versions are coupled: which driver versions exist is decided by the LPM index of
+  the chosen Liquibase release (`42.7.11` resolves on 5.0.3 but not on 5.0.2), so when
+  overriding `liquibase-version` either pick a driver that release ships or pass
+  `postgres-driver-version: ''` to accept its default.
