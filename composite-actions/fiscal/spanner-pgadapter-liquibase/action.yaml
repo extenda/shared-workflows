@@ -77,6 +77,8 @@ runs:
 
     - name: Start PGAdapter
       shell: bash
+      env:
+        DATABASE: ${{ inputs.database }}
       run: |
         if [ -z "${GOOGLE_APPLICATION_CREDENTIALS:-}" ]; then
           echo "GOOGLE_APPLICATION_CREDENTIALS not set; setup-gcloud must run first" >&2
@@ -99,9 +101,22 @@ runs:
           -e GOOGLE_APPLICATION_CREDENTIALS \
           "${{ inputs.pgadapter-image }}" \
           -p "${{ inputs.project }}" -i "${{ inputs.instance }}" -x
-        # PGAdapter is the last thing to open the port; wait until it accepts TCP.
-        for i in $(seq 1 30); do
-          if (exec 3<>/dev/tcp/localhost/5432) 2>/dev/null; then echo "PGAdapter ready"; exit 0; fi
+        # Readiness has to be proven at the PostgreSQL protocol level, NOT by a TCP accept.
+        # Docker publishes the host port when the CONTAINER is created, so the port proxy
+        # accepts connections straight away while the PGAdapter JVM inside is still booting.
+        # A TCP probe therefore reports ready in ~200ms and hands the next client a connection
+        # the proxy has no backend for. This action only ever got away with it because
+        # building and starting the Liquibase container bought PGAdapter several more seconds;
+        # its psql-based sibling runs its client ~150ms later and fails every time.
+        # pg_isready completes a real startup handshake, so it succeeds only once PGAdapter is
+        # actually serving. Probe 127.0.0.1 rather than localhost so the probe and the client
+        # agree on the address family — libpq tries localhost's ::1 first.
+        command -v pg_isready >/dev/null || {
+          echo "pg_isready not found; needs postgresql-client (preinstalled on ubuntu-latest)" >&2
+          exit 1
+        }
+        for i in $(seq 1 60); do
+          if pg_isready -q -h 127.0.0.1 -p 5432 -d "${DATABASE}"; then echo "PGAdapter ready"; exit 0; fi
           sleep 1
         done
         echo "PGAdapter did not become ready" >&2
@@ -112,7 +127,7 @@ runs:
     # container action, which the runner executes in an isolated network + filesystem
     # namespace where `localhost` is not the host and host paths are not mounted). Here this
     # action controls both:
-    #   * --network host makes the container's localhost:5432 the runner's localhost, where
+    #   * --network host makes the container's 127.0.0.1:5432 the runner's loopback, where
     #     PGAdapter published its port (-p 5432:5432) — so no URL change and no PGAdapter
     #     change are needed. (Linux-only semantics; correct on GitHub-hosted ubuntu-latest.)
     #   * the search-path dir is bind-mounted and referenced by a CONTAINER path.
@@ -129,7 +144,7 @@ runs:
       env:
         SEARCH_PATH: ${{ inputs.search-path }}
         LIQUIBASE_COMMAND_CHANGELOG_FILE: ${{ inputs.changelog-file }}
-        LIQUIBASE_COMMAND_URL: 'jdbc:postgresql://localhost:5432/${{ inputs.database }}?options=-c%20spanner.ddl_transaction_mode=AutocommitExplicitTransaction'
+        LIQUIBASE_COMMAND_URL: 'jdbc:postgresql://127.0.0.1:5432/${{ inputs.database }}?options=-c%20spanner.ddl_transaction_mode=AutocommitExplicitTransaction'
         LIQUIBASE_COMMAND_USERNAME: spanner
         LIQUIBASE_COMMAND_PASSWORD: spanner
         LIQUIBASE_SEARCH_PATH: /liquibase/changelog
@@ -137,7 +152,7 @@ runs:
         set -euo pipefail
         # Absolute path required so `docker -v` treats it as a bind mount, not a named volume.
         SEARCH_PATH="$(realpath "${SEARCH_PATH}")"
-        docker run --rm --network host \
+        if ! docker run --rm --network host \
           -v "${SEARCH_PATH}:/liquibase/changelog:ro" \
           -e LIQUIBASE_SEARCH_PATH \
           -e LIQUIBASE_COMMAND_CHANGELOG_FILE \
@@ -146,6 +161,13 @@ runs:
           -e LIQUIBASE_COMMAND_PASSWORD \
           liquibase-pg:local \
           update
+        then
+          # A connection-side failure shows up only as a Liquibase client error; the
+          # container is torn down next and its logs are lost. Keep them.
+          echo "Liquibase failed — PGAdapter logs follow" >&2
+          docker logs pgadapter >&2 || true
+          exit 1
+        fi
 
     - name: Stop PGAdapter
       if: always()
