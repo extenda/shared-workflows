@@ -47,12 +47,21 @@ runs:
           echo "GOOGLE_APPLICATION_CREDENTIALS not set; setup-gcloud must run first" >&2
           exit 1
         fi
-        # Mount the credential FILE (a path, not the secret value) and let PGAdapter pick it
-        # up via Application Default Credentials.
+        # Best-effort clean of any leftover container from a crashed prior run (a no-op on
+        # ephemeral GitHub-hosted runners; guards reused/self-hosted runners against a name clash).
+        docker rm -f pgadapter 2>/dev/null || true
+        # Mount the credential DIRECTORY (not just the one file) at its original host path and
+        # let PGAdapter pick up the credentials via Application Default Credentials. Under
+        # Workload Identity Federation, GOOGLE_APPLICATION_CREDENTIALS is an external-account
+        # config that references a SECOND file (the OIDC token) in the same job-scoped dir by
+        # its absolute host path — so the dir must be mounted at that same path and the env var
+        # passed through unchanged, otherwise PGAdapter fails with "UNAUTHENTICATED: Failed
+        # computing credential metadata". A legacy self-contained JSON key also works this way.
+        CRED_DIR="$(dirname "${GOOGLE_APPLICATION_CREDENTIALS}")"
         docker run -d --name pgadapter \
           -p 5432:5432 \
-          -v "${GOOGLE_APPLICATION_CREDENTIALS}:/var/run/secrets/gcp-credentials.json:ro" \
-          -e GOOGLE_APPLICATION_CREDENTIALS=/var/run/secrets/gcp-credentials.json \
+          -v "${CRED_DIR}:${CRED_DIR}:ro" \
+          -e GOOGLE_APPLICATION_CREDENTIALS \
           "${{ inputs.pgadapter-image }}" \
           -p "${{ inputs.project }}" -i "${{ inputs.instance }}" -x
         # PGAdapter is the last thing to open the port; wait until it accepts TCP.
