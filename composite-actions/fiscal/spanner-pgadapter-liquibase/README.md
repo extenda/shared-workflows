@@ -43,7 +43,15 @@ This is a shared composite action, consumed as
   `liquibase-github-actions/update` container action). `--network host` is what lets the
   container reach PGAdapter on the runner's `localhost:5432`, and the `search-path` is
   bind-mounted and referenced by a container path — a containerised action would see neither
-  the host `localhost` nor the host path. Linux-only semantics; correct on `ubuntu-latest`.
+  the host loopback nor the host path. Linux-only semantics; correct on `ubuntu-latest`.
+- PGAdapter readiness is checked with **`pg_isready`, not a TCP connect**. Docker publishes the
+  host port when the container is *created*, so the port proxy accepts connections long before
+  the PGAdapter JVM inside has bound anything: a TCP probe reports ready in ~200 ms and the
+  first client is handed a connection the proxy cannot forward, which surfaces as
+  `server closed the connection unexpectedly` rather than a refusal. `pg_isready` completes a
+  real startup handshake instead. It needs `postgresql-client` on the runner (preinstalled on
+  `ubuntu-latest`). Probes and clients address `127.0.0.1` explicitly, because `libpq` resolves
+  `localhost` to `::1` first and would otherwise not necessarily test the same endpoint.
 - The Liquibase image is **built by this action** from its `Dockerfile` rather than pulled.
   Liquibase 5.x Community images ship **no JDBC drivers** (only h2), so the stock image fails
   with `Cannot find database driver: org.postgresql.Driver`; the driver is installed on top
