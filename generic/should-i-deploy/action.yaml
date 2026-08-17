@@ -18,10 +18,17 @@ runs:
   steps:
     - name: Check if it is Monday to Thursday and within work hours
       shell: bash
+      # Values reach the script as environment variables, never as ${{ }} inside `run`.
+      # Expression substitution happens while the script is being generated, so the
+      # commit message would land in the shell source verbatim: a message containing a
+      # double quote ends the string and breaks parsing, and one containing $(...) or
+      # backticks executes on a runner that holds deploy credentials.
+      env:
+        TZ: ${{ inputs.time-zone }}
+        WORK_HOURS_START: ${{ inputs.work-hours-start }}
+        WORK_HOURS_END: ${{ inputs.work-hours-end }}
+        COMMIT_MSG: ${{ github.event.head_commit.message }}
       run: |
-        export TZ="${{ inputs.time-zone }}"
-        COMMIT_MSG="${{ github.event.head_commit.message }}"
-
         if [[ "$COMMIT_MSG" == *"[force deploy]"* ]]; then
           echo "Force deploy detected in commit message. Proceeding..."
           exit 0
@@ -30,14 +37,14 @@ runs:
         CURRENT_TIME=$(date +%H:%M)
         DAY_OF_WEEK=$(date +%u)
         # 1=Monday, 2=Tuesday, 3=Wednesday, 4=Thursday, 5=Friday, 6=Saturday, 7=Sunday
-        
+
         if [ "$DAY_OF_WEEK" -le 4 ]; then
-          if [[ "$CURRENT_TIME" > "${{ inputs.work-hours-start }}" || "$CURRENT_TIME" == "${{ inputs.work-hours-start }}" ]] && \
-             [[ "$CURRENT_TIME" < "${{ inputs.work-hours-end }}" || "$CURRENT_TIME" == "${{ inputs.work-hours-end }}" ]]; then
+          if [[ "$CURRENT_TIME" > "$WORK_HOURS_START" || "$CURRENT_TIME" == "$WORK_HOURS_START" ]] && \
+             [[ "$CURRENT_TIME" < "$WORK_HOURS_END" || "$CURRENT_TIME" == "$WORK_HOURS_END" ]]; then
             echo "It's a good day and time to deploy!"
             exit 0
           else
-            echo "Deployment is only allowed during work hours (${{ inputs.work-hours-start }} - ${{ inputs.work-hours-end }}). Current time is $CURRENT_TIME."
+            echo "Deployment is only allowed during work hours ($WORK_HOURS_START - $WORK_HOURS_END). Current time is $CURRENT_TIME."
             exit 1
           fi
         else

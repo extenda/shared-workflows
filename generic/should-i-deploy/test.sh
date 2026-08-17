@@ -56,4 +56,37 @@ check_deploy "08:00" 1 "regular commit" || exit 1
 # Test Case 7: Edge case - exactly end time
 check_deploy "17:00" 1 "regular commit" || exit 1
 
+# Test Case 8: commit message containing shell metacharacters. Quotes and parentheses
+# are ordinary text in a commit body and must not affect the decision.
+check_deploy "10:00" 1 'fix: report bcprov "(version managed from 1.80)" in the tree' || exit 1
+
+# Test Case 9: force deploy still detected when the message carries metacharacters, and
+# no substitution is performed on it.
+canary="${TMPDIR:-/tmp}/should-i-deploy-canary.$$"
+rm -f "$canary"
+check_deploy "10:00" 5 '[force deploy] $(touch '"$canary"') and `touch '"$canary"'`' || exit 1
+if [ -e "$canary" ]; then
+    echo "FAILURE: commit message was evaluated by the shell"
+    rm -f "$canary"
+    exit 1
+fi
+echo "SUCCESS: commit message treated as data, not code"
+
+# Test Case 10: guard the actual defect. The bash above can only prove the logic is safe
+# once the message arrives as data; the real bug was that ${{ }} substitution pasted the
+# commit message straight into the generated shell source. Assert the run block contains
+# no expressions at all, so every value has to come in through `env:`.
+action_yaml="$(dirname "$0")/action.yaml"
+run_block=$(awk '/^      run: \|$/ {flag=1; next} flag' "$action_yaml")
+if [ -z "$run_block" ]; then
+    echo "FAILURE: could not locate the run block in $action_yaml"
+    exit 1
+fi
+if grep -q '\${{' <<<"$run_block"; then
+    echo "FAILURE: action.yaml interpolates an expression inside the run block:"
+    grep -n '\${{' <<<"$run_block"
+    exit 1
+fi
+echo "SUCCESS: run block contains no expression interpolation"
+
 echo "All tests passed!"
