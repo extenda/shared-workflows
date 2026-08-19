@@ -211,6 +211,50 @@ jobs:
           channel: ${{ secrets.SLACK_CHANNEL }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
+  build-image:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '${{ inputs.dotnet-version }}.0.x'
+
+      - uses: extenda/actions/gcp-secret-manager@v0
+        with:
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+          secrets: |
+            NEXUS_PASSWORD: nexus-password
+            NEXUS_USERNAME: nexus-username
+
+      - name: Update nuget source
+        run: |
+          dotnet nuget update source Extenda \
+            --username ${{ env.NEXUS_USERNAME }} \
+            --password ${{ env.NEXUS_PASSWORD }} \
+            --configfile nuget.config \
+            --store-password-in-clear-text
+
+      - name: Build image (validation only, not pushed)
+        run: |
+          docker build -t validate:${{ github.sha }} . -f Dockerfile
+
+      - name: Notify Slack if failed
+        if: failure() && github.ref == 'refs/heads/master'
+        uses: extenda/actions/slack-notify@v0
+        with:
+          text: |
+            *Image build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+          channel: ${{ secrets.SLACK_CHANNEL }}
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+
   staging:
     if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
