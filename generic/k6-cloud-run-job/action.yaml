@@ -1,0 +1,331 @@
+name: k6 Cloud Run Job
+description: >
+  Run a k6 performance test as a Cloud Run Job inside the VPC, against a service that is
+  not reachable from a GitHub runner, and report the summary to the SRE API.
+
+inputs:
+  mode:
+    description: >
+      deploy (build the image and create or update the job), execute (run the existing job),
+      or both.
+    required: false
+    default: both
+
+  service-account-key:
+    description: GCP service account key used by the pipeline.
+    required: true
+  project-id:
+    description: GCP project the Cloud Run Job lives in.
+    required: true
+  region:
+    description: Region the Cloud Run Job lives in.
+    required: false
+    default: europe-west1
+  job-name:
+    description: Name of the Cloud Run Job.
+    required: true
+
+  # --- Reported to the SRE API -------------------------------------------------------
+  # These, with project-id, are the partition key behind GET /k6/trends. Changing any of
+  # them starts a new series, so keep them stable once a test has history.
+  service-name:
+    description: Service under test, reported as X-Service-Name.
+    required: true
+  test-name:
+    description: Name of this test, reported as X-Test-Name. Stable across runs.
+    required: true
+  environment:
+    description: Environment the test ran against, reported as X-Environment.
+    required: true
+  clan:
+    description: Owning clan, reported as X-Clan.
+    required: true
+  sre-api-url:
+    description: Base URL of the SRE API.
+    required: false
+    default: https://sre-api.retailsvc.com
+  sre-api-audience:
+    description: Identity token audience accepted by the SRE API.
+    required: false
+    default: hiiretail-sre-api
+
+  # --- Image (mode deploy/both) ------------------------------------------------------
+  image:
+    description: Image repository to push to, without a tag.
+    required: false
+    default: ''
+  image-tag:
+    description: Tag for the image. Defaults to the commit SHA.
+    required: false
+    default: ''
+  assets-path:
+    description: >
+      Directory holding the k6 script and anything it opens (payload files, protos).
+      Copied to /k6-tests in the image.
+    required: false
+    default: ''
+  script:
+    description: Filename of the k6 script inside assets-path.
+    required: false
+    default: script.js
+  k6-version:
+    description: Tag of the grafana/k6 base image.
+    required: false
+    default: 2.1.0
+  extra-dockerfile-lines:
+    description: >
+      Extra Dockerfile instructions inserted before the assets are copied, for images
+      that need more than curl. Rarely needed.
+    required: false
+    default: ''
+  attest:
+    description: Attest the image for binary authorization.
+    required: false
+    default: 'true'
+
+  # --- Service under test (mode deploy/both) -----------------------------------------
+  target-host:
+    description: >
+      Host the k6 script targets, passed to the script as both TARGET_HOST and GRPC_HOST.
+      Usually only resolvable from inside the VPC.
+    required: false
+    default: ''
+  target-authority:
+    description: gRPC authority override, passed as GRPC_AUTHORITY. Optional.
+    required: false
+    default: ''
+  target-audience:
+    description: >
+      Identity token audience for the service under test, passed to the script as
+      AUTH_TOKEN. Leave empty for a service that needs no token.
+    required: false
+    default: ''
+
+  # --- Job configuration (mode deploy/both) ------------------------------------------
+  job-service-account:
+    description: >
+      Service account the job runs as. It needs access to the service under test, and its
+      project must be accepted by the SRE API.
+    required: false
+    default: ''
+  network:
+    description: VPC network the job attaches to.
+    required: false
+    default: clan-network
+  subnet:
+    description: Subnet the job attaches to.
+    required: false
+    default: cloudrun-subnet
+  vpc-egress:
+    description: >
+      VPC egress setting. private-ranges-only keeps internal traffic on the VPC while
+      letting the summary upload reach the SRE API directly.
+    required: false
+    default: private-ranges-only
+  cpu:
+    description: vCPUs for the job. k6 is CPU-bound at higher VU counts.
+    required: false
+    default: '4'
+  memory:
+    description: Memory for the job.
+    required: false
+    default: 2Gi
+  task-timeout:
+    description: Task timeout for the job.
+    required: false
+    default: 1h
+  max-retries:
+    description: >
+      Retries for a failed task. Keep at 0: a retry replays the full load against the
+      service under test and uploads a second summary.
+    required: false
+    default: '0'
+
+runs:
+  using: composite
+  steps:
+    - name: Validate inputs
+      shell: bash
+      env:
+        MODE: ${{ inputs.mode }}
+        IMAGE: ${{ inputs.image }}
+        ASSETS_PATH: ${{ inputs.assets-path }}
+        SCRIPT: ${{ inputs.script }}
+        TARGET_HOST: ${{ inputs.target-host }}
+        JOB_SERVICE_ACCOUNT: ${{ inputs.job-service-account }}
+      run: |
+        set -uo pipefail
+        fail=0
+        require() {
+          if [ -z "$2" ]; then
+            echo "::error::input '$1' is required when mode is '$MODE'"
+            fail=1
+          fi
+        }
+
+        case "$MODE" in
+          deploy|execute|both) ;;
+          *) echo "::error::mode must be deploy, execute or both, got '$MODE'"; exit 1 ;;
+        esac
+
+        if [ "$MODE" != execute ]; then
+          require image "$IMAGE"
+          require assets-path "$ASSETS_PATH"
+          require target-host "$TARGET_HOST"
+          require job-service-account "$JOB_SERVICE_ACCOUNT"
+          if [ -n "$ASSETS_PATH" ] && [ ! -d "$ASSETS_PATH" ]; then
+            echo "::error::assets-path '$ASSETS_PATH' is not a directory. Generate the k6 assets before this step."
+            fail=1
+          elif [ -n "$ASSETS_PATH" ] && [ ! -f "$ASSETS_PATH/$SCRIPT" ]; then
+            echo "::error::script '$SCRIPT' not found in '$ASSETS_PATH'"
+            fail=1
+          fi
+        fi
+
+        exit $fail
+
+    - name: Set up gcloud
+      uses: extenda/actions/setup-gcloud@v0
+      with:
+        service-account-key: ${{ inputs.service-account-key }}
+
+    - name: Build and push k6 image
+      if: inputs.mode != 'execute'
+      id: build
+      shell: bash
+      env:
+        IMAGE: ${{ inputs.image }}
+        IMAGE_TAG: ${{ inputs.image-tag || github.sha }}
+        ASSETS_PATH: ${{ inputs.assets-path }}
+        K6_VERSION: ${{ inputs.k6-version }}
+        EXTRA_LINES: ${{ inputs.extra-dockerfile-lines }}
+        ACTION_PATH: ${{ github.action_path }}
+      run: |
+        set -euo pipefail
+
+        # Build from a generated context so the entrypoint always comes from this action.
+        # A per-repo Dockerfile would pin a copy of the upload logic that never gets fixed.
+        BUILD_DIR="$(mktemp -d)"
+        mkdir -p "$BUILD_DIR/assets"
+        cp -R "$ASSETS_PATH/." "$BUILD_DIR/assets/"
+        cp "$ACTION_PATH/entrypoint.sh" "$BUILD_DIR/entrypoint.sh"
+
+        {
+          echo "FROM grafana/k6:${K6_VERSION}"
+          echo "USER root"
+          echo "RUN apk add --no-cache curl"
+          if [ -n "$EXTRA_LINES" ]; then echo "$EXTRA_LINES"; fi
+          echo "COPY assets /k6-tests"
+          echo "COPY entrypoint.sh /k6-tests/entrypoint.sh"
+          echo "RUN chmod +x /k6-tests/entrypoint.sh \\"
+          echo " && adduser --disabled-password --gecos '' k6user \\"
+          echo " && chown -R k6user:k6user /k6-tests"
+          echo "USER k6user"
+          echo "WORKDIR /k6-tests"
+          echo 'ENTRYPOINT ["/k6-tests/entrypoint.sh"]'
+        } > "$BUILD_DIR/Dockerfile"
+
+        echo "Generated Dockerfile:"
+        sed 's/^/  /' "$BUILD_DIR/Dockerfile"
+
+        gcloud --quiet auth configure-docker "${IMAGE%%/*}"
+        docker build -t "${IMAGE}:${IMAGE_TAG}" "$BUILD_DIR"
+        docker push "${IMAGE}:${IMAGE_TAG}"
+
+        echo "image=${IMAGE}:${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
+
+    - name: Attest image
+      if: inputs.mode != 'execute' && inputs.attest == 'true'
+      uses: extenda/actions/binary-auth-attestation@v0
+      with:
+        image-path: ${{ inputs.image }}
+        service-account-key: ${{ inputs.service-account-key }}
+
+    - name: Create or update Cloud Run Job
+      if: inputs.mode != 'execute'
+      shell: bash
+      env:
+        IMAGE: ${{ steps.build.outputs.image }}
+        JOB_NAME: ${{ inputs.job-name }}
+        PROJECT_ID: ${{ inputs.project-id }}
+        REGION: ${{ inputs.region }}
+        NETWORK: ${{ inputs.network }}
+        SUBNET: ${{ inputs.subnet }}
+        VPC_EGRESS: ${{ inputs.vpc-egress }}
+        JOB_SERVICE_ACCOUNT: ${{ inputs.job-service-account }}
+        TASK_TIMEOUT: ${{ inputs.task-timeout }}
+        CPU: ${{ inputs.cpu }}
+        MEMORY: ${{ inputs.memory }}
+        MAX_RETRIES: ${{ inputs.max-retries }}
+        SERVICE_NAME: ${{ inputs.service-name }}
+        TEST_NAME: ${{ inputs.test-name }}
+        ENVIRONMENT: ${{ inputs.environment }}
+        CLAN: ${{ inputs.clan }}
+        SCRIPT: ${{ inputs.script }}
+        TARGET_HOST: ${{ inputs.target-host }}
+        TARGET_AUTHORITY: ${{ inputs.target-authority }}
+        TARGET_AUDIENCE: ${{ inputs.target-audience }}
+        SRE_API_URL: ${{ inputs.sre-api-url }}
+        SRE_API_AUDIENCE: ${{ inputs.sre-api-audience }}
+      run: |
+        set -euo pipefail
+
+        # '^@^' sets @ as the separator so values may contain commas.
+        ENV_VARS="^@^SERVICE_NAME=${SERVICE_NAME}"
+        ENV_VARS="${ENV_VARS}@PROJECT_ID=${PROJECT_ID}"
+        ENV_VARS="${ENV_VARS}@TEST_NAME=${TEST_NAME}"
+        ENV_VARS="${ENV_VARS}@ENVIRONMENT=${ENVIRONMENT}"
+        ENV_VARS="${ENV_VARS}@CLAN=${CLAN}"
+        ENV_VARS="${ENV_VARS}@K6_SCRIPT=${SCRIPT}"
+        ENV_VARS="${ENV_VARS}@TARGET_HOST=${TARGET_HOST}"
+        ENV_VARS="${ENV_VARS}@TARGET_AUTHORITY=${TARGET_AUTHORITY}"
+        ENV_VARS="${ENV_VARS}@TARGET_AUDIENCE=${TARGET_AUDIENCE}"
+        ENV_VARS="${ENV_VARS}@SRE_API_URL=${SRE_API_URL}"
+        ENV_VARS="${ENV_VARS}@SRE_API_AUDIENCE=${SRE_API_AUDIENCE}"
+
+        if gcloud run jobs describe "$JOB_NAME" --region "$REGION" --project "$PROJECT_ID" >/dev/null 2>&1; then
+          echo "Job $JOB_NAME exists, updating it."
+          VERB=update
+        else
+          echo "Job $JOB_NAME does not exist, creating it."
+          VERB=create
+        fi
+
+        gcloud run jobs "$VERB" "$JOB_NAME" \
+          --image "$IMAGE" \
+          --region "$REGION" \
+          --project "$PROJECT_ID" \
+          --network "$NETWORK" \
+          --subnet "$SUBNET" \
+          --vpc-egress "$VPC_EGRESS" \
+          --service-account "$JOB_SERVICE_ACCOUNT" \
+          --task-timeout "$TASK_TIMEOUT" \
+          --cpu "$CPU" \
+          --memory "$MEMORY" \
+          --max-retries "$MAX_RETRIES" \
+          --set-env-vars "$ENV_VARS" \
+          --quiet
+
+    - name: Execute Cloud Run Job
+      if: inputs.mode != 'deploy'
+      shell: bash
+      env:
+        JOB_NAME: ${{ inputs.job-name }}
+        PROJECT_ID: ${{ inputs.project-id }}
+        REGION: ${{ inputs.region }}
+        SRE_API_URL: ${{ inputs.sre-api-url }}
+      run: |
+        set -euo pipefail
+
+        # --wait blocks until the execution finishes and exits non-zero if it failed, so a
+        # k6 threshold breach fails this step. The execution name comes back from the same
+        # call; listing executions afterwards would race with concurrent runs.
+        EXECUTION_ID="$(gcloud run jobs execute "$JOB_NAME" \
+          --region "$REGION" \
+          --project "$PROJECT_ID" \
+          --wait \
+          --quiet \
+          --format='value(metadata.name)')"
+
+        echo "EXECUTION_ID=$EXECUTION_ID" >> "$GITHUB_ENV"
+        echo "Execution $EXECUTION_ID finished. The job uploaded its summary to ${SRE_API_URL}."
