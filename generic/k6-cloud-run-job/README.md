@@ -167,6 +167,7 @@ about:
 | `target-audience` | Leave empty if the service under test needs no identity token. |
 | `max-retries` | Keep at `0`. A retry replays the whole load and uploads a second summary. |
 | `extra-dockerfile-lines` | Escape hatch for an image that needs more than `curl`. |
+| `k6-version` | The `grafana/k6` base image tag. **Not dependabot-visible** — the Dockerfile is generated, so there is no `FROM` line for it to find. Bump by hand. |
 
 ## Reading the results
 

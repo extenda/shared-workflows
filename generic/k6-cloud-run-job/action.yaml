@@ -112,9 +112,12 @@ inputs:
     required: false
     default: script.js
   k6-version:
-    description: Tag of the grafana/k6 base image.
+    description: >
+      Tag of the grafana/k6 base image. Because the Dockerfile is generated rather than
+      checked in, dependabot cannot see this value -- it has to be bumped by hand when a
+      new k6 is released.
     required: false
-    default: 2.1.0
+    default: 2.2.0
   extra-dockerfile-lines:
     description: >
       Extra Dockerfile instructions inserted before the assets are copied, for images
