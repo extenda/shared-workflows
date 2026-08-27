@@ -49,6 +49,49 @@ inputs:
     required: false
     default: hiiretail-sre-api
 
+  # --- Slack reporting (mode execute/both) -------------------------------------------
+  slack-notify:
+    description: >
+      When to post the result to Slack: never, on-failure, or always. Reads the run back
+      from the SRE API, so it needs sre-api-service-account and slack-service-account-key.
+    required: false
+    default: never
+  slack-channel:
+    description: >
+      Channel to post to. Leave empty to use the clan's monitoring channel, which
+      extenda/actions/slack-notify resolves from the clan_slack_channel secret. A private
+      channel needs the SlackNotifications app invited first.
+    required: false
+    default: ''
+  slack-service-account-key:
+    description: >
+      Service account key for extenda/actions/slack-notify, which reads the Slack token
+      from Secret Manager. Usually a different key from service-account-key.
+    required: false
+    default: ''
+  sre-api-service-account:
+    description: >
+      Service account to mint the SRE API read token as. Typically the same one the job
+      runs as, since its project is already accepted by the SRE API.
+    required: false
+    default: ''
+  slack-metrics:
+    description: >
+      Metrics to include in a successful message, one `name:statistic` per line. Defaults
+      to metrics every k6 test emits, so a new caller gets something useful without
+      knowing its own metric names. Add protocol-specific ones (http_req_duration,
+      grpc_req_duration) or your own custom trends.
+
+      Statistic must be one the SRE API stores: avg, min, med, max, count, rate, value,
+      passes, fails, p90, p95. Note p90/p95, not k6's p(90)/p(95). A metric that the run
+      did not emit is skipped rather than failing the step.
+    required: false
+    default: |
+      iterations:count
+      iteration_duration:avg
+      iteration_duration:p95
+      checks:rate
+
   # --- Image (mode deploy/both) ------------------------------------------------------
   image:
     description: Image repository to push to, without a tag.
@@ -153,6 +196,9 @@ runs:
         SCRIPT: ${{ inputs.script }}
         TARGET_HOST: ${{ inputs.target-host }}
         JOB_SERVICE_ACCOUNT: ${{ inputs.job-service-account }}
+        SLACK_NOTIFY: ${{ inputs.slack-notify }}
+        SLACK_SERVICE_ACCOUNT_KEY: ${{ inputs.slack-service-account-key }}
+        SRE_API_SERVICE_ACCOUNT: ${{ inputs.sre-api-service-account }}
       run: |
         set -uo pipefail
         fail=0
@@ -181,6 +227,19 @@ runs:
             fail=1
           fi
         fi
+
+        case "$SLACK_NOTIFY" in
+          never) ;;
+          always|on-failure)
+            if [ "$MODE" = deploy ]; then
+              echo "::error::slack-notify has nothing to report in mode 'deploy'"
+              fail=1
+            fi
+            require slack-service-account-key "$SLACK_SERVICE_ACCOUNT_KEY"
+            require sre-api-service-account "$SRE_API_SERVICE_ACCOUNT"
+            ;;
+          *) echo "::error::slack-notify must be never, on-failure or always, got '$SLACK_NOTIFY'"; fail=1 ;;
+        esac
 
         exit $fail
 
@@ -308,6 +367,7 @@ runs:
 
     - name: Execute Cloud Run Job
       if: inputs.mode != 'deploy'
+      id: execute
       shell: bash
       env:
         JOB_NAME: ${{ inputs.job-name }}
@@ -316,6 +376,10 @@ runs:
         SRE_API_URL: ${{ inputs.sre-api-url }}
       run: |
         set -euo pipefail
+
+        # Read back only summaries written after this moment, so a concurrent run's result
+        # cannot be mistaken for ours.
+        echo "started_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
 
         # --wait blocks until the execution finishes and exits non-zero if it failed, so a
         # k6 threshold breach fails this step. The execution name comes back from the same
@@ -329,3 +393,131 @@ runs:
 
         echo "EXECUTION_ID=$EXECUTION_ID" >> "$GITHUB_ENV"
         echo "Execution $EXECUTION_ID finished. The job uploaded its summary to ${SRE_API_URL}."
+
+    # The steps below run even when the execution failed -- a failed run is exactly when a
+    # notification matters most. They never fail the job themselves: the execute step above
+    # already carries the verdict, and a broken notification must not change it.
+    - name: Get SRE API read token
+      if: ${{ !cancelled() && inputs.mode != 'deploy' && inputs.slack-notify != 'never' }}
+      uses: extenda/actions/identity-token@v0
+      with:
+        service-account-key: ${{ inputs.service-account-key }}
+        service-account: ${{ inputs.sre-api-service-account }}
+        audiences: ${{ inputs.sre-api-audience }}
+
+    - name: Compose Slack message
+      if: ${{ !cancelled() && inputs.mode != 'deploy' && inputs.slack-notify != 'never' }}
+      id: slack-message
+      shell: bash
+      env:
+        SRE_API_URL: ${{ inputs.sre-api-url }}
+        SERVICE_NAME: ${{ inputs.service-name }}
+        TEST_NAME: ${{ inputs.test-name }}
+        PROJECT_ID: ${{ inputs.project-id }}
+        ENVIRONMENT: ${{ inputs.environment }}
+        CLAN: ${{ inputs.clan }}
+        SLACK_METRICS: ${{ inputs.slack-metrics }}
+        SLACK_NOTIFY: ${{ inputs.slack-notify }}
+        STARTED_AT: ${{ steps.execute.outputs.started_at }}
+        RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      run: |
+        set -uo pipefail
+
+        QUERY="serviceName=${SERVICE_NAME}&testName=${TEST_NAME}&projectId=${PROJECT_ID}"
+        QUERY="${QUERY}&environment=${ENVIRONMENT}&clan=${CLAN}&fromDate=${STARTED_AT}&limit=1"
+
+        if ! curl --fail --silent --show-error --max-time 30 --retry 2 \
+          -H "Authorization: Bearer ${IDENTITY_TOKEN}" \
+          "${SRE_API_URL}/api/v1/k6/summary?${QUERY}" -o summary.json; then
+          echo "::warning::could not read the run back from the SRE API"
+          echo '{"items":[]}' > summary.json
+        fi
+
+        # No summary means k6 never produced results: a bad image, a missing token, an
+        # unreachable service. That is a different failure from missing an SLO, and the
+        # message says so. Distinguishing them from the stored thresholds avoids having to
+        # dig the container exit code out of the Cloud Run execution.
+        if [ "$(jq '.items | length' summary.json)" -eq 0 ]; then
+          OUTCOME=failed
+        elif [ "$(jq '[.items[0].metrics[]?.thresholds[]? | select(.ok == false)] | length' summary.json)" -gt 0 ]; then
+          OUTCOME=breached
+        else
+          OUTCOME=passed
+        fi
+        echo "outcome=${OUTCOME}" >> "$GITHUB_OUTPUT"
+
+        if [ "$SLACK_NOTIFY" = on-failure ] && [ "$OUTCOME" = passed ]; then
+          echo "notify=false" >> "$GITHUB_OUTPUT"
+          echo "Run passed and slack-notify is on-failure; not posting."
+          exit 0
+        fi
+        echo "notify=true" >> "$GITHUB_OUTPUT"
+
+        case "$OUTCOME" in
+          passed)   HEADLINE=":white_check_mark: *${SERVICE_NAME}* k6 \`${TEST_NAME}\` passed" ;;
+          breached) HEADLINE=":warning: *${SERVICE_NAME}* k6 \`${TEST_NAME}\` crossed a threshold" ;;
+          failed)   HEADLINE=":red_circle: *${SERVICE_NAME}* k6 \`${TEST_NAME}\` did not produce a result" ;;
+        esac
+
+        {
+          echo "${HEADLINE}  _(${ENVIRONMENT})_"
+          echo
+
+          if [ "$OUTCOME" = failed ]; then
+            echo "No summary reached the SRE API for this run, so k6 either never started or"
+            echo "never finished. Check the Cloud Run execution logs."
+          else
+            if [ "$OUTCOME" = breached ]; then
+              echo '```'
+              jq -r '.items[0].metrics[]? as $m
+                     | $m.thresholds[]? | select(.ok == false)
+                     | "FAILED  \($m.name)  \(.expr)"' summary.json
+              echo '```'
+            fi
+
+            # A metric the run did not emit is skipped rather than printed as null: the
+            # defaults are protocol-agnostic, so a caller will legitimately not have all of
+            # them.
+            TABLE="$(
+              while IFS= read -r line; do
+                [ -n "$line" ] || continue
+                name="${line%%:*}"
+                stat="${line##*:}"
+                jq -r --arg n "$name" --arg s "$stat" '
+                  (.items[0].metrics[]? | select(.name == $n) | .values[$s]) as $v
+                  | if $v == null then empty
+                    else "\($n) \($s) \($v | if type != "number" then .
+                                             elif (if . < 0 then -. else . end) >= 1 then (.*100|round/100)
+                                             else (.*10000|round/10000) end)"
+                    end' summary.json
+              done <<< "$SLACK_METRICS"
+            )"
+
+            if [ -n "$TABLE" ]; then
+              echo '```'
+              printf '%s\n' "$TABLE" | awk '{printf "%-24s %-6s %s\n", $1, $2, $3}'
+              echo '```'
+            else
+              echo "_No matching metrics in the summary. Check the slack-metrics input._"
+            fi
+          fi
+
+          echo "<${RUN_URL}|GitHub run>"
+        } > slack-text.md
+
+        echo "Composed message:"; sed 's/^/  /' slack-text.md
+
+        {
+          echo "text<<SLACK_EOF"
+          cat slack-text.md
+          echo "SLACK_EOF"
+        } >> "$GITHUB_OUTPUT"
+
+    - name: Notify Slack
+      if: ${{ !cancelled() && inputs.mode != 'deploy' && inputs.slack-notify != 'never' && steps.slack-message.outputs.notify == 'true' }}
+      continue-on-error: true
+      uses: extenda/actions/slack-notify@v0
+      with:
+        service-account-key: ${{ inputs.slack-service-account-key }}
+        channel: ${{ inputs.slack-channel }}
+        text: ${{ steps.slack-message.outputs.text }}

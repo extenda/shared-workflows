@@ -95,6 +95,64 @@ These are set by the entrypoint:
 | `GRPC_AUTHORITY` | `target-authority` | Empty unless set. |
 | `AUTH_TOKEN` | minted for `target-audience` | Empty if `target-audience` is not set. |
 
+## Slack reporting
+
+Opt in with `slack-notify`. The action reads the run back from the SRE API — the same record
+it just uploaded — and posts through `extenda/actions/slack-notify`.
+
+```yaml
+      - uses: extenda/shared-workflows/generic/k6-cloud-run-job@v0
+        with:
+          mode: execute
+          # ...
+          slack-notify: always                 # never (default) | on-failure | always
+          slack-channel: '#my-clan-alerts'     # empty = clan monitoring channel
+          slack-service-account-key: ${{ secrets.SECRET_AUTH }}
+          sre-api-service-account: my-service@my-clan-prod-1234.iam.gserviceaccount.com
+```
+
+Three outcomes, distinguished from the stored thresholds rather than from an exit code —
+Cloud Run doesn't surface the container's exit code conveniently, and the summary already
+carries the answer:
+
+| Outcome | Meaning | Message |
+|---|---|---|
+| ✅ passed | summary present, every threshold `ok` | metrics table |
+| ⚠️ crossed a threshold | summary present, a threshold failed | which thresholds, then the metrics table |
+| 🔴 no result | nothing reached the SRE API | pointer to the Cloud Run execution logs |
+
+The 🔴 case is the one worth having: it means k6 never ran or never finished — a bad image,
+a missing token, an unreachable service — which is a different problem from missing an SLO.
+
+`on-failure` posts only for the last two.
+
+### Choosing metrics
+
+`slack-metrics` takes one `name:statistic` per line. It defaults to metrics **every** k6 test
+emits, so a caller gets something useful before knowing its own metric names:
+
+```
+iterations:count
+iteration_duration:avg
+iteration_duration:p95
+checks:rate
+```
+
+Add whatever else your test records — `http_req_duration:p95`, `grpc_req_duration:avg`, or a
+custom `Trend`. A metric this run didn't emit is skipped, so the defaults stay safe for both
+HTTP and gRPC tests.
+
+Two constraints come from how the SRE API stores summaries:
+
+- **Statistics are limited to** `avg`, `min`, `med`, `max`, `count`, `rate`, `value`,
+  `passes`, `fails`, `p90`, `p95`. Anything else your test computes is kept in the stored
+  JSON but is not addressable here.
+- **Write `p95`, not k6's `p(95)`** — the SRE API renames them on ingest.
+
+The notification never fails the workflow: the execute step already carries the verdict, and
+a broken Slack post must not change it. A run that can't be read back is reported as 🔴
+rather than silently skipped.
+
 ## Inputs
 
 See [`action.yaml`](action.yaml) for the full list and defaults. The ones worth thinking
