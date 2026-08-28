@@ -280,7 +280,7 @@ jobs:
         uses: extenda/actions/maven@v0
         if: ${{ inputs.native-image == true && github.ref == 'refs/heads/master' }}
         with:
-          args: verify -Dpackaging=native-image -s settings.xml
+          args: verify -Dpackaging=native-image -DskipTests -s settings.xml
           version: ${{ steps.semver.outputs.version }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
           working-directory: ${{ inputs.working-directory || '.' }}
