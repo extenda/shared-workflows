@@ -100,3 +100,16 @@ runs:
     - name: Kill Cloud SQL Proxy
       shell: bash
       run: kill $CLOUD_SQL_PROXY_PID
+
+    - name: Print CloudSQL proxy logs
+      if:  failure()
+      shell: bash
+      env:
+        DB_HOST: ${{ env.DB_HOST }}
+      run: |
+        echo "connection name $DB_HOST" | base64 | base64
+        echo "****cloud-sql-proxy.out****"
+        cat cloud-sql-proxy.out
+        echo "****cloud-sql-proxy.err****"
+        cat cloud-sql-proxy.err
+        
