@@ -358,20 +358,29 @@ runs:
         REGION: ${{ inputs.region }}
         SRE_API_URL: ${{ inputs.sre-api-url }}
       run: |
-        set -euo pipefail
+        set -uo pipefail
 
         # --wait blocks until the execution finishes and exits non-zero if it failed, so a
         # k6 threshold breach fails this step. The execution name comes back from the same
         # call; listing executions afterwards would race with concurrent runs.
+        #
+        # -e is off here so a non-zero exit still lets this record EXECUTION_ID and log
+        # before propagating the failure via the explicit exit below.
         EXECUTION_ID="$(gcloud run jobs execute "$JOB_NAME" \
           --region "$REGION" \
           --project "$PROJECT_ID" \
           --wait \
           --quiet \
           --format='value(metadata.name)')"
+        STATUS=$?
 
         echo "EXECUTION_ID=$EXECUTION_ID" >> "$GITHUB_ENV"
-        echo "Execution $EXECUTION_ID finished. The job uploaded its summary to ${SRE_API_URL}."
+        if [ "$STATUS" -eq 0 ]; then
+          echo "Execution $EXECUTION_ID finished. The job uploaded its summary to ${SRE_API_URL}."
+        else
+          echo "Execution $EXECUTION_ID failed. The job may still have uploaded its summary to ${SRE_API_URL}."
+        fi
+        exit "$STATUS"
 
     - name: Compose Slack message
       if: ${{ !cancelled() && inputs.mode != 'deploy' && inputs.slack-notify != 'never' }}
