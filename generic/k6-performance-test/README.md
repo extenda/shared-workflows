@@ -59,7 +59,7 @@ against production usually should not run on every push:
       # Produce the k6 script and any data it opens, however your project does that.
       - run: ./scripts/generate-k6-assets.sh
 
-      - uses: extenda/shared-workflows/generic/k6-cloud-run-job@v0
+      - uses: extenda/shared-workflows/generic/k6-performance-test@v0
         with:
           mode: deploy
           service-account-key: ${{ secrets.GCLOUD_AUTH_PROD }}
@@ -83,7 +83,7 @@ jobs:
   run:
     runs-on: ubuntu-latest
     steps:
-      - uses: extenda/shared-workflows/generic/k6-cloud-run-job@v0
+      - uses: extenda/shared-workflows/generic/k6-performance-test@v0
         with:
           mode: execute
           service-account-key: ${{ secrets.GCLOUD_AUTH_PROD }}
@@ -114,7 +114,7 @@ jobs:
 
       - run: ./scripts/generate-k6-assets.sh
 
-      - uses: extenda/shared-workflows/generic/k6-cloud-run-job@v0
+      - uses: extenda/shared-workflows/generic/k6-performance-test@v0
         with:
           runtime: github-actions
           service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
@@ -158,7 +158,7 @@ through `extenda/actions/slack-notify` — it does not read the summary back fro
 so it needs only `slack-service-account-key`, not a service account to mint an SRE API token.
 
 ```yaml
-      - uses: extenda/shared-workflows/generic/k6-cloud-run-job@v0
+      - uses: extenda/shared-workflows/generic/k6-performance-test@v0
         with:
           mode: execute
           # ...

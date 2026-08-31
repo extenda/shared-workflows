@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Entrypoint for the k6 performance-test image built by the k6-cloud-run-job action.
+# Entrypoint for the k6 performance-test image built by the k6-performance-test action.
 #
 # Runs the k6 script against the service under test, then pushes the end-of-test
 # summary to the SRE API via upload-summary.sh, which lives alongside this script in
