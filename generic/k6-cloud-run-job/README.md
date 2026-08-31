@@ -66,8 +66,7 @@ against production usually should not run on every push:
           project-id: my-clan-prod-1234
           job-name: my-service-performance-test
           image: eu.gcr.io/extenda/my-service-performance
-          assets-path: target/k6
-          script: my-test.js
+          script-path: target/k6/my-test.js
           job-service-account: my-service@my-clan-prod-1234.iam.gserviceaccount.com
           target-host: my-service.internal:80
           target-audience: my-service
@@ -120,8 +119,7 @@ jobs:
           runtime: github-actions
           service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
           project-id: my-clan-staging-5678
-          assets-path: target/k6
-          script: my-test.js
+          script-path: target/k6/my-test.js
           job-service-account: my-service@my-clan-staging-5678.iam.gserviceaccount.com
           target-host: my-service.retailsvc.dev
           target-audience: my-service
@@ -148,9 +146,9 @@ Same env vars either way, so a script does not need to know which runtime ran it
 | `AUTH_TOKEN` | minted for `target-audience` | Empty if `target-audience` is not set. |
 
 For `cloud-run-job`, the action generates the Dockerfile, so you do not write one — your
-`assets-path` directory is copied to `/k6-tests` and the script runs from there, so
-`open('./requests.json')` and similar relative reads work as they do locally. For
-`github-actions`, the script runs directly against `assets-path` in the runner's own
+directory holding `script-path` is copied to `/k6-tests` and the script runs from
+there, so `open('./requests.json')` and similar relative reads work as they do locally.
+For `github-actions`, the script runs directly against `script-path` in the runner's own
 workspace — same relative-read behavior, no build step.
 
 ## Slack reporting
@@ -193,7 +191,7 @@ about:
 | `runtime` | `cloud-run-job` (default) or `github-actions`. See "Choosing a runtime" above. |
 | `mode` | `cloud-run-job` only: `deploy`, `execute`, or `both`. Default `both`. Ignored for `github-actions`. |
 | `service-name`, `test-name`, `environment`, `clan`, `project-id` | The **partition key** behind `GET /k6/trends`. Changing any of them starts a new series, so pick them once and keep them stable. |
-| `assets-path` | Must exist when the action runs. Generate it in an earlier step, for either runtime. |
+| `script-path` | Must exist when the action runs. Generate it in an earlier step, for either runtime. Its directory travels with it -- anything the script opens by relative path must live alongside it. |
 | `job-service-account` | `cloud-run-job`: the account the job runs as. `github-actions`: the account impersonated to mint identity tokens. Either way it needs access to the service under test, and its project must be one the SRE API accepts. |
 | `target-audience` | Leave empty if the service under test needs no identity token. |
 | `max-retries` | `cloud-run-job` only. Keep at `0`. A retry replays the whole load and uploads a second summary. |
