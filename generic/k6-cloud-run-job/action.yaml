@@ -40,14 +40,6 @@ inputs:
   clan:
     description: Owning clan, reported as X-Clan.
     required: true
-  sre-api-url:
-    description: Base URL of the SRE API.
-    required: false
-    default: https://sre-api.retailsvc.com
-  sre-api-audience:
-    description: Identity token audience accepted by the SRE API.
-    required: false
-    default: hiiretail-sre-api
 
   # --- Slack reporting (mode execute/both) -------------------------------------------
   slack-notify:
@@ -146,18 +138,6 @@ inputs:
       letting the summary upload reach the SRE API directly.
     required: false
     default: private-ranges-only
-  cpu:
-    description: vCPUs for the job. k6 is CPU-bound at higher VU counts.
-    required: false
-    default: '4'
-  memory:
-    description: Memory for the job.
-    required: false
-    default: 2Gi
-  task-timeout:
-    description: Task timeout for the job.
-    required: false
-    default: 1h
   max-retries:
     description: >
       Retries for a failed task. Keep at 0: a retry replays the full load against the
@@ -291,9 +271,6 @@ runs:
         SUBNET: ${{ inputs.subnet }}
         VPC_EGRESS: ${{ inputs.vpc-egress }}
         JOB_SERVICE_ACCOUNT: ${{ inputs.job-service-account }}
-        TASK_TIMEOUT: ${{ inputs.task-timeout }}
-        CPU: ${{ inputs.cpu }}
-        MEMORY: ${{ inputs.memory }}
         MAX_RETRIES: ${{ inputs.max-retries }}
         SERVICE_NAME: ${{ inputs.service-name }}
         TEST_NAME: ${{ inputs.test-name }}
@@ -303,10 +280,16 @@ runs:
         TARGET_HOST: ${{ inputs.target-host }}
         TARGET_AUTHORITY: ${{ inputs.target-authority }}
         TARGET_AUDIENCE: ${{ inputs.target-audience }}
-        SRE_API_URL: ${{ inputs.sre-api-url }}
-        SRE_API_AUDIENCE: ${{ inputs.sre-api-audience }}
       run: |
         set -euo pipefail
+
+        # Fixed rather than configurable: every caller so far has needed the same shape,
+        # and a caller that genuinely needs more should be talking to us first.
+        TASK_TIMEOUT=1h
+        CPU=2
+        MEMORY=1Gi
+        SRE_API_URL=https://sre-api.retailsvc.com
+        SRE_API_AUDIENCE=hiiretail-sre-api
 
         # '^@^' sets @ as the separator so values may contain commas.
         ENV_VARS="^@^SERVICE_NAME=${SERVICE_NAME}"
@@ -356,9 +339,11 @@ runs:
         JOB_NAME: ${{ inputs.job-name }}
         PROJECT_ID: ${{ inputs.project-id }}
         REGION: ${{ inputs.region }}
-        SRE_API_URL: ${{ inputs.sre-api-url }}
       run: |
         set -uo pipefail
+
+        # Logging only -- matches the fixed value the deploy step wrote onto the job.
+        SRE_API_URL=https://sre-api.retailsvc.com
 
         # --wait blocks until the execution finishes and exits non-zero if it failed, so a
         # k6 threshold breach fails this step. The execution name comes back from the same
