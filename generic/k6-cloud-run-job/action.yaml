@@ -486,9 +486,7 @@ runs:
       run: ${{ github.action_path }}/upload-summary.sh
 
     - name: Compose Slack message
-      if: >
-        ${{ !cancelled() && inputs.slack-notify != 'never' &&
-            (inputs.runtime == 'github-actions' || inputs.mode != 'deploy') }}
+      if: ${{ !cancelled() && inputs.slack-notify != 'never' && (inputs.runtime == 'github-actions' || inputs.mode != 'deploy') }}
       id: slack-message
       shell: bash
       env:
@@ -529,9 +527,7 @@ runs:
         } >> "$GITHUB_OUTPUT"
 
     - name: Notify Slack
-      if: >
-        ${{ !cancelled() && inputs.slack-notify != 'never' && steps.slack-message.outputs.notify == 'true' &&
-            (inputs.runtime == 'github-actions' || inputs.mode != 'deploy') }}
+      if: ${{ !cancelled() && inputs.slack-notify != 'never' && steps.slack-message.outputs.notify == 'true' && (inputs.runtime == 'github-actions' || inputs.mode != 'deploy') }}
       continue-on-error: true
       uses: extenda/actions/slack-notify@v0
       with:
@@ -540,8 +536,6 @@ runs:
         text: ${{ steps.slack-message.outputs.text }}
 
     - name: Fail if run failed
-      if: >
-        ${{ (inputs.runtime == 'github-actions' && steps.run-k6.outcome == 'failure') ||
-            (inputs.runtime == 'cloud-run-job' && inputs.mode != 'deploy' && steps.execute.outcome == 'failure') }}
+      if: ${{ (inputs.runtime == 'github-actions' && steps.run-k6.outcome == 'failure') || (inputs.runtime == 'cloud-run-job' && inputs.mode != 'deploy' && steps.execute.outcome == 'failure') }}
       shell: bash
       run: exit 1
