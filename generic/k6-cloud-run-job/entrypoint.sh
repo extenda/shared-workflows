@@ -3,7 +3,8 @@
 # Entrypoint for the k6 performance-test image built by the k6-cloud-run-job action.
 #
 # Runs the k6 script against the service under test, then pushes the end-of-test
-# summary to the SRE API so results can be trended over time.
+# summary to the SRE API via upload-summary.sh, which lives alongside this script in
+# the image.
 #
 # Nothing outside the container can retrieve the summary: a Cloud Run Job shares no
 # volume with the pipeline that started it, and the job may not have been started by a
@@ -34,41 +35,14 @@ SRE_API_AUDIENCE="${SRE_API_AUDIENCE:-hiiretail-sre-api}"
 
 METADATA_URL="http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/identity"
 
-# Mint a Google-signed ID token for the given audience from the metadata server.
+# Mint a Google-signed ID token for the given audience from the metadata server. Only
+# works from inside GCP -- a GitHub-hosted runner has no metadata server to ask, which is
+# why the github-actions runtime mints its tokens via extenda/actions/identity-token
+# instead and hands the result straight to upload-summary.sh.
 fetch_id_token() {
   curl --silent --fail --max-time 10 \
     -H "Metadata-Flavor: Google" \
     "${METADATA_URL}?audience=$1"
-}
-
-# Push the summary to the SRE API. Never fatal: a flaky upload must not turn a healthy
-# performance run red, and must not mask a k6 threshold breach.
-upload_summary() {
-  if [ ! -s "${SUMMARY_FILE}" ]; then
-    echo "WARN: no summary at ${SUMMARY_FILE}, skipping upload"
-    return
-  fi
-
-  sre_token=$(fetch_id_token "${SRE_API_AUDIENCE}")
-  if [ -z "${sre_token}" ]; then
-    echo "WARN: could not mint an identity token for '${SRE_API_AUDIENCE}', skipping upload"
-    return
-  fi
-
-  if curl --fail --silent --show-error --max-time 60 --retry 2 --retry-connrefused \
-    -X POST "${SRE_API_URL}/api/v1/k6/summary" \
-    -H "Content-Type: application/json" \
-    -H "Authorization: Bearer ${sre_token}" \
-    -H "X-Service-Name: ${SERVICE_NAME}" \
-    -H "X-Project-Id: ${PROJECT_ID}" \
-    -H "X-Test-Name: ${TEST_NAME}" \
-    -H "X-Environment: ${ENVIRONMENT}" \
-    -H "X-Clan: ${CLAN}" \
-    --data-binary "@${SUMMARY_FILE}"; then
-    echo "Uploaded k6 summary for ${SERVICE_NAME}/${TEST_NAME} (${ENVIRONMENT})"
-  else
-    echo "WARN: failed to upload k6 summary to ${SRE_API_URL}"
-  fi
 }
 
 # The service under test is usually IAM-protected, so mint a token for it up front.
@@ -91,6 +65,14 @@ k6 run \
   "${K6_SCRIPT}"
 k6_exit=$?
 
-upload_summary
+sre_token=$(fetch_id_token "${SRE_API_AUDIENCE}")
+if [ -z "${sre_token}" ]; then
+  echo "WARN: could not mint an identity token for '${SRE_API_AUDIENCE}', skipping upload"
+else
+  SUMMARY_FILE="${SUMMARY_FILE}" SRE_API_URL="${SRE_API_URL}" SRE_TOKEN="${sre_token}" \
+  SERVICE_NAME="${SERVICE_NAME}" PROJECT_ID="${PROJECT_ID}" TEST_NAME="${TEST_NAME}" \
+  ENVIRONMENT="${ENVIRONMENT}" CLAN="${CLAN}" \
+    "$(dirname "$0")/upload-summary.sh"
+fi
 
 exit "${k6_exit}"

@@ -1,20 +1,29 @@
-# k6 Cloud Run Job
+# k6 performance test
 
-Runs a k6 performance test as a Cloud Run Job **inside the VPC**, and reports the summary to
-the SRE API so results can be trended over time.
+Runs a k6 performance test and reports the summary to the SRE API so results can be trended
+over time, either as a Cloud Run Job **inside the VPC** or directly on the GitHub runner.
+Which one to use is a single input: `runtime`.
 
-## When to use this instead of `k6-performance-test`
+## Choosing a runtime
 
-Use `generic/k6-performance-test` when the service under test is
-reachable from a GitHub runner. It runs k6 on the runner itself and is much simpler.
+This is about reachability, not test size or duration:
 
-Use this action when it is not: an internal-only Cloud Run service, a service behind
-Cloud Armor, or anything that only resolves on the clan network. The test then has to run
-from inside the VPC, which means the runner cannot see the results either — the job shares
-no volume with the pipeline that started it, and may not have been started by a pipeline at
-all. So the container uploads its own summary before it exits. There is nothing to fetch.
+- **`runtime: github-actions`** (simpler) — the service under test is reachable from a
+  GitHub-hosted runner: a public URL, a staging endpoint, anything that resolves outside
+  the VPC. k6 runs directly on the runner.
+- **`runtime: cloud-run-job`** (default) — it is not: an internal-only Cloud Run service, a
+  service behind Cloud Armor, or anything that only resolves on the clan network. The test
+  then has to run from inside the VPC, which means the runner cannot see the results
+  either — the job shares no volume with the pipeline that started it, and may not have
+  been started by a pipeline at all. So the container uploads its own summary before it
+  exits.
+
+A five-minute test against an internal-only service still needs `cloud-run-job` — a runner
+cannot reach the target regardless of how long the test runs. A one-hour test against a
+public staging URL can still use `github-actions`.
 
 ```
+ cloud-run-job:
  GitHub runner                Cloud Run Job (in the VPC)              SRE API
  ─────────────                ──────────────────────────              ───────
  build + push image  ─────▶
@@ -24,9 +33,18 @@ all. So the container uploads its own summary before it exits. There is nothing 
                               exit with k6's exit code
         ◀──────────────────── exit code
  post pass/fail to Slack
+
+ github-actions:
+ GitHub runner                                                        SRE API
+ ─────────────                                                        ───────
+ mint ID token (target)
+ k6 run --summary-export
+ mint ID token (sre-api)
+ POST /api/v1/k6/summary                                     ─────▶   GCS + Postgres
+ post pass/fail to Slack
 ```
 
-## Usage
+## Usage: cloud-run-job
 
 Deploy the job on merge, execute it on demand — the common split, since a performance test
 against production usually should not run on every push:
@@ -79,15 +97,48 @@ jobs:
 ```
 
 `mode: both` builds, deploys and runs in one step, for a test cheap enough to run on
-every merge.
+every merge. `mode` is ignored when `runtime` is `github-actions` — there is no job to
+deploy, so every run does the equivalent of `both`.
+
+## Usage: github-actions
+
+One step, no deploy/execute split — the checkout and any asset generation happen in your
+own job before this step, the same as `cloud-run-job`'s build step expects:
+
+```yaml
+on: workflow_dispatch
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - run: ./scripts/generate-k6-assets.sh
+
+      - uses: extenda/shared-workflows/generic/k6-cloud-run-job@v0
+        with:
+          runtime: github-actions
+          service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
+          project-id: my-clan-staging-5678
+          assets-path: target/k6
+          script: my-test.js
+          job-service-account: my-service@my-clan-staging-5678.iam.gserviceaccount.com
+          target-host: my-service.retailsvc.dev
+          target-audience: my-service
+          service-name: my-service
+          test-name: my-test
+          environment: staging
+          clan: my-clan
+```
+
+`job-service-account` means something slightly different here: with no Cloud Run Job to
+run as, it is the account the action impersonates (via `extenda/actions/identity-token`)
+to mint the identity tokens it needs — one for `target-audience`, one for the SRE API
+upload.
 
 ## What your k6 script gets
 
-The action generates the Dockerfile, so you do not write one. Your `assets-path` directory
-is copied to `/k6-tests` and the script is run from there — `open('./requests.json')` and
-similar relative reads work as they do locally.
-
-These are set by the entrypoint:
+Same env vars either way, so a script does not need to know which runtime ran it:
 
 | k6 env var | From | Notes |
 |---|---|---|
@@ -95,6 +146,12 @@ These are set by the entrypoint:
 | `GRPC_HOST` | `target-host` | |
 | `GRPC_AUTHORITY` | `target-authority` | Empty unless set. |
 | `AUTH_TOKEN` | minted for `target-audience` | Empty if `target-audience` is not set. |
+
+For `cloud-run-job`, the action generates the Dockerfile, so you do not write one — your
+`assets-path` directory is copied to `/k6-tests` and the script runs from there, so
+`open('./requests.json')` and similar relative reads work as they do locally. For
+`github-actions`, the script runs directly against `assets-path` in the runner's own
+workspace — same relative-read behavior, no build step.
 
 ## Slack reporting
 
@@ -112,19 +169,19 @@ so it needs only `slack-service-account-key`, not a service account to mint an S
           slack-service-account-key: ${{ secrets.SECRET_AUTH }}
 ```
 
-Two outcomes, taken directly from the `gcloud run jobs execute --wait` exit code:
+Two outcomes, taken directly from the run's exit code — `gcloud run jobs execute --wait`
+for `cloud-run-job`, k6's own exit code for `github-actions`:
 
 | Outcome | Meaning |
 |---|---|
-| ✅ succeeded | the job exited 0 — k6 ran and every threshold held |
-| 🔴 failed | the job exited non-zero — a threshold breach, or k6 never produced a result |
+| ✅ succeeded | exit 0 — k6 ran and every threshold held |
+| 🔴 failed | non-zero exit — a threshold breach, or k6 never produced a result |
 
 `on-failure` posts only for the failed case. Neither case includes a metrics breakdown; check
-the Cloud Run execution logs or `GET /k6/trends` for the numbers.
+the execution logs or `GET /k6/trends` for the numbers.
 
 The notification never fails the workflow on its own: a broken Slack post must not mask or
-manufacture a verdict. The action still fails the step afterward if the execution itself
-failed.
+manufacture a verdict. The action still fails the step afterward if the run itself failed.
 
 ## Inputs
 
@@ -133,14 +190,15 @@ about:
 
 | Input | Notes |
 |---|---|
-| `mode` | `deploy`, `execute`, or `both`. Default `both`. |
+| `runtime` | `cloud-run-job` (default) or `github-actions`. See "Choosing a runtime" above. |
+| `mode` | `cloud-run-job` only: `deploy`, `execute`, or `both`. Default `both`. Ignored for `github-actions`. |
 | `service-name`, `test-name`, `environment`, `clan`, `project-id` | The **partition key** behind `GET /k6/trends`. Changing any of them starts a new series, so pick them once and keep them stable. |
-| `assets-path` | Must exist when the action runs. Generate it in an earlier step. |
-| `job-service-account` | Needs access to the service under test. Its project must be one the SRE API accepts. |
+| `assets-path` | Must exist when the action runs. Generate it in an earlier step, for either runtime. |
+| `job-service-account` | `cloud-run-job`: the account the job runs as. `github-actions`: the account impersonated to mint identity tokens. Either way it needs access to the service under test, and its project must be one the SRE API accepts. |
 | `target-audience` | Leave empty if the service under test needs no identity token. |
-| `max-retries` | Keep at `0`. A retry replays the whole load and uploads a second summary. |
-| `extra-dockerfile-lines` | Escape hatch for an image that needs more than `curl`. |
-| `k6-version` | The `grafana/k6` base image tag. **Not dependabot-visible** — the Dockerfile is generated, so there is no `FROM` line for it to find. Bump by hand. |
+| `max-retries` | `cloud-run-job` only. Keep at `0`. A retry replays the whole load and uploads a second summary. |
+| `extra-dockerfile-lines` | `cloud-run-job` only. Escape hatch for an image that needs more than `curl`. |
+| `k6-version` | `cloud-run-job` only. The `grafana/k6` base image tag. **Not dependabot-visible** — the Dockerfile is generated, so there is no `FROM` line for it to find. Bump by hand. |
 
 ## Reading the results
 
@@ -150,8 +208,9 @@ curl "https://sre-api.retailsvc.com/api/v1/k6/trends?serviceName=my-service&test
 
 ## Notes and known gaps
 
-- **A threshold breach fails the workflow.** The entrypoint exits with k6's own exit code
-  and `execute` uses `--wait`, so a crossed threshold (exit 99) surfaces as a red step.
+- **A threshold breach fails the workflow**, on either runtime. `cloud-run-job`'s entrypoint
+  exits with k6's own exit code and `execute` uses `--wait`; `github-actions` runs k6
+  directly, so its own exit code (99 on a crossed threshold) is the step's exit code.
 - **An upload failure does not.** It logs a `WARN` and leaves the exit code alone: a flaky
   SRE API must not turn a healthy run red, nor mask a threshold breach.
 - **`duration_ms` is currently null.** The SRE API reads `state.testRunDurationMs`, which
