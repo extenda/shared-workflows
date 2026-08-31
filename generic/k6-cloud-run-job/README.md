@@ -23,6 +23,7 @@ all. So the container uploads its own summary before it exits. There is nothing 
                               POST /api/v1/k6/summary       ─────▶    GCS + Postgres
                               exit with k6's exit code
         ◀──────────────────── exit code
+ post pass/fail to Slack
 ```
 
 ## Usage
@@ -97,8 +98,9 @@ These are set by the entrypoint:
 
 ## Slack reporting
 
-Opt in with `slack-notify`. The action reads the run back from the SRE API — the same record
-it just uploaded — and posts through `extenda/actions/slack-notify`.
+Opt in with `slack-notify`. The action posts whether the execution succeeded or failed
+through `extenda/actions/slack-notify` — it does not read the summary back from the SRE API,
+so it needs only `slack-service-account-key`, not a service account to mint an SRE API token.
 
 ```yaml
       - uses: extenda/shared-workflows/generic/k6-cloud-run-job@v0
@@ -108,50 +110,21 @@ it just uploaded — and posts through `extenda/actions/slack-notify`.
           slack-notify: always                 # never (default) | on-failure | always
           slack-channel: '#my-clan-alerts'     # empty = clan monitoring channel
           slack-service-account-key: ${{ secrets.SECRET_AUTH }}
-          sre-api-service-account: my-service@my-clan-prod-1234.iam.gserviceaccount.com
 ```
 
-Three outcomes, distinguished from the stored thresholds rather than from an exit code —
-Cloud Run doesn't surface the container's exit code conveniently, and the summary already
-carries the answer:
+Two outcomes, taken directly from the `gcloud run jobs execute --wait` exit code:
 
-| Outcome | Meaning | Message |
-|---|---|---|
-| ✅ passed | summary present, every threshold `ok` | metrics table |
-| ⚠️ crossed a threshold | summary present, a threshold failed | which thresholds, then the metrics table |
-| 🔴 no result | nothing reached the SRE API | pointer to the Cloud Run execution logs |
+| Outcome | Meaning |
+|---|---|
+| ✅ succeeded | the job exited 0 — k6 ran and every threshold held |
+| 🔴 failed | the job exited non-zero — a threshold breach, or k6 never produced a result |
 
-The 🔴 case is the one worth having: it means k6 never ran or never finished — a bad image,
-a missing token, an unreachable service — which is a different problem from missing an SLO.
+`on-failure` posts only for the failed case. Neither case includes a metrics breakdown; check
+the Cloud Run execution logs or `GET /k6/trends` for the numbers.
 
-`on-failure` posts only for the last two.
-
-### Choosing metrics
-
-`slack-metrics` takes one `name:statistic` per line. It defaults to metrics **every** k6 test
-emits, so a caller gets something useful before knowing its own metric names:
-
-```
-iterations:count
-iteration_duration:avg
-iteration_duration:p95
-checks:rate
-```
-
-Add whatever else your test records — `http_req_duration:p95`, `grpc_req_duration:avg`, or a
-custom `Trend`. A metric this run didn't emit is skipped, so the defaults stay safe for both
-HTTP and gRPC tests.
-
-Two constraints come from how the SRE API stores summaries:
-
-- **Statistics are limited to** `avg`, `min`, `med`, `max`, `count`, `rate`, `value`,
-  `passes`, `fails`, `p90`, `p95`. Anything else your test computes is kept in the stored
-  JSON but is not addressable here.
-- **Write `p95`, not k6's `p(95)`** — the SRE API renames them on ingest.
-
-The notification never fails the workflow: the execute step already carries the verdict, and
-a broken Slack post must not change it. A run that can't be read back is reported as 🔴
-rather than silently skipped.
+The notification never fails the workflow on its own: a broken Slack post must not mask or
+manufacture a verdict. The action still fails the step afterward if the execution itself
+failed.
 
 ## Inputs
 
