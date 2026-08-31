@@ -41,9 +41,9 @@ METADATA_URL="http://metadata.google.internal/computeMetadata/v1/instance/servic
 # why the github-actions runtime mints its tokens via extenda/actions/identity-token
 # instead and hands the result straight to upload-summary.sh.
 fetch_id_token() {
-  curl --silent --fail --max-time 10 \
+  curl --silent --fail --max-time 10 --get --data-urlencode "audience=$1" \
     -H "Metadata-Flavor: Google" \
-    "${METADATA_URL}?audience=$1"
+    "${METADATA_URL}"
 }
 
 # The service under test is usually IAM-protected, so mint a token for it up front.

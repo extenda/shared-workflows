@@ -277,7 +277,7 @@ runs:
           echo "FROM grafana/k6:${K6_VERSION}"
           echo "USER root"
           echo "RUN apk add --no-cache curl"
-          if [ -n "$EXTRA_LINES" ]; then echo "$EXTRA_LINES"; fi
+          if [ -n "$EXTRA_LINES" ]; then printf '%s\n' "$EXTRA_LINES"; fi
           echo "COPY assets /k6-tests"
           echo "COPY entrypoint.sh /k6-tests/entrypoint.sh"
           echo "COPY upload-summary.sh /k6-tests/upload-summary.sh"
@@ -484,7 +484,9 @@ runs:
         TEST_NAME: ${{ inputs.test-name }}
         ENVIRONMENT: ${{ inputs.environment }}
         CLAN: ${{ inputs.clan }}
-      run: ${{ github.action_path }}/upload-summary.sh
+      # Invoked via sh explicitly rather than relying on the file's executable bit,
+      # which a checkout can lose (e.g. on Windows).
+      run: sh ${{ github.action_path }}/upload-summary.sh
 
     - name: Compose Slack message
       if: ${{ !cancelled() && inputs.slack-notify != 'never' && (inputs.runtime == 'github-actions' || inputs.mode != 'deploy') }}

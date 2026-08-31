@@ -35,7 +35,11 @@ if [ -z "${SRE_TOKEN}" ]; then
   exit 0
 fi
 
-if curl --fail --silent --show-error --max-time 60 --retry 2 --retry-connrefused \
+# No --retry: the SRE API has no idempotency key to dedupe on, so a retried POST that
+# actually landed the first time (server processed it, response was lost) would double
+# the summary for this run. A single failed attempt just warns below -- not worth trading
+# a duplicate write for.
+if curl --fail --silent --show-error --max-time 60 \
   -X POST "${SRE_API_URL}/api/v1/k6/summary" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer ${SRE_TOKEN}" \
