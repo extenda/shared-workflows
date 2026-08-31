@@ -97,6 +97,13 @@ inputs:
     description: Filename of the k6 script inside assets-path. Used by both runtimes.
     required: false
     default: script.js
+  k6-flags:
+    description: >
+      Extra flags appended to the k6 run command, e.g. '--vus 5 --duration 60s --rps 10'.
+      Needed whenever load shape is not already set as options.scenarios in the script
+      itself. Word-split on spaces, so a flag value cannot contain one.
+    required: false
+    default: ''
   k6-version:
     description: >
       Tag of the grafana/k6 base image. Because the Dockerfile is generated rather than
@@ -318,6 +325,7 @@ runs:
         ENVIRONMENT: ${{ inputs.environment }}
         CLAN: ${{ inputs.clan }}
         SCRIPT: ${{ inputs.script }}
+        K6_FLAGS: ${{ inputs.k6-flags }}
         TARGET_HOST: ${{ inputs.target-host }}
         TARGET_AUTHORITY: ${{ inputs.target-authority }}
         TARGET_AUDIENCE: ${{ inputs.target-audience }}
@@ -339,6 +347,7 @@ runs:
         ENV_VARS="${ENV_VARS}@ENVIRONMENT=${ENVIRONMENT}"
         ENV_VARS="${ENV_VARS}@CLAN=${CLAN}"
         ENV_VARS="${ENV_VARS}@K6_SCRIPT=${SCRIPT}"
+        ENV_VARS="${ENV_VARS}@K6_FLAGS=${K6_FLAGS}"
         ENV_VARS="${ENV_VARS}@TARGET_HOST=${TARGET_HOST}"
         ENV_VARS="${ENV_VARS}@TARGET_AUTHORITY=${TARGET_AUTHORITY}"
         ENV_VARS="${ENV_VARS}@TARGET_AUDIENCE=${TARGET_AUDIENCE}"
@@ -418,7 +427,7 @@ runs:
       if: inputs.runtime == 'github-actions'
       uses: grafana/setup-k6-action@v1
 
-    - name: Mint target identity token
+    - name: Get target identity token
       if: inputs.runtime == 'github-actions' && inputs.target-audience != ''
       uses: extenda/actions/identity-token@v0
       with:
@@ -437,20 +446,24 @@ runs:
       env:
         ASSETS_PATH: ${{ inputs.assets-path }}
         SCRIPT: ${{ inputs.script }}
+        K6_FLAGS: ${{ inputs.k6-flags }}
         TARGET_HOST: ${{ inputs.target-host }}
         TARGET_AUTHORITY: ${{ inputs.target-authority }}
         AUTH_TOKEN: ${{ inputs.target-audience != '' && env.IDENTITY_TOKEN || '' }}
       run: |
         set -uo pipefail
+        # $K6_FLAGS is deliberately unquoted -- see entrypoint.sh for why.
+        # shellcheck disable=SC2086
         k6 run \
           --summary-export=summary.json \
           -e GRPC_HOST="${TARGET_HOST}" \
           -e TARGET_HOST="${TARGET_HOST}" \
           -e GRPC_AUTHORITY="${TARGET_AUTHORITY}" \
           -e AUTH_TOKEN="${AUTH_TOKEN}" \
+          ${K6_FLAGS} \
           "${ASSETS_PATH}/${SCRIPT}"
 
-    - name: Mint SRE API token
+    - name: Get SRE API token
       if: ${{ !cancelled() && inputs.runtime == 'github-actions' }}
       uses: extenda/actions/identity-token@v0
       with:

@@ -23,6 +23,7 @@ ENVIRONMENT="${ENVIRONMENT:?ENVIRONMENT is required}"
 CLAN="${CLAN:?CLAN is required}"
 
 K6_SCRIPT="${K6_SCRIPT:?K6_SCRIPT is required}"
+K6_FLAGS="${K6_FLAGS:-}"
 SUMMARY_FILE="${SUMMARY_FILE:-/tmp/${TEST_NAME}-summary.json}"
 
 # Service under test. TARGET_HOST is typically only resolvable from inside the VPC.
@@ -56,12 +57,16 @@ if [ -n "${TARGET_AUDIENCE}" ]; then
   fi
 fi
 
+# $K6_FLAGS is deliberately unquoted: it is a caller-supplied string of flags (e.g.
+# "--vus 5 --duration 60s") that needs word-splitting, same as k6io/action's flags input.
+# shellcheck disable=SC2086
 k6 run \
   --summary-export="${SUMMARY_FILE}" \
   -e GRPC_HOST="${TARGET_HOST}" \
   -e TARGET_HOST="${TARGET_HOST}" \
   -e GRPC_AUTHORITY="${TARGET_AUTHORITY}" \
   -e AUTH_TOKEN="${target_token}" \
+  ${K6_FLAGS} \
   "${K6_SCRIPT}"
 k6_exit=$?
 

@@ -199,6 +199,7 @@ about:
 | `max-retries` | `cloud-run-job` only. Keep at `0`. A retry replays the whole load and uploads a second summary. |
 | `extra-dockerfile-lines` | `cloud-run-job` only. Escape hatch for an image that needs more than `curl`. |
 | `k6-version` | `cloud-run-job` only. The `grafana/k6` base image tag. **Not dependabot-visible** — the Dockerfile is generated, so there is no `FROM` line for it to find. Bump by hand. |
+| `k6-flags` | Extra `k6 run` flags, e.g. `--vus 5 --duration 60s --rps 10`. Needed unless your script already sets its own load shape via `options.scenarios` — without it (or that), k6 defaults to 1 VU / 1 iteration and finishes almost instantly. |
 
 ## Reading the results
 
@@ -208,6 +209,12 @@ curl "https://sre-api.retailsvc.com/api/v1/k6/trends?serviceName=my-service&test
 
 ## Notes and known gaps
 
+- **No load shape, no load.** If neither `k6-flags` nor the script's own
+  `options.scenarios` sets VUs/duration/iterations, k6 defaults to 1 VU and 1 iteration and
+  finishes in about a second -- a "successful" run that tested nothing. This is the most
+  common way a migration from a bespoke k6 step silently stops load-testing: the old step
+  usually passed `--vus`/`--duration` as CLI flags (e.g. `k6io/action`'s `flags:` input),
+  which does not carry over automatically -- move it to `k6-flags`.
 - **A threshold breach fails the workflow**, on either runtime. `cloud-run-job`'s entrypoint
   exits with k6's own exit code and `execute` uses `--wait`; `github-actions` runs k6
   directly, so its own exit code (99 on a crossed threshold) is the step's exit code.
