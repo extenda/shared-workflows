@@ -315,6 +315,11 @@ jobs:
           dry-run: ${{ inputs.is-pact-provider-can-i-deploy-dry-run }}
           env: "staging"
 
+      - name: Setup gcloud v2
+        uses: extenda/actions/setup-gcloud@v0
+        with:
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+
       - name: Authenticate docker
         if: github.ref == 'refs/heads/master'
         run: |
