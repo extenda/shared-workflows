@@ -40,6 +40,12 @@ on:
         type: string
         required: false
         default: "sng"
+      dotnet-version:
+        description: |
+          .NET SDK version to use
+        type: string
+        required: false
+        default: "8"
       use-scanngo-acceptance:
         description: |
           Use acceptance action
@@ -152,6 +158,7 @@ jobs:
         uses: extenda/shared-workflows/composite-actions/dotnet-build-and-test@master
         with:
           sln-path: ${{ inputs.sln-path }}
+          dotnet-version: ${{ inputs.dotnet-version }}
           secret-auth: ${{ secrets.secret-auth }}
           gcloud-auth-staging: ${{ secrets.gcloud-auth-staging }}
 
