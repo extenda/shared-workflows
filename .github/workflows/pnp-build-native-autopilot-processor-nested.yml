@@ -342,6 +342,11 @@ jobs:
           components: 'native-image'
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Setup gcloud v1
+        uses: extenda/actions/setup-gcloud@v0
+        with:
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+
       - name: Package native image with Maven
         uses: extenda/actions/maven@v0
         with:
@@ -350,7 +355,7 @@ jobs:
           service-account-key: ${{ secrets.SECRET_AUTH }}
           working-directory: ${{ inputs.working-directory || '.' }}
 
-      - name: Setup gcloud
+      - name: Setup gcloud v2
         uses: extenda/actions/setup-gcloud@v0
         with:
           service-account-key: ${{ secrets.SECRET_AUTH }}
@@ -359,7 +364,7 @@ jobs:
         run: |
           gcloud --quiet auth configure-docker
 
-      - name: Docker build and push
+      - name: Docker build image and push
         run: |
           IMAGE=eu.gcr.io/extenda/${{ inputs.GCR_image_name }}
           WORKING_DIR=${{ inputs.working-directory || '.' }}
