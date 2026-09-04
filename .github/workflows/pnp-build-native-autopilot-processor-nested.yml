@@ -1,4 +1,4 @@
-name: Merge to master 
+name: Build native image and deploy to staging
 
 on:
   workflow_call:
@@ -6,7 +6,7 @@ on:
       SECRET_AUTH:
         required: true
       GCLOUD_AUTH_STAGING:
-        required: true        
+        required: true
     inputs:
       GCR_image_name:
         description: 'A name of the image to be created in GCR'
@@ -93,11 +93,6 @@ on:
         type: string
         required: false
         default: 'v'
-      native-image:
-        description: 'If true uses the GraalVm to compile app'
-        type: boolean
-        required: false
-        default: false
       enable-kafka-streams-lint:
         description: 'If true runs Kafka Streams Lint'
         type: boolean
@@ -110,7 +105,8 @@ on:
         default: true
 
 jobs:
-  build:
+  test:
+    name: Test
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -128,7 +124,7 @@ jobs:
             GITHUB-TOKEN: github-token
             NEXUS_PASSWORD: nexus-password
             NEXUS_USERNAME: nexus-username
-      
+
       - name: Setup gcloud
         uses: extenda/actions/setup-gcloud@v0
         with:
@@ -180,7 +176,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           DETEKT_FILE="${{ inputs.working-directory || '.' }}/pnp-detekt-plugin.yml"
-          
+
           curl -sSL \
             -H "Authorization: Bearer $GITHUB_TOKEN" \
             -H "Accept: application/vnd.github.v3.raw" \
@@ -194,7 +190,7 @@ jobs:
           args: dependency:get -Dartifact=com.retailsvc:pnp-processors-core-common:0.173.2:jar
           service-account-key: ${{ secrets.SECRET_AUTH }}
           working-directory: ${{ inputs.working-directory || '.' }}
-      
+
       - name: Kafka Streams lint - build classpath with maven
         if: ${{ inputs.enable-kafka-streams-lint == true }}
         uses: extenda/actions/maven@v0
@@ -268,23 +264,6 @@ jobs:
           service-account-key: ${{ secrets.SECRET_AUTH }}
           working-directory: './${{ inputs.working-directory }}'
 
-      - uses: graalvm/setup-graalvm@v1
-        if: ${{ inputs.native-image == true && github.ref == 'refs/heads/master' }}
-        with:
-          version: 'latest'
-          java-version: ${{ inputs.java-version }}
-          components: 'native-image'
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Package Native image with maven
-        uses: extenda/actions/maven@v0
-        if: ${{ inputs.native-image == true && github.ref == 'refs/heads/master' }}
-        with:
-          args: verify -Dpackaging=native-image -DskipTests -s settings.xml
-          version: ${{ steps.semver.outputs.version }}
-          service-account-key: ${{ secrets.SECRET_AUTH }}
-          working-directory: ${{ inputs.working-directory || '.' }}
-
       - name: Publish pacts
         if: ${{ inputs.do-pact-consumer-tests == true }}
         uses: extenda/actions/pact-publish@v0
@@ -314,18 +293,72 @@ jobs:
           dry-run: ${{ inputs.is-pact-provider-can-i-deploy-dry-run }}
           env: "staging"
 
-      - name: Setup gcloud v2
+      - name: Notify Slack if failed
+        if: ${{ failure() && github.ref == 'refs/heads/master' }}
+        uses: extenda/actions/slack-notify@v0
+        with:
+          text: |
+            *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+            Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+          channel: ${{ inputs.slack-channel }}
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+
+  build-image:
+    name: Build image
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest-4-cores
+    timeout-minutes: 80
+    needs: test
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: extenda/actions/gcp-secret-manager@v0
+        with:
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+          secrets: |
+            GITHUB-TOKEN: github-token
+            NEXUS_PASSWORD: nexus-password
+            NEXUS_USERNAME: nexus-username
+
+      - name: Determine version
+        uses: extenda/actions/conventional-version@v0
+        id: semver
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag-prefix: ${{ inputs.tag-prefix }}
+          build-number: ${{ github.run_number }}
+
+      - uses: graalvm/setup-graalvm@v1
+        with:
+          version: 'latest'
+          java-version: ${{ inputs.java-version }}
+          components: 'native-image'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Package native image with Maven
+        uses: extenda/actions/maven@v0
+        with:
+          args: verify -Dpackaging=native-image -DskipTests -s settings.xml
+          version: ${{ steps.semver.outputs.version }}
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+          working-directory: ${{ inputs.working-directory || '.' }}
+
+      - name: Setup gcloud
         uses: extenda/actions/setup-gcloud@v0
         with:
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
       - name: Authenticate docker
-        if: github.ref == 'refs/heads/master'
         run: |
           gcloud --quiet auth configure-docker
 
       - name: Docker build and push
-        if: github.ref == 'refs/heads/master'
         run: |
           IMAGE=eu.gcr.io/extenda/${{ inputs.GCR_image_name }}
           WORKING_DIR=${{ inputs.working-directory || '.' }}
@@ -333,7 +366,6 @@ jobs:
           docker push --all-tags $IMAGE
 
       - name: Scan image with Trivy
-        if: github.ref == 'refs/heads/master'
         uses: extenda/actions/trivy-scan@v0
         with:
           image: eu.gcr.io/extenda/${{ inputs.GCR_image_name }}:${{ steps.semver.outputs.version }}
@@ -346,14 +378,13 @@ jobs:
           upload-sbom: false
 
       - name: Attest image
-        if: github.ref == 'refs/heads/master'
         uses: extenda/actions/binary-auth-attestation@v0
         with:
           image-path: eu.gcr.io/extenda/${{ inputs.GCR_image_name }}
           service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
 
       - name: Notify Slack if failed
-        if: ${{ failure() && github.ref == 'refs/heads/master' }}
+        if: failure()
         uses: extenda/actions/slack-notify@v0
         with:
           text: |
@@ -363,9 +394,10 @@ jobs:
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
   release:
+    name: Release
     if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
-    needs: build
+    needs: build-image
     permissions:
       contents: write
       id-token: write
@@ -425,7 +457,8 @@ jobs:
           channel: ${{ inputs.slack-channel }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
-  staging:
+  deploy-staging:
+    name: Deploy staging
     if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     needs: release
@@ -463,7 +496,7 @@ jobs:
           service-definition: ${{ inputs.service-definition }}
           image: eu.gcr.io/extenda/${{ inputs.GCR_image_name }}:${{ steps.semver.outputs.release-version }}
           update-dns: always
-            
+
       - name: Trigger synthetic monitoring tests on staging
         if: ${{ inputs.trigger-synthetic-monitoring-tests == true && inputs.release-version == false }}
         uses: extenda/actions/repository-dispatch@v0
