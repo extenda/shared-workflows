@@ -327,6 +327,7 @@ jobs:
           components: 'native-image'
           github-token: ${{ secrets.GITHUB_TOKEN }}
           cache: 'maven'
+          native-image-job-reports: 'true'
 
 
       - name: Setup gcloud v1
