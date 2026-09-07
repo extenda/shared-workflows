@@ -52,12 +52,12 @@ on:
         description: 'Java version used in the project'
         type: string
         required: false
-        default: '17'
-      use-old-setup-java:
-        description: 'If true uses the java setup step of version 1'
-        type: boolean
+        default: '25'
+      graalvm-distribution:
+        description: 'GraalVM distribution used for native image builds'
+        type: string
         required: false
-        default: false
+        default: 'graalvm'
       do-pact-consumer-tests:
         description: 'If true runs tests defining data contracts'
         type: boolean
@@ -131,27 +131,11 @@ jobs:
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
       - name: Set up JDK
-        if: ${{ inputs.use-old-setup-java == false }}
         uses: actions/setup-java@v5
         with:
           distribution: ${{ inputs.jdk-distribution }}
           java-version: ${{ inputs.java-version }}
           cache: maven
-
-      - name: Set up JDK
-        if: ${{ inputs.use-old-setup-java == true }}
-        uses: actions/setup-java@v5
-        with:
-          distribution: ${{ inputs.jdk-distribution }}
-          java-version: ${{ inputs.java-version }}
-
-      - uses: actions/cache@v4
-        if: ${{ inputs.use-old-setup-java == true }}
-        with:
-          path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-
 
       - name: Determine version
         uses: extenda/actions/conventional-version@v0
@@ -337,10 +321,13 @@ jobs:
 
       - uses: graalvm/setup-graalvm@v1
         with:
-          version: 'latest'
           java-version: ${{ inputs.java-version }}
+          distribution: ${{ inputs.graalvm-distribution }}
+          version: 'latest'
           components: 'native-image'
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          cache: 'maven'
+
 
       - name: Setup gcloud v1
         uses: extenda/actions/setup-gcloud@v0
