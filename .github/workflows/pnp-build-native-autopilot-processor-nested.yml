@@ -53,6 +53,11 @@ on:
         type: string
         required: false
         default: '25'
+      graalvm-version:
+        description: 'GraalVM version used in the project'
+        type: string
+        required: false
+        default: '25.0'
       graalvm-distribution:
         description: 'GraalVM distribution used for native image builds'
         type: string
@@ -321,13 +326,12 @@ jobs:
 
       - uses: graalvm/setup-graalvm@v1
         with:
-          java-version: ${{ inputs.java-version }}
+          version: ${{ inputs.graalvm-version }}
           distribution: ${{ inputs.graalvm-distribution }}
           components: 'native-image'
           github-token: ${{ secrets.GITHUB_TOKEN }}
           cache: 'maven'
           native-image-job-reports: 'true'
-
 
       - name: Setup gcloud v1
         uses: extenda/actions/setup-gcloud@v0
@@ -337,7 +341,7 @@ jobs:
       - name: Package native image with Maven
         uses: extenda/actions/maven@v0
         with:
-          args: verify -Dpackaging=native-image -DskipTests -s settings.xml
+          args: package -Dpackaging=native-image -DskipTests -s settings.xml
           version: ${{ steps.semver.outputs.version }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
           working-directory: ${{ inputs.working-directory || '.' }}
