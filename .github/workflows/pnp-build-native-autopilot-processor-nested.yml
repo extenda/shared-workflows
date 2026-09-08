@@ -328,7 +328,6 @@ jobs:
         with:
           version: ${{ inputs.graalvm-version }}
           distribution: ${{ inputs.graalvm-distribution }}
-          components: 'native-image'
           github-token: ${{ secrets.GITHUB_TOKEN }}
           cache: 'maven'
           native-image-job-reports: 'true'
