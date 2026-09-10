@@ -11,6 +11,11 @@ inputs:
         description: 'GitHub Token to create releases'
         required: true
 
+permissions:
+    contents: write 
+    id-token: write
+    pull-requests: write
+
 runs:
   using: "composite"
   steps:
