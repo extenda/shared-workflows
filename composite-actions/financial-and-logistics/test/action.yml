@@ -6,8 +6,9 @@ inputs:
     required: true
   open-api:
     required: false
-    default: true
-    type: boolean
+    # Composite-action inputs are always strings; `type:` is a no-op here (that field only
+    # applies to reusable-workflow `workflow_call` inputs) - do not rely on it again.
+    default: 'true'
 
 runs:
   using: "composite"
@@ -49,7 +50,7 @@ runs:
       run: git fetch origin master:refs/remotes/origin/master
 
     - name: Check OpenAPI schema updates
-      if: ${{ inputs.open-api == true }}
+      if: ${{ inputs.open-api != 'false' }}
       shell: bash
       run: npm run check-openapi-schema
 
