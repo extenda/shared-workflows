@@ -32,16 +32,22 @@ inputs:
     description: 'File containing the Node.js version to use'
     required: false
     default: ''
+  ENABLE_UPLOAD:
+    description: "Set to 'true' to run this action. By default the action is skipped."
+    required: false
+    default: "false"
 
 runs:
   using: composite
   steps:
     - name: Checkout the current repository
+      if: inputs.ENABLE_UPLOAD == 'true'
       uses: actions/checkout@v3
       with:
         fetch-depth: 0
 
     - name: Checkout the shared-workflows
+      if: inputs.ENABLE_UPLOAD == 'true'
       uses: actions/checkout@v3
       with:
         repository: extenda/shared-workflows
@@ -51,45 +57,48 @@ runs:
 
     - name: Setup Node.js
       uses: actions/setup-node@v4
-      if: inputs.node-version-file == ''
+      if: inputs.ENABLE_UPLOAD == 'true' && inputs.node-version-file == ''
       with:
         node-version: ${{ inputs.node-version }}
 
     - name: Setup Node.js from version file
       uses: actions/setup-node@v4
-      if: inputs.node-version-file != ''
+      if: inputs.ENABLE_UPLOAD == 'true' && inputs.node-version-file != ''
       with:
         node-version-file: ${{ inputs.node-version-file }}
 
     - name: Auth to Nexus npm registry
-      if: inputs.GAR_WORKFLOW != 'true'
+      if: inputs.ENABLE_UPLOAD == 'true' && inputs.GAR_WORKFLOW != 'true'
       uses: extenda/actions/nexus-auth-npm@v0
       with:
         service-account-key: ${{ inputs.SECRET_AUTH }}
 
     - name: Auth to GCP
-      if: inputs.GAR_WORKFLOW == 'true'
+      if: inputs.ENABLE_UPLOAD == 'true' && inputs.GAR_WORKFLOW == 'true'
       uses: extenda/actions/setup-gcloud@v0
       with:
         service-account-key: ${{ inputs.SECRET_AUTH }}
         export-default-credentials: 'true'
 
     - name: Run NPM auth script
-      if: inputs.GAR_WORKFLOW == 'true'
+      if: inputs.ENABLE_UPLOAD == 'true' && inputs.GAR_WORKFLOW == 'true'
       shell: bash
       run: |
         echo "@hiiretail:registry=https://europe-west1-npm.pkg.dev/extenda/npm/" > .npmrc
         npm run auth  -- --credential-config=./.npmrc
 
     - name: Install dependencies
+      if: inputs.ENABLE_UPLOAD == 'true'
       shell: bash
       run: yarn install --frozen-lockfile
 
     - name: Build
+      if: inputs.ENABLE_UPLOAD == 'true'
       shell: bash
       run: yarn run build:dev
 
     - name: Set GCP Secrets from Secret Manager
+      if: inputs.ENABLE_UPLOAD == 'true'
       uses: extenda/actions/gcp-secret-manager@v0
       with:
         service-account-key: ${{ inputs.GCLOUD_AUTH_STAGING }}
@@ -98,6 +107,7 @@ runs:
           ELASTICSEARCH_URL: frontend-elasticsearch-sourcemaps-url
 
     - name: Upload source maps
+      if: inputs.ENABLE_UPLOAD == 'true'
       shell: bash
       run: node shared-workflows/composite-actions/frontend-generic/upload-source-maps/scripts/upload-source-maps.js
       env:
