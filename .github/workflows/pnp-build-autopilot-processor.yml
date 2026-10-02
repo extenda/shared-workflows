@@ -180,21 +180,21 @@ jobs:
         if: ${{ inputs.enable-kafka-streams-lint == true }}
         uses: extenda/actions/maven@v0
         with:
-          args: dependency:get -Dartifact=com.retailsvc:pnp-processors-core-common:0.173.2:jar
+          args: dependency:get -Dartifact=com.retailsvc:pnp-processors-core-common:0.173.2:jar -s settings.xml
           service-account-key: ${{ secrets.SECRET_AUTH }}
       
       - name: Kafka Streams lint - build classpath with maven
         if: ${{ inputs.enable-kafka-streams-lint == true }}
         uses: extenda/actions/maven@v0
         with:
-          args: dependency:build-classpath -DincludeScope=runtime -Dmdep.outputFile=cp.txt -DexcludeGroupIds=org.jetbrains.kotlin -DexcludeArtifactIds=kotlin-compiler-embeddable -q
+          args: dependency:build-classpath -DincludeScope=runtime -Dmdep.outputFile=cp.txt -DexcludeGroupIds=org.jetbrains.kotlin -DexcludeArtifactIds=kotlin-compiler-embeddable -q -s settings.xml
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
       - name: Kafka Streams lint - build classpath lib dir with maven
         if: ${{ inputs.enable-kafka-streams-lint == true }}
         uses: extenda/actions/maven@v0
         with:
-          args: dependency:copy-dependencies -DoutputDirectory=lib -DexcludeGroupIds=org.jetbrains.kotlin -DexcludeArtifactIds=kotlin-compiler-embeddable -q
+          args: dependency:copy-dependencies -DoutputDirectory=lib -DexcludeGroupIds=org.jetbrains.kotlin -DexcludeArtifactIds=kotlin-compiler-embeddable -q -s settings.xml
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
       - name: Kafka Streams lint - download Detekt CLI
