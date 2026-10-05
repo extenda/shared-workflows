@@ -19,6 +19,7 @@ runs:
   using: 'composite'
   steps:
     - name: Kafka Streams lint - set versions
+      id: config
       shell: bash
       env:
         # Single place to control the lint tool versions.
@@ -27,12 +28,14 @@ runs:
         BASE_DIR: ${{ inputs.working-directory }}
       run: |
         # Expose the versions to the following steps.
-        echo "PNP_PROCESSORS_CORE_COMMON_VERSION=$PNP_PROCESSORS_CORE_COMMON_VERSION" >> "$GITHUB_ENV"
-        echo "DETEKT_VERSION=$DETEKT_VERSION" >> "$GITHUB_ENV"
+        echo "core-common-version=$PNP_PROCESSORS_CORE_COMMON_VERSION" >> "$GITHUB_OUTPUT"
+        echo "detekt-version=$DETEKT_VERSION" >> "$GITHUB_OUTPUT"
 
         # Use the project's Maven settings when it has one.
         if [[ -f "$BASE_DIR/settings.xml" ]]; then
-          echo "KAFKA_STREAMS_LINT_MAVEN_SETTINGS=-s settings.xml" >> "$GITHUB_ENV"
+          echo "maven-settings=-s settings.xml" >> "$GITHUB_OUTPUT"
+        else
+          echo "maven-settings=" >> "$GITHUB_OUTPUT"
         fi
 
     - name: Kafka Streams lint - fetch detekt config file
@@ -50,21 +53,21 @@ runs:
     - name: Kafka Streams lint - get Detekt plugin for kafka streams
       uses: extenda/actions/maven@v0
       with:
-        args: dependency:get -Dartifact=com.retailsvc:pnp-processors-core-common:${{ env.PNP_PROCESSORS_CORE_COMMON_VERSION }}:jar ${{ env.KAFKA_STREAMS_LINT_MAVEN_SETTINGS }}
+        args: dependency:get -Dartifact=com.retailsvc:pnp-processors-core-common:${{ steps.config.outputs.core-common-version }}:jar ${{ steps.config.outputs.maven-settings }}
         service-account-key: ${{ inputs.service-account-key }}
         working-directory: ${{ inputs.working-directory }}
 
     - name: Kafka Streams lint - build classpath with maven
       uses: extenda/actions/maven@v0
       with:
-        args: dependency:build-classpath -DincludeScope=runtime -Dmdep.outputFile=cp.txt -DexcludeGroupIds=org.jetbrains.kotlin -DexcludeArtifactIds=kotlin-compiler-embeddable -q ${{ env.KAFKA_STREAMS_LINT_MAVEN_SETTINGS }}
+        args: dependency:build-classpath -DincludeScope=runtime -Dmdep.outputFile=cp.txt -DexcludeGroupIds=org.jetbrains.kotlin -DexcludeArtifactIds=kotlin-compiler-embeddable -q ${{ steps.config.outputs.maven-settings }}
         service-account-key: ${{ inputs.service-account-key }}
         working-directory: ${{ inputs.working-directory }}
 
     - name: Kafka Streams lint - build classpath lib dir with maven
       uses: extenda/actions/maven@v0
       with:
-        args: dependency:copy-dependencies -DoutputDirectory=lib -DexcludeGroupIds=org.jetbrains.kotlin -DexcludeArtifactIds=kotlin-compiler-embeddable -q ${{ env.KAFKA_STREAMS_LINT_MAVEN_SETTINGS }}
+        args: dependency:copy-dependencies -DoutputDirectory=lib -DexcludeGroupIds=org.jetbrains.kotlin -DexcludeArtifactIds=kotlin-compiler-embeddable -q ${{ steps.config.outputs.maven-settings }}
         service-account-key: ${{ inputs.service-account-key }}
         working-directory: ${{ inputs.working-directory }}
 
@@ -72,6 +75,7 @@ runs:
       shell: bash
       env:
         BASE_DIR: ${{ inputs.working-directory }}
+        DETEKT_VERSION: ${{ steps.config.outputs.detekt-version }}
       run: |
         set -euo pipefail
         mkdir -p "$BASE_DIR/lib"
@@ -87,6 +91,7 @@ runs:
       shell: bash
       env:
         BASE_DIR: ${{ inputs.working-directory }}
+        PNP_PROCESSORS_CORE_COMMON_VERSION: ${{ steps.config.outputs.core-common-version }}
       run: |
         set -euo pipefail
 
