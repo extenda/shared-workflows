@@ -30,6 +30,11 @@ on:
       pact-webhook-id:
         required: false
         type: string
+      working-directory:
+        description: 'Directory of the Maven project, for repositories with several services. Defaults to the repository root.'
+        required: false
+        type: string
+        default: ''
       service-definition:
         description: 'Path to kubernetes config file.'
         type: string
@@ -74,6 +79,11 @@ on:
         type: boolean
         required: false
         default: false
+      path-to-pact-tests:
+        description: 'Path to pact test directory, relative to working-directory.'
+        type: string
+        required: false
+        default: 'target/pacts'
       reuse-release:
         description: 'If true, instead of creating new release reuses the current one. Intended to be used in config-based multi-service deploy scenarios, when multiple service instances created from the same code base.'
         type: boolean
@@ -161,19 +171,28 @@ jobs:
           tag-prefix: ${{ inputs.tag-prefix }}
           build-number: ${{ github.run_number }}
 
+      # path-to-pom is relative to the repository root; Sonar runs in the project directory.
+      - name: Resolve pom path
+        id: paths
+        env:
+          WORKING_DIR: ${{ inputs.working-directory || '.' }}
+          PATH_TO_POM: ${{ inputs.path-to-pom }}
+        run: echo "pom=$(realpath -m --relative-to="$WORKING_DIR" "$PATH_TO_POM")" >> "$GITHUB_OUTPUT"
+
       # One Maven run: compile, tests, coverage and Sonar analysis together.
       - name: Verify and analyze with Sonar
         uses: extenda/actions/sonar-scanner@v0
         with:
           sonar-host: https://sonarcloud.io
-          maven-args: --file ${{ inputs.path-to-pom }} --settings settings.xml verify org.sonarsource.scanner.maven:sonar-maven-plugin:3.7.0.1746:sonar -Dsonar.projectVersion=${{ steps.semver.outputs.version }}
+          maven-args: --file ${{ steps.paths.outputs.pom }} --settings settings.xml verify org.sonarsource.scanner.maven:sonar-maven-plugin:3.7.0.1746:sonar -Dsonar.projectVersion=${{ steps.semver.outputs.version }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
+          working-directory: ${{ inputs.working-directory || '.' }}
 
       - name: Publish pacts
         if: ${{ inputs.do-pact-consumer-tests == true }}
         uses: extenda/actions/pact-publish@v0
         with:
-          pacts-directory: target/pacts
+          pacts-directory: ${{ inputs.working-directory || '.' }}/${{ inputs.path-to-pact-tests }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
       - name: Can i deploy - consumer?
@@ -273,12 +292,14 @@ jobs:
           args: compile -s settings.xml
           version: ${{ steps.semver.outputs.version }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
+          working-directory: ${{ inputs.working-directory || '.' }}
 
       - name: Kafka Streams lint
         uses: extenda/shared-workflows/composite-actions/kafka-streams-lint@master
         with:
           service-account-key: ${{ secrets.SECRET_AUTH }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          working-directory: ${{ inputs.working-directory || '.' }}
 
       - name: Notify Slack if failed
         if: ${{ failure() && github.ref == 'refs/heads/master' }}
@@ -367,6 +388,7 @@ jobs:
           args: package -DskipTests -s settings.xml
           version: ${{ steps.semver.outputs.version }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
+          working-directory: ${{ inputs.working-directory || '.' }}
 
       - name: Package Native image with maven
         if: ${{ inputs.native-image == true }}
@@ -374,6 +396,12 @@ jobs:
         with:
           args: package -Dpackaging=native-image -DskipTests -s settings.xml
           version: ${{ steps.semver.outputs.version }}
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+          working-directory: ${{ inputs.working-directory || '.' }}
+
+      - name: Setup gcloud for docker
+        uses: extenda/actions/setup-gcloud@v0
+        with:
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
       - name: Authenticate docker
@@ -383,7 +411,7 @@ jobs:
       - name: Docker build and push
         run: |
           IMAGE=eu.gcr.io/extenda/${{ inputs.GCR_image_name }}
-          docker build . -f ${{ inputs.path-to-dockerfile }} --build-arg jar_version=${{ steps.semver.outputs.version }} -t $IMAGE:${{ steps.semver.outputs.version }} -t $IMAGE:${{ github.sha }} -t $IMAGE:latest
+          docker build "./${{ inputs.working-directory || '.' }}" -f ${{ inputs.path-to-dockerfile }} --build-arg jar_version=${{ steps.semver.outputs.version }} -t $IMAGE:${{ steps.semver.outputs.version }} -t $IMAGE:${{ github.sha }} -t $IMAGE:latest
           docker push --all-tags $IMAGE
 
       - name: Scan image with Trivy
