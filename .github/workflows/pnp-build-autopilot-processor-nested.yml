@@ -126,8 +126,8 @@ on:
         default: true
 
 jobs:
-  # Single job that calls the main workflow; its jobs appear as `build / test`, `build / lint`, etc.
-  build:
+  # Calls the main workflow; its jobs appear as `pipeline / build-stage / test`, etc.
+  pipeline:
     uses: extenda/shared-workflows/.github/workflows/pnp-build-autopilot-processor.yml@v0
     # Must cover the permissions the called jobs request (release creates tags and releases).
     permissions:
@@ -161,3 +161,17 @@ jobs:
       native-image: ${{ inputs.native-image }}
       enable-kafka-streams-lint: ${{ inputs.enable-kafka-streams-lint }}
       trigger-synthetic-monitoring-tests: ${{ inputs.trigger-synthetic-monitoring-tests }}
+
+  # Required status check: keeps the check name "<caller job> / build" that branch protection
+  # expects. Passes when the pipeline succeeded or was skipped.
+  build:
+    if: always()
+    needs: pipeline
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check results
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "Results: $RESULTS"
+          [[ " $RESULTS " != *" failure "* && " $RESULTS " != *" cancelled "* ]]
