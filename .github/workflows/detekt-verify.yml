@@ -22,9 +22,6 @@ on:
         required: false
         type: string
         default: .
-env:
-  PNP_PROCESSORS_CORE_COMMON_VERSION: "0.173.2"
-
 jobs:
   detekt:
     runs-on: ubuntu-latest
@@ -41,16 +38,6 @@ jobs:
             NEXUS_PASSWORD: nexus-password
             NEXUS_USERNAME: nexus-username
 
-      - name: Fetch detekt config file
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-            curl -sSL \
-            -H "Authorization: Bearer $GITHUB_TOKEN" \
-            -H "Accept: application/vnd.github.v3.raw" \
-            "https://api.github.com/repos/extenda/shared-workflows/contents/.github/configs/detekt.yml?ref=feat/EA-2837" \
-            -o detekt.yml
-
       - name: Set up JDK
         uses: actions/setup-java@v5
         with:
@@ -58,41 +45,16 @@ jobs:
           java-version: ${{ inputs.java-version }}
           cache: maven
 
-      - name: Comopile with Maven
+      - name: Compile with Maven
         uses: extenda/actions/maven@v0
         with:
           args: clean compile -DskipTests
           service-account-key: ${{ secrets.SECRET_AUTH }}
+          working-directory: ${{ inputs.working-directory }}
 
-      - name: Get detekt plugin for kafka streams
-        uses: extenda/actions/maven@v0
+      - name: Kafka Streams lint
+        uses: extenda/shared-workflows/composite-actions/kafka-streams-lint@master
         with:
-          args: dependency:get -Dartifact=com.retailsvc:pnp-processors-core-common:${{ env.PNP_PROCESSORS_CORE_COMMON_VERSION }}:jar
           service-account-key: ${{ secrets.SECRET_AUTH }}
-      
-      - name: Build classpath with Maven
-        uses: extenda/actions/maven@v0
-        with:
-          args: dependency:build-classpath -DincludeScope=runtime -Dmdep.outputFile=cp.txt -q
-          service-account-key: ${{ secrets.SECRET_AUTH }}
-
-      - name: Build classpath lib dir with Maven
-        uses: extenda/actions/maven@v0
-        with:
-          args: dependency:copy-dependencies -DoutputDirectory=lib -q
-          service-account-key: ${{ secrets.SECRET_AUTH }}
-
-      - name: Download Detekt CLI
-        run: |
-          curl -sLo lib/detekt-cli.jar \
-            https://github.com/detekt/detekt/releases/download/v1.23.8/detekt-cli-1.23.8-all.jar
-      
-
-      - name: Verify with Detekt
-        run: |
-          java -cp "target/classes:lib/*" \
-            io.gitlab.arturbosch.detekt.cli.Main \
-              --input src/main/kotlin \
-              --config detekt.yml \
-              --classpath "target/classes:$(cat cp.txt)" \
-              --plugins ~/.m2/repository/com/retailsvc/pnp-processors-core-common/${PNP_PROCESSORS_CORE_COMMON_VERSION}/pnp-processors-core-common-${PNP_PROCESSORS_CORE_COMMON_VERSION}.jar \
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          working-directory: ${{ inputs.working-directory }}

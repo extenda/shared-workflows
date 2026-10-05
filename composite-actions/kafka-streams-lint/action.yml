@@ -1,0 +1,120 @@
+name: 'Kafka Streams Lint'
+description: |
+  Runs Detekt with the PnP Kafka Streams rules plugin (pnp-processors-core-common).
+  Must run after the project has been compiled (target/classes must exist).
+
+inputs:
+  service-account-key:
+    description: 'SECRET_AUTH value from secrets'
+    required: true
+  github-token:
+    description: 'GitHub token used to fetch the detekt config file'
+    required: true
+  working-directory:
+    description: 'Working directory of the Maven project'
+    required: false
+    default: '.'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Kafka Streams lint - set versions
+      shell: bash
+      env:
+        # Single place to control the lint tool versions.
+        PNP_PROCESSORS_CORE_COMMON_VERSION: '0.186.2'
+        DETEKT_VERSION: '1.23.8'
+        BASE_DIR: ${{ inputs.working-directory }}
+      run: |
+        # Expose the versions to the following steps.
+        echo "PNP_PROCESSORS_CORE_COMMON_VERSION=$PNP_PROCESSORS_CORE_COMMON_VERSION" >> "$GITHUB_ENV"
+        echo "DETEKT_VERSION=$DETEKT_VERSION" >> "$GITHUB_ENV"
+
+        # Use the project's Maven settings when it has one.
+        if [[ -f "$BASE_DIR/settings.xml" ]]; then
+          echo "KAFKA_STREAMS_LINT_MAVEN_SETTINGS=-s settings.xml" >> "$GITHUB_ENV"
+        fi
+
+    - name: Kafka Streams lint - fetch detekt config file
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        BASE_DIR: ${{ inputs.working-directory }}
+      run: |
+        curl -sSL \
+          -H "Authorization: Bearer $GITHUB_TOKEN" \
+          -H "Accept: application/vnd.github.v3.raw" \
+          "https://api.github.com/repos/extenda/shared-workflows/contents/.github/configs/pnp-detekt-plugin.yml" \
+          -o "$BASE_DIR/pnp-detekt-plugin.yml"
+
+    - name: Kafka Streams lint - get Detekt plugin for kafka streams
+      uses: extenda/actions/maven@v0
+      with:
+        args: dependency:get -Dartifact=com.retailsvc:pnp-processors-core-common:${{ env.PNP_PROCESSORS_CORE_COMMON_VERSION }}:jar ${{ env.KAFKA_STREAMS_LINT_MAVEN_SETTINGS }}
+        service-account-key: ${{ inputs.service-account-key }}
+        working-directory: ${{ inputs.working-directory }}
+
+    - name: Kafka Streams lint - build classpath with maven
+      uses: extenda/actions/maven@v0
+      with:
+        args: dependency:build-classpath -DincludeScope=runtime -Dmdep.outputFile=cp.txt -DexcludeGroupIds=org.jetbrains.kotlin -DexcludeArtifactIds=kotlin-compiler-embeddable -q ${{ env.KAFKA_STREAMS_LINT_MAVEN_SETTINGS }}
+        service-account-key: ${{ inputs.service-account-key }}
+        working-directory: ${{ inputs.working-directory }}
+
+    - name: Kafka Streams lint - build classpath lib dir with maven
+      uses: extenda/actions/maven@v0
+      with:
+        args: dependency:copy-dependencies -DoutputDirectory=lib -DexcludeGroupIds=org.jetbrains.kotlin -DexcludeArtifactIds=kotlin-compiler-embeddable -q ${{ env.KAFKA_STREAMS_LINT_MAVEN_SETTINGS }}
+        service-account-key: ${{ inputs.service-account-key }}
+        working-directory: ${{ inputs.working-directory }}
+
+    - name: Kafka Streams lint - download Detekt CLI
+      shell: bash
+      env:
+        BASE_DIR: ${{ inputs.working-directory }}
+      run: |
+        set -euo pipefail
+        mkdir -p "$BASE_DIR/lib"
+
+        curl -fsSL \
+          -o "$BASE_DIR/lib/detekt-cli.jar" \
+          "https://github.com/detekt/detekt/releases/download/v${DETEKT_VERSION}/detekt-cli-${DETEKT_VERSION}-all.jar"
+
+        ls -lh "$BASE_DIR/lib/detekt-cli.jar"
+        jar tf "$BASE_DIR/lib/detekt-cli.jar" | grep -E "io/gitlab/arturbosch/detekt/cli/Main.class|dev/detekt/cli/Main.class"
+
+    - name: Kafka Streams lint - verify with Detekt
+      shell: bash
+      env:
+        BASE_DIR: ${{ inputs.working-directory }}
+      run: |
+        set -euo pipefail
+
+        # Detekt 1.23.8 supports up to JVM target 22.
+        DETEKT_JVM_TARGET="21"
+
+        DETEKT_CLASSPATH="$BASE_DIR/target/classes:$(cat "$BASE_DIR/cp.txt")"
+        LIB_JARS_CLASSPATH="$(find "$BASE_DIR/lib" -maxdepth 1 -type f -name '*.jar' -printf ':%p' | tr -d '\n')"
+
+        DETEKT_PLUGIN_JAR="$HOME/.m2/repository/com/retailsvc/pnp-processors-core-common/${PNP_PROCESSORS_CORE_COMMON_VERSION}/pnp-processors-core-common-${PNP_PROCESSORS_CORE_COMMON_VERSION}.jar"
+        KAFKA_STREAMS_JAR="$(tr ':' '\n' < "$BASE_DIR/cp.txt" | grep -E '/kafka-streams-[^/]+\.jar$' | head -n1 || true)"
+
+        if [[ ! -f "$DETEKT_PLUGIN_JAR" ]]; then
+          echo "Detekt plugin jar not found: $DETEKT_PLUGIN_JAR"
+          exit 1
+        fi
+
+        if [[ -z "$KAFKA_STREAMS_JAR" || ! -f "$KAFKA_STREAMS_JAR" ]]; then
+          echo "Kafka Streams jar not found in cp.txt; required for custom detekt rule classloading"
+          exit 1
+        fi
+
+        # Detekt expects multiple plugin paths as a comma-separated list.
+        DETEKT_PLUGINS="$DETEKT_PLUGIN_JAR,$KAFKA_STREAMS_JAR"
+
+        java -jar "$BASE_DIR/lib/detekt-cli.jar" \
+          --input "$BASE_DIR/src/main/kotlin" \
+          --config "$BASE_DIR/pnp-detekt-plugin.yml" \
+          --classpath "${DETEKT_CLASSPATH}${LIB_JARS_CLASSPATH}" \
+          --jvm-target "$DETEKT_JVM_TARGET" \
+          --plugins "$DETEKT_PLUGINS"

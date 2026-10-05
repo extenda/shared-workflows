@@ -101,9 +101,6 @@ on:
         default: true
 
 
-env:
-  PNP_PROCESSORS_CORE_COMMON_VERSION: "0.173.2"
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -168,54 +165,12 @@ jobs:
           version: ${{ steps.semver.outputs.version }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
-      - name: Kafka Streams lint - fetch detekt config file
+      - name: Kafka Streams lint
         if: ${{ inputs.enable-kafka-streams-lint == true }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-            curl -sSL \
-            -H "Authorization: Bearer $GITHUB_TOKEN" \
-            -H "Accept: application/vnd.github.v3.raw" \
-            "https://api.github.com/repos/extenda/shared-workflows/contents/.github/configs/pnp-detekt-plugin.yml" \
-            -o pnp-detekt-plugin.yml
-
-      - name: Kafka Streams lint - get Detekt plugin for kafka streams
-        if: ${{ inputs.enable-kafka-streams-lint == true }}
-        uses: extenda/actions/maven@v0
+        uses: extenda/shared-workflows/composite-actions/kafka-streams-lint@master
         with:
-          args: dependency:get -Dartifact=com.retailsvc:pnp-processors-core-common:${{ env.PNP_PROCESSORS_CORE_COMMON_VERSION }}:jar -s settings.xml
           service-account-key: ${{ secrets.SECRET_AUTH }}
-      
-      - name: Kafka Streams lint - build classpath with maven
-        if: ${{ inputs.enable-kafka-streams-lint == true }}
-        uses: extenda/actions/maven@v0
-        with:
-          args: dependency:build-classpath -DincludeScope=runtime -Dmdep.outputFile=cp.txt -DexcludeGroupIds=org.jetbrains.kotlin -DexcludeArtifactIds=kotlin-compiler-embeddable -q -s settings.xml
-          service-account-key: ${{ secrets.SECRET_AUTH }}
-
-      - name: Kafka Streams lint - build classpath lib dir with maven
-        if: ${{ inputs.enable-kafka-streams-lint == true }}
-        uses: extenda/actions/maven@v0
-        with:
-          args: dependency:copy-dependencies -DoutputDirectory=lib -DexcludeGroupIds=org.jetbrains.kotlin -DexcludeArtifactIds=kotlin-compiler-embeddable -q -s settings.xml
-          service-account-key: ${{ secrets.SECRET_AUTH }}
-
-      - name: Kafka Streams lint - download Detekt CLI
-        if: ${{ inputs.enable-kafka-streams-lint == true }}
-        run: |
-          curl -sLo lib/detekt-cli.jar \
-            https://github.com/detekt/detekt/releases/download/v1.23.8/detekt-cli-1.23.8-all.jar
-
-      - name: Kafka Streams lint - verify with Detekt
-        if: ${{ inputs.enable-kafka-streams-lint == true }}
-        run: |
-          java -cp "target/classes:lib/*" \
-            io.gitlab.arturbosch.detekt.cli.Main \
-              --input src/main/kotlin \
-              --config pnp-detekt-plugin.yml \
-              --classpath "target/classes:$(cat cp.txt)" \
-              --jvm-target 21 \
-              --plugins ~/.m2/repository/com/retailsvc/pnp-processors-core-common/${PNP_PROCESSORS_CORE_COMMON_VERSION}/pnp-processors-core-common-${PNP_PROCESSORS_CORE_COMMON_VERSION}.jar \
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Analyze with Sonar
         uses: extenda/actions/sonar-scanner@v0
