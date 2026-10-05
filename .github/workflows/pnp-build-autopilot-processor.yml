@@ -110,6 +110,29 @@ on:
         required: false
         default: true
 
+# Pipeline flow (all checks passing):
+#
+#   PR / branch push                     master push
+#   ────────────────                     ───────────
+#   test ─┐                              test ─┐
+#   lint ─┘ (parallel)                   lint ─┘ (parallel)
+#     done                                 └─> image ─> release ─> staging
+#
+# 1. test     Determine version, then one Maven run in working-directory:
+#             compile, unit/integration tests, coverage and Sonar analysis (quality gate).
+#             Publish pacts and run can-i-deploy for consumer/provider (if pact tests enabled).
+# 2. lint     Runs in parallel with test (if enable-kafka-streams-lint):
+#             compile, then Kafka Streams Detekt rules.
+# 3. image    Master only, after test and lint passed (lint may be disabled):
+#             package the jar or native image without tests, docker build and push
+#             (tags: version, commit sha, latest), Trivy scan, Binary Authorization attestation.
+# 4. release  Create the GitHub release (or reuse the current one), tag the image with the
+#             release version, create the Pact staging release.
+# 5. staging  Deploy the release image to Autopilot staging, trigger synthetic monitoring
+#             tests, record the deployment to staging in Pact.
+#
+# On non-master branches a newer push cancels the running jobs; master runs are never cancelled.
+# Any failure on master is reported to slack-channel.
 
 jobs:
   test:

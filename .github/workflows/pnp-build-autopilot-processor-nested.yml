@@ -1,5 +1,19 @@
-# Deprecated: use pnp-build-autopilot-processor.yml with the `working-directory` input instead.
-# Kept as a thin wrapper so existing callers keep working until they are migrated.
+# DEPRECATED - use pnp-build-autopilot-processor.yml with the `working-directory` input instead.
+#
+# This workflow has no build logic of its own. It accepts the same inputs and secrets as before
+# and forwards all of them to:
+#
+#   extenda/shared-workflows/.github/workflows/pnp-build-autopilot-processor.yml@v0
+#
+# which runs test + lint (parallel) -> image -> release -> staging; see the flow description
+# at the top of that file. Steps run in `working-directory`, while `path-to-pom` and
+# `path-to-dockerfile` stay relative to the repository root.
+#
+# Migration for callers: replace
+#   uses: extenda/shared-workflows/.github/workflows/pnp-build-autopilot-processor-nested.yml@v0
+# with
+#   uses: extenda/shared-workflows/.github/workflows/pnp-build-autopilot-processor.yml@v0
+# keeping the same `with:` and `secrets:`. Remove this file once no callers are left.
 name: Merge to master
 
 on:
@@ -112,12 +126,15 @@ on:
         default: true
 
 jobs:
+  # Single job that calls the main workflow; its jobs appear as `build / test`, `build / lint`, etc.
   build:
     uses: extenda/shared-workflows/.github/workflows/pnp-build-autopilot-processor.yml@v0
+    # Must cover the permissions the called jobs request (release creates tags and releases).
     permissions:
       contents: write
       id-token: write
       pull-requests: write
+    # Secrets and inputs are passed through unchanged.
     secrets:
       SECRET_AUTH: ${{ secrets.SECRET_AUTH }}
       GCLOUD_AUTH_STAGING: ${{ secrets.GCLOUD_AUTH_STAGING }}
