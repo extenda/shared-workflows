@@ -13,6 +13,8 @@ on:
         required: true
       GCLOUD_AUTH_STAGING:
         required: true
+      pact-application-id:
+        required: false
     inputs:
       do-pact-consumer-tests:
         description: 'If true runs tests defining data contracts'

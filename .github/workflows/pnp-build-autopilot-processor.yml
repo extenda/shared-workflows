@@ -36,7 +36,7 @@ on:
         type: string
         default: ''
       service-definition:
-        description: 'Path to kubernetes config file.'
+        description: 'Path to kubernetes config file. For several services built from the same image, list one path per line; each is deployed to staging.'
         type: string
         required: true
       release-version:
@@ -114,486 +114,105 @@ on:
 #
 #   PR / branch push                     master push
 #   ────────────────                     ───────────
-#   test ─┐                              test ─┐
-#   lint ─┘ (parallel)                   lint ─┘ (parallel)
-#     done                                 └─> image ─> release ─> staging
+#   build: test ─┐                       build: test ─┐
+#          lint ─┘ (parallel)                   lint ─┴─> image ─> release ─> staging (per service)
 #
-# 1. test     Determine version, then one Maven run in working-directory:
-#             compile, unit/integration tests, coverage and Sonar analysis (quality gate).
-#             Publish pacts and run can-i-deploy for consumer/provider (if pact tests enabled).
-# 2. lint     Runs in parallel with test (if enable-kafka-streams-lint):
-#             compile, then Kafka Streams Detekt rules.
-# 3. image    Master only, after test and lint passed (lint may be disabled):
-#             package the jar or native image without tests, docker build and push
-#             (tags: version, commit sha, latest), Trivy scan, Binary Authorization attestation.
-# 4. release  Create the GitHub release (or reuse the current one), tag the image with the
-#             release version, create the Pact staging release.
-# 5. staging  Deploy the release image to Autopilot staging, trigger synthetic monitoring
-#             tests, record the deployment to staging in Pact.
+# 1. build    pnp-processor-build-image.yml: test + lint in parallel, then on master the image
+#             (package, docker push, Trivy, attestation). See the flow description in that file.
+# 2. release  pnp-processor-release.yml, once: create the GitHub release (or reuse the current
+#             one), tag the image with the release version, create the Pact staging release.
+# 3. staging  pnp-processor-deploy-autopilot.yml for every path in service-definition (matrix):
+#             deploy the release image to Autopilot staging, trigger synthetic monitoring tests,
+#             record the deployment to staging in Pact. Skipped when release-version is true.
 #
 # On non-master branches a newer push cancels the running jobs; master runs are never cancelled.
 # Any failure on master is reported to slack-channel.
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}-test
-      cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
+  build:
+    uses: extenda/shared-workflows/.github/workflows/pnp-processor-build-image.yml@v0
     permissions:
       contents: read
       id-token: write
       pull-requests: write
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - uses: extenda/actions/gcp-secret-manager@v0
-        with:
-          service-account-key: ${{ secrets.SECRET_AUTH }}
-          secrets: |
-            GITHUB-TOKEN: github-token
-            NEXUS_PASSWORD: nexus-password
-            NEXUS_USERNAME: nexus-username
-
-      - name: Setup gcloud
-        uses: extenda/actions/setup-gcloud@v0
-        with:
-          service-account-key: ${{ secrets.SECRET_AUTH }}
-
-      - name: Set up JDK
-        if: ${{ inputs.use-old-setup-java == false }}
-        uses: actions/setup-java@v5
-        with:
-          distribution: ${{ inputs.jdk-distribution }}
-          java-version: ${{ inputs.java-version }}
-          cache: maven
-
-      - name: Set up JDK
-        if: ${{ inputs.use-old-setup-java == true }}
-        uses: actions/setup-java@v5
-        with:
-          distribution: ${{ inputs.jdk-distribution }}
-          java-version: ${{ inputs.java-version }}
-
-      - uses: actions/cache@v4
-        if: ${{ inputs.use-old-setup-java == true }}
-        with:
-          path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-
-
-      - name: Determine version
-        uses: extenda/actions/conventional-version@v0
-        id: semver
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag-prefix: ${{ inputs.tag-prefix }}
-          build-number: ${{ github.run_number }}
-
-      # path-to-pom is relative to the repository root; Sonar runs in the project directory.
-      - name: Resolve pom path
-        id: paths
-        env:
-          WORKING_DIR: ${{ inputs.working-directory || '.' }}
-          PATH_TO_POM: ${{ inputs.path-to-pom }}
-        run: echo "pom=$(realpath -m --relative-to="$WORKING_DIR" "$PATH_TO_POM")" >> "$GITHUB_OUTPUT"
-
-      # One Maven run: compile, tests, coverage and Sonar analysis together.
-      - name: Verify and analyze with Sonar
-        uses: extenda/actions/sonar-scanner@v0
-        with:
-          sonar-host: https://sonarcloud.io
-          maven-args: --file ${{ steps.paths.outputs.pom }} --settings settings.xml verify org.sonarsource.scanner.maven:sonar-maven-plugin:3.7.0.1746:sonar -Dsonar.projectVersion=${{ steps.semver.outputs.version }}
-          service-account-key: ${{ secrets.SECRET_AUTH }}
-          working-directory: ${{ inputs.working-directory || '.' }}
-
-      - name: Publish pacts
-        if: ${{ inputs.do-pact-consumer-tests == true }}
-        uses: extenda/actions/pact-publish@v0
-        with:
-          pacts-directory: ${{ inputs.working-directory || '.' }}/${{ inputs.path-to-pact-tests }}
-          service-account-key: ${{ secrets.SECRET_AUTH }}
-
-      - name: Can i deploy - consumer?
-        if: ${{ inputs.do-pact-consumer-tests == true }}
-        uses: extenda/actions/pact-can-i-deploy@v0
-        with:
-          service-account-key: ${{ secrets.SECRET_AUTH }}
-          application-name: ${{ inputs.pact-application-id }}
-          retry-while-unknown: 15
-          retry-interval: 10
-          dry-run: ${{ inputs.is-pact-consumer-can-i-deploy-dry-run }}
-          env: "staging"
-
-      - name: Can i deploy - provider?
-        if: ${{ inputs.do-pact-provider-tests == true }}
-        uses: extenda/actions/pact-can-i-deploy@v0
-        with:
-          service-account-key: ${{ secrets.SECRET_AUTH }}
-          application-name: ${{ inputs.pact-application-id }}
-          retry-while-unknown: 15
-          retry-interval: 10
-          dry-run: ${{ inputs.is-pact-provider-can-i-deploy-dry-run }}
-          env: "staging"
-
-      - name: Notify Slack if failed
-        if: ${{ failure() && github.ref == 'refs/heads/master' }}
-        uses: extenda/actions/slack-notify@v0
-        with:
-          text: |
-            *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
-            Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
-          channel: ${{ inputs.slack-channel }}
-          service-account-key: ${{ secrets.SECRET_AUTH }}
-
-  lint:
-    if: ${{ inputs.enable-kafka-streams-lint == true }}
-    runs-on: ubuntu-latest
-    concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}-lint
-      cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
-    permissions:
-      contents: read
-      id-token: write
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - uses: extenda/actions/gcp-secret-manager@v0
-        with:
-          service-account-key: ${{ secrets.SECRET_AUTH }}
-          secrets: |
-            GITHUB-TOKEN: github-token
-            NEXUS_PASSWORD: nexus-password
-            NEXUS_USERNAME: nexus-username
-
-      - name: Setup gcloud
-        uses: extenda/actions/setup-gcloud@v0
-        with:
-          service-account-key: ${{ secrets.SECRET_AUTH }}
-
-      - name: Set up JDK
-        if: ${{ inputs.use-old-setup-java == false }}
-        uses: actions/setup-java@v5
-        with:
-          distribution: ${{ inputs.jdk-distribution }}
-          java-version: ${{ inputs.java-version }}
-          cache: maven
-
-      - name: Set up JDK
-        if: ${{ inputs.use-old-setup-java == true }}
-        uses: actions/setup-java@v5
-        with:
-          distribution: ${{ inputs.jdk-distribution }}
-          java-version: ${{ inputs.java-version }}
-
-      - uses: actions/cache@v4
-        if: ${{ inputs.use-old-setup-java == true }}
-        with:
-          path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-
-
-      - name: Determine version
-        uses: extenda/actions/conventional-version@v0
-        id: semver
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag-prefix: ${{ inputs.tag-prefix }}
-          build-number: ${{ github.run_number }}
-
-      - name: Compile with Maven
-        uses: extenda/actions/maven@v0
-        with:
-          args: compile -s settings.xml
-          version: ${{ steps.semver.outputs.version }}
-          service-account-key: ${{ secrets.SECRET_AUTH }}
-          working-directory: ${{ inputs.working-directory || '.' }}
-
-      - name: Kafka Streams lint
-        uses: extenda/shared-workflows/composite-actions/kafka-streams-lint@master
-        with:
-          service-account-key: ${{ secrets.SECRET_AUTH }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          working-directory: ${{ inputs.working-directory || '.' }}
-
-      - name: Notify Slack if failed
-        if: ${{ failure() && github.ref == 'refs/heads/master' }}
-        uses: extenda/actions/slack-notify@v0
-        with:
-          text: |
-            *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
-            Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
-          channel: ${{ inputs.slack-channel }}
-          service-account-key: ${{ secrets.SECRET_AUTH }}
-
-  image:
-    # Build only after tests passed and lint passed or was disabled.
-    if: ${{ always() && github.ref == 'refs/heads/master' && needs.test.result == 'success' && (needs.lint.result == 'success' || needs.lint.result == 'skipped') }}
-    needs: [test, lint]
-    runs-on: ubuntu-latest
-    concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}-image
-      cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
-    permissions:
-      contents: read
-      id-token: write
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - uses: extenda/actions/gcp-secret-manager@v0
-        with:
-          service-account-key: ${{ secrets.SECRET_AUTH }}
-          secrets: |
-            GITHUB-TOKEN: github-token
-            NEXUS_PASSWORD: nexus-password
-            NEXUS_USERNAME: nexus-username
-
-      - name: Setup gcloud
-        uses: extenda/actions/setup-gcloud@v0
-        with:
-          service-account-key: ${{ secrets.SECRET_AUTH }}
-
-      - name: Set up JDK
-        if: ${{ inputs.use-old-setup-java == false }}
-        uses: actions/setup-java@v5
-        with:
-          distribution: ${{ inputs.jdk-distribution }}
-          java-version: ${{ inputs.java-version }}
-          cache: maven
-
-      - name: Set up JDK
-        if: ${{ inputs.use-old-setup-java == true }}
-        uses: actions/setup-java@v5
-        with:
-          distribution: ${{ inputs.jdk-distribution }}
-          java-version: ${{ inputs.java-version }}
-
-      - uses: actions/cache@v4
-        if: ${{ inputs.use-old-setup-java == true }}
-        with:
-          path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-
-
-      - name: Determine version
-        uses: extenda/actions/conventional-version@v0
-        id: semver
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag-prefix: ${{ inputs.tag-prefix }}
-          build-number: ${{ github.run_number }}
-
-      - uses: graalvm/setup-graalvm@v1
-        if: ${{ inputs.native-image == true }}
-        with:
-          version: 'latest'
-          java-version: ${{ inputs.java-version }}
-          components: 'native-image'
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      # Tests run in the test job, so skip them here.
-      - name: Package with Maven
-        if: ${{ inputs.native-image == false }}
-        uses: extenda/actions/maven@v0
-        with:
-          args: package -DskipTests -s settings.xml
-          version: ${{ steps.semver.outputs.version }}
-          service-account-key: ${{ secrets.SECRET_AUTH }}
-          working-directory: ${{ inputs.working-directory || '.' }}
-
-      - name: Package Native image with maven
-        if: ${{ inputs.native-image == true }}
-        uses: extenda/actions/maven@v0
-        with:
-          args: package -Dpackaging=native-image -DskipTests -s settings.xml
-          version: ${{ steps.semver.outputs.version }}
-          service-account-key: ${{ secrets.SECRET_AUTH }}
-          working-directory: ${{ inputs.working-directory || '.' }}
-
-      - name: Setup gcloud for docker
-        uses: extenda/actions/setup-gcloud@v0
-        with:
-          service-account-key: ${{ secrets.SECRET_AUTH }}
-
-      - name: Authenticate docker
-        run: |
-          gcloud --quiet auth configure-docker
-
-      - name: Docker build and push
-        run: |
-          IMAGE=eu.gcr.io/extenda/${{ inputs.GCR_image_name }}
-          docker build "./${{ inputs.working-directory || '.' }}" -f ${{ inputs.path-to-dockerfile }} --build-arg jar_version=${{ steps.semver.outputs.version }} -t $IMAGE:${{ steps.semver.outputs.version }} -t $IMAGE:${{ github.sha }} -t $IMAGE:latest
-          docker push --all-tags $IMAGE
-
-      - name: Scan image with Trivy
-        uses: extenda/actions/trivy-scan@v0
-        with:
-          image: eu.gcr.io/extenda/${{ inputs.GCR_image_name }}:${{ steps.semver.outputs.version }}
-          service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
-          # Only report HIGH and CRITICAL vulnerabilities
-          severity: 'HIGH,CRITICAL'
-          # Fail the build if vulnerabilities are found
-          fail-on-vulnerabilities: false
-          notify-slack-on-vulnerabilities: true
-          upload-sbom: false
-
-      - name: Attest image
-        uses: extenda/actions/binary-auth-attestation@v0
-        with:
-          image-path: eu.gcr.io/extenda/${{ inputs.GCR_image_name }}
-          service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
-
-      - name: Notify Slack if failed
-        if: ${{ failure() && github.ref == 'refs/heads/master' }}
-        uses: extenda/actions/slack-notify@v0
-        with:
-          text: |
-            *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
-            Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
-          channel: ${{ inputs.slack-channel }}
-          service-account-key: ${{ secrets.SECRET_AUTH }}
+    secrets:
+      SECRET_AUTH: ${{ secrets.SECRET_AUTH }}
+      GCLOUD_AUTH_STAGING: ${{ secrets.GCLOUD_AUTH_STAGING }}
+    with:
+      GCR_image_name: ${{ inputs.GCR_image_name }}
+      path-to-pom: ${{ inputs.path-to-pom }}
+      path-to-dockerfile: ${{ inputs.path-to-dockerfile }}
+      slack-channel: ${{ inputs.slack-channel }}
+      pact-application-id: ${{ inputs.pact-application-id }}
+      pact-webhook-id: ${{ inputs.pact-webhook-id }}
+      jdk-distribution: ${{ inputs.jdk-distribution }}
+      java-version: ${{ inputs.java-version }}
+      use-old-setup-java: ${{ inputs.use-old-setup-java }}
+      do-pact-consumer-tests: ${{ inputs.do-pact-consumer-tests }}
+      do-pact-provider-tests: ${{ inputs.do-pact-provider-tests }}
+      is-pact-consumer-can-i-deploy-dry-run: ${{ inputs.is-pact-consumer-can-i-deploy-dry-run }}
+      is-pact-provider-can-i-deploy-dry-run: ${{ inputs.is-pact-provider-can-i-deploy-dry-run }}
+      native-image: ${{ inputs.native-image }}
+      enable-kafka-streams-lint: ${{ inputs.enable-kafka-streams-lint }}
+      working-directory: ${{ inputs.working-directory }}
+      path-to-pact-tests: ${{ inputs.path-to-pact-tests }}
+      tag-prefix: ${{ inputs.tag-prefix }}
 
   release:
     if: github.ref == 'refs/heads/master'
-    runs-on: ubuntu-latest
-    needs: image
+    needs: build
+    uses: extenda/shared-workflows/.github/workflows/pnp-processor-release.yml@v0
     permissions:
       contents: write
       id-token: write
+    # pnp-processor-release.yml takes these values as secrets.
+    secrets:
+      GCR_image_name: ${{ inputs.GCR_image_name }}
+      slack-channel: ${{ inputs.slack-channel }}
+      pact-application-id: ${{ inputs.pact-application-id }}
+      SECRET_AUTH: ${{ secrets.SECRET_AUTH }}
+      GCLOUD_AUTH_STAGING: ${{ secrets.GCLOUD_AUTH_STAGING }}
+    with:
+      do-pact-consumer-tests: ${{ inputs.do-pact-consumer-tests }}
+      reuse-release: ${{ inputs.reuse-release }}
+      tag-prefix: ${{ inputs.tag-prefix }}
+
+  # Turns service-definition (one path per line) into a JSON list for the staging matrix.
+  services:
+    if: github.ref == 'refs/heads/master' && inputs.release-version == false
+    runs-on: ubuntu-latest
+    outputs:
+      list: ${{ steps.list.outputs.list }}
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Create release
-        if: ${{ inputs.reuse-release == false }}
-        uses: extenda/actions/conventional-release@v0
-        id: release
+      - name: List service definitions
+        id: list
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag-prefix: ${{ inputs.tag-prefix }}
-          build-number: ${{ github.run_number }}
-
-      - name: Create release (reuse current release mode)
-        if: ${{ inputs.reuse-release == true }}
-        uses: extenda/actions/conventional-version@v0
-        id: release_reuse
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag-prefix: ${{ inputs.tag-prefix }}
-          build-number: ${{ github.run_number }}
-
-      - uses: extenda/actions/setup-gcloud@v0
-        with:
-          service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
-
-      - name: Add tag in GCR
+          SERVICE_DEFINITION: ${{ inputs.service-definition }}
         run: |
-          gcloud container images add-tag \
-            eu.gcr.io/extenda/${{ inputs.GCR_image_name }}:${{ github.sha }} \
-            eu.gcr.io/extenda/${{ inputs.GCR_image_name }}:${{ env.release_version }}
-        env:
-          release_version: ${{ inputs.reuse-release == false && steps.release.outputs.version || steps.release_reuse.outputs.release-version }}
-
-      - name: Create Pact STAGING release
-        if: ${{ inputs.do-pact-consumer-tests == true && inputs.reuse-release == false }}
-        uses: extenda/actions/pact-tag-version@v0
-        with:
-          service-account-key: ${{ secrets.SECRET_AUTH }}
-          application-name: ${{ inputs.pact-application-id }}
-          release-tag: ${{ steps.release.outputs.release-tag }}
-          env: "staging"
-
-      - name: Notify Slack if failed
-        if: failure()
-        uses: extenda/actions/slack-notify@v0
-        with:
-          text: |
-            *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
-            Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
-          channel: ${{ inputs.slack-channel }}
-          service-account-key: ${{ secrets.SECRET_AUTH }}
+          LIST=$(printf '%s\n' "$SERVICE_DEFINITION" | jq -R -s -c 'split("\n") | map(gsub("^\\s+|\\s+$"; "")) | map(select(length > 0))')
+          echo "Service definitions: $LIST"
+          echo "list=$LIST" >> "$GITHUB_OUTPUT"
 
   staging:
-    if: github.ref == 'refs/heads/master'
-    runs-on: ubuntu-latest
-    needs: release
+    if: github.ref == 'refs/heads/master' && inputs.release-version == false
+    needs: [release, services]
+    strategy:
+      fail-fast: false
+      matrix:
+        service-definition: ${{ fromJSON(needs.services.outputs.list) }}
+    uses: extenda/shared-workflows/.github/workflows/pnp-processor-deploy-autopilot.yml@v0
     permissions:
       contents: read
       id-token: write
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - uses: extenda/actions/gcp-secret-manager@v0
-        with:
-          service-account-key: ${{ secrets.SECRET_AUTH }}
-          secrets: |
-            GITHUB-TOKEN: github-token
-            PACT_BROKER_USERNAME: pact-broker-username
-            PACT_BROKER_PASSWORD: pact-broker-password
-
-      - name: Determine version
-        uses: extenda/actions/conventional-version@v0
-        id: semver
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag-prefix: ${{ inputs.tag-prefix }}
-          build-number: ${{ github.run_number }}
-
-      - name: Deploy to Autopilot staging
-        if: ${{ inputs.release-version == false }}
-        uses: extenda/actions/cloud-deploy@v0
-        with:
-          secrets-account-key: ${{ secrets.SECRET_AUTH }}
-          service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
-          service-definition: ${{ inputs.service-definition }}
-          image: eu.gcr.io/extenda/${{ inputs.GCR_image_name }}:${{ steps.semver.outputs.release-version }}
-          update-dns: always
-
-      - name: Trigger synthetic monitoring tests on staging
-        if: ${{ inputs.trigger-synthetic-monitoring-tests == true && inputs.release-version == false }}
-        uses: extenda/actions/repository-dispatch@v0
-        with:
-          service-account-key: ${{ secrets.SECRET_AUTH }}
-          repository: extenda/enterprise-pnp-common
-          event-type: run_synthetic_monitoring_tests
-          client-payload: |
-            {
-              "synthetic_monitoring_script_input": "run_all",
-              "env":"dev"
-            }
-      - name: PACT record deployment to STAGING
-        if: ${{ inputs.do-pact-consumer-tests == true }}
-        uses: extenda/actions/pact-record-deployment@v0
-        with:
-          service-account-key: ${{ secrets.SECRET_AUTH }}
-          application-name: ${{ inputs.pact-application-id }}
-          release-version: ${{ github.sha }}
-          env: "staging"
-
-      - name: Notify Slack if failed
-        if: failure()
-        uses: extenda/actions/slack-notify@v0
-        with:
-          text: |
-            *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
-            Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
-          channel: ${{ inputs.slack-channel }}
-          service-account-key: ${{ secrets.SECRET_AUTH }}
+    # pnp-processor-deploy-autopilot.yml takes these values as secrets.
+    secrets:
+      GCR_image_name: ${{ inputs.GCR_image_name }}
+      slack-channel: ${{ inputs.slack-channel }}
+      pact-application-id: ${{ inputs.pact-application-id }}
+      SECRET_AUTH: ${{ secrets.SECRET_AUTH }}
+      GCLOUD_AUTH: ${{ secrets.GCLOUD_AUTH_STAGING }}
+    with:
+      service-definition: ${{ matrix.service-definition }}
+      do-pact-consumer-tests: ${{ inputs.do-pact-consumer-tests }}
+      tag-prefix: ${{ inputs.tag-prefix }}
+      trigger-synthetic-monitoring-tests: ${{ inputs.trigger-synthetic-monitoring-tests }}
