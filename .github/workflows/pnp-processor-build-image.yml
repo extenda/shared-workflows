@@ -95,6 +95,7 @@ on:
 #
 #   test ─┐
 #   lint ─┴─> image (master only)
+#         └─> build (status check, needs test + lint)
 #
 # 1. test   Determine version, then one Maven run in working-directory:
 #           compile, unit/integration tests, coverage and Sonar analysis (quality gate).
@@ -307,6 +308,20 @@ jobs:
             Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
           channel: ${{ inputs.slack-channel }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
+
+  # Required status check: keeps the check name "<caller job> / build" that branch protection
+  # expects. Passes when test and lint succeeded or was skipped.
+  build:
+    if: always()
+    needs: [test, lint]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check results
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "Results: $RESULTS"
+          [[ " $RESULTS " != *" failure "* && " $RESULTS " != *" cancelled "* ]]
 
   image:
     # Build only after tests passed and lint passed or was disabled.

@@ -114,10 +114,11 @@ on:
 #
 #   PR / branch push                     master push
 #   ────────────────                     ───────────
-#   build: test ─┐                       build: test ─┐
-#          lint ─┘ (parallel)                   lint ─┴─> image ─> release ─> staging (per service)
+#   build-stage: test ─┐                 build-stage: test ─┐
+#                lint ─┘ (parallel)                   lint ─┴─> image ─> release ─> staging (per service)
+#   build: status check over build-stage (keeps the required check name "<caller job> / build")
 #
-# 1. build    pnp-processor-build-image.yml: test + lint in parallel, then on master the image
+# 1. build-stage pnp-processor-build-image.yml: test + lint in parallel, then on master the image
 #             (package, docker push, Trivy, attestation). See the flow description in that file.
 # 2. release  pnp-processor-release.yml, once: create the GitHub release (or reuse the current
 #             one), tag the image with the release version, create the Pact staging release.
@@ -129,7 +130,7 @@ on:
 # Any failure on master is reported to slack-channel.
 
 jobs:
-  build:
+  build-stage:
     uses: extenda/shared-workflows/.github/workflows/pnp-processor-build-image.yml@v0
     permissions:
       contents: read
@@ -158,9 +159,23 @@ jobs:
       path-to-pact-tests: ${{ inputs.path-to-pact-tests }}
       tag-prefix: ${{ inputs.tag-prefix }}
 
+  # Required status check: keeps the check name "<caller job> / build" that branch protection
+  # expects. Passes when the build stage succeeded or was skipped.
+  build:
+    if: always()
+    needs: build-stage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check results
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "Results: $RESULTS"
+          [[ " $RESULTS " != *" failure "* && " $RESULTS " != *" cancelled "* ]]
+
   release:
     if: github.ref == 'refs/heads/master'
-    needs: build
+    needs: build-stage
     uses: extenda/shared-workflows/.github/workflows/pnp-processor-release.yml@v0
     permissions:
       contents: write
