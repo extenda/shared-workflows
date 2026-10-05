@@ -22,6 +22,9 @@ on:
         required: false
         type: string
         default: .
+env:
+  PNP_PROCESSORS_CORE_COMMON_VERSION: "0.173.2"
+
 jobs:
   detekt:
     runs-on: ubuntu-latest
@@ -64,7 +67,7 @@ jobs:
       - name: Get detekt plugin for kafka streams
         uses: extenda/actions/maven@v0
         with:
-          args: dependency:get -Dartifact=com.retailsvc:pnp-processors-core-common:0.173.2:jar
+          args: dependency:get -Dartifact=com.retailsvc:pnp-processors-core-common:${{ env.PNP_PROCESSORS_CORE_COMMON_VERSION }}:jar
           service-account-key: ${{ secrets.SECRET_AUTH }}
       
       - name: Build classpath with Maven
@@ -92,4 +95,4 @@ jobs:
               --input src/main/kotlin \
               --config detekt.yml \
               --classpath "target/classes:$(cat cp.txt)" \
-              --plugins ~/.m2/repository/com/retailsvc/pnp-processors-core-common/0.173.2/pnp-processors-core-common-0.173.2.jar \
+              --plugins ~/.m2/repository/com/retailsvc/pnp-processors-core-common/${PNP_PROCESSORS_CORE_COMMON_VERSION}/pnp-processors-core-common-${PNP_PROCESSORS_CORE_COMMON_VERSION}.jar \
