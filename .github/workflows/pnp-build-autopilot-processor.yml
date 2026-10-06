@@ -132,7 +132,7 @@ on:
 
 jobs:
   build-stage:
-    uses: extenda/shared-workflows/.github/workflows/pnp-processor-build-image.yml@v0
+    uses: extenda/shared-workflows/.github/workflows/pnp-processor-build-image.yml@test/pnp-pipeline-reuse
     permissions:
       contents: read
       id-token: write
@@ -181,7 +181,7 @@ jobs:
   release:
     if: github.ref == 'refs/heads/master'
     needs: build-stage
-    uses: extenda/shared-workflows/.github/workflows/pnp-processor-release.yml@v0
+    uses: extenda/shared-workflows/.github/workflows/pnp-processor-release.yml@test/pnp-pipeline-reuse
     permissions:
       contents: write
       id-token: write
@@ -220,7 +220,7 @@ jobs:
       fail-fast: false
       matrix:
         service-definition: ${{ fromJSON(needs.services.outputs.list) }}
-    uses: extenda/shared-workflows/.github/workflows/pnp-processor-deploy-autopilot.yml@v0
+    uses: extenda/shared-workflows/.github/workflows/pnp-processor-deploy-autopilot.yml@test/pnp-pipeline-reuse
     permissions:
       contents: read
       id-token: write
