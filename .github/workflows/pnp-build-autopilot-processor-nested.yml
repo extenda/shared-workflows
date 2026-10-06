@@ -29,11 +29,11 @@ on:
         required: true
         type: string
       path-to-pom:
-        description: 'Path to the pom file'
+        description: 'Path to the pom file, relative to the repository root (e.g. my-service/pom.xml when working-directory is my-service).'
         required: true
         type: string
       path-to-dockerfile:
-        description: 'Path to dockerfile which builds the service.'
+        description: 'Path to the Dockerfile, relative to the repository root. The docker build context is working-directory.'
         required: true
         type: string
       slack-channel:

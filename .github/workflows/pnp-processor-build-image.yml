@@ -13,11 +13,11 @@ on:
         required: true
         type: string
       path-to-pom:
-        description: 'Path to the pom file. When working directory is set, this path is relative to it.'
+        description: 'Path to the pom file, relative to the repository root (e.g. my-service/pom.xml when working-directory is my-service).'
         required: true
         type: string
       path-to-dockerfile:
-        description: 'Path to dockerfile which builds the service. When working directory is set, this path is relative to it.'
+        description: 'Path to the Dockerfile, relative to the repository root. The docker build context is working-directory.'
         required: true
         type: string
       slack-channel:
@@ -183,20 +183,13 @@ jobs:
           service-account-key: ${{ secrets.SECRET_AUTH }}
           working-directory: ${{ inputs.working-directory || '.' }}
 
-      # path-to-pom is relative to the repository root; Sonar runs in the project directory.
-      - name: Resolve pom path
-        id: paths
-        env:
-          WORKING_DIR: ${{ inputs.working-directory || '.' }}
-          PATH_TO_POM: ${{ inputs.path-to-pom }}
-        run: echo "pom=$(realpath -m --relative-to="$WORKING_DIR" "$PATH_TO_POM")" >> "$GITHUB_OUTPUT"
-
       # Analysis only: reuses the classes and coverage report from the verify step, no recompile or tests.
       - name: Analyze with Sonar
         uses: extenda/actions/sonar-scanner@v0
         with:
           sonar-host: https://sonarcloud.io
-          maven-args: --file ${{ steps.paths.outputs.pom }} --settings settings.xml org.sonarsource.scanner.maven:sonar-maven-plugin:3.7.0.1746:sonar -Dsonar.projectVersion=${{ steps.semver.outputs.version }}
+          # The Sonar action runs Maven from the repository root, so paths are root-relative.
+          maven-args: --file ${{ inputs.path-to-pom }} --settings ${{ inputs.working-directory || '.' }}/settings.xml org.sonarsource.scanner.maven:sonar-maven-plugin:3.7.0.1746:sonar -Dsonar.projectVersion=${{ steps.semver.outputs.version }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
           working-directory: ${{ inputs.working-directory || '.' }}
 
