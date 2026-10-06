@@ -101,7 +101,7 @@ jobs:
         if: ${{ inputs.trigger-synthetic-monitoring-tests == true && inputs.release-version == false }}
         uses: extenda/actions/repository-dispatch@v0
         with:
-          service-account-key: ${{ secrets.SECRET_AUTH }}
+          service-account-key: ${{ secrets.SECRET_AUTH }}
           repository: extenda/enterprise-pnp-common
           event-type: run_synthetic_monitoring_tests
           client-payload: |
@@ -114,7 +114,7 @@ jobs:
         if: ${{ inputs.trigger-synthetic-monitoring-tests == true && inputs.release-version == true }}
         uses: extenda/actions/repository-dispatch@v0
         with:
-          service-account-key: ${{ secrets.SECRET_AUTH }}
+          service-account-key: ${{ secrets.SECRET_AUTH }}
           repository: extenda/enterprise-pnp-common
           event-type: run_synthetic_monitoring_tests
           client-payload: |
@@ -140,6 +140,7 @@ jobs:
           service-account-key: ${{ secrets.SECRET_AUTH }}
           application-name: ${{ secrets.pact-application-id }}
           release-version: ${{ github.sha }}
+          env: ${{ inputs.release-version == true && 'prod' || 'staging' }}
 
       - name: Notify Slack if failed
         if: failure()
