@@ -97,13 +97,15 @@ on:
 #   lint ─┴─> image (master only)
 #         └─> build (status check, needs test + lint)
 #
-# 1. test   Determine version, then one Maven run in working-directory:
-#           compile, unit/integration tests, coverage and Sonar analysis (quality gate).
-#           Publish pacts and run can-i-deploy for consumer/provider (if pact tests enabled).
+# 1. test   Determine version, Maven verify in working-directory (compile, tests, coverage,
+#           jar named with the version), then Sonar analysis on that build (quality gate).
+#           Publish pacts and run can-i-deploy (if enabled). On master, upload the jar.
 # 2. lint   Runs in parallel with test (if enable-kafka-streams-lint):
 #           compile, then Kafka Streams Detekt rules.
 # 3. image  Master only, after test and lint passed (lint may be disabled):
-#           package the jar or native image without tests, docker build and push
+#           JVM: download the tested jar from the test job (no rebuild).
+#           Native: compile the native image with GraalVM, without tests.
+#           Then docker build and push
 #           (tags: version, commit sha, latest), Trivy scan, Binary Authorization attestation.
 #
 # On non-master branches a newer push cancels the running jobs; master runs are never cancelled.
@@ -115,6 +117,8 @@ jobs:
     concurrency:
       group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.GCR_image_name }}-test
       cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
+    outputs:
+      version: ${{ steps.semver.outputs.version }}
     permissions:
       contents: read
       id-token: write
@@ -169,6 +173,16 @@ jobs:
           tag-prefix: ${{ inputs.tag-prefix }}
           build-number: ${{ github.run_number }}
 
+      # Compile, test and package with the release version set in the POM, so the jar is named
+      # <artifactId>-<version>.jar as the Dockerfile expects.
+      - name: Verify with Maven
+        uses: extenda/actions/maven@v0
+        with:
+          args: verify -s settings.xml
+          version: ${{ steps.semver.outputs.version }}
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+          working-directory: ${{ inputs.working-directory || '.' }}
+
       # path-to-pom is relative to the repository root; Sonar runs in the project directory.
       - name: Resolve pom path
         id: paths
@@ -177,14 +191,24 @@ jobs:
           PATH_TO_POM: ${{ inputs.path-to-pom }}
         run: echo "pom=$(realpath -m --relative-to="$WORKING_DIR" "$PATH_TO_POM")" >> "$GITHUB_OUTPUT"
 
-      # One Maven run: compile, tests, coverage and Sonar analysis together.
-      - name: Verify and analyze with Sonar
+      # Analysis only: reuses the classes and coverage report from the verify step, no recompile or tests.
+      - name: Analyze with Sonar
         uses: extenda/actions/sonar-scanner@v0
         with:
           sonar-host: https://sonarcloud.io
-          maven-args: --file ${{ steps.paths.outputs.pom }} --settings settings.xml verify org.sonarsource.scanner.maven:sonar-maven-plugin:3.7.0.1746:sonar -Dsonar.projectVersion=${{ steps.semver.outputs.version }}
+          maven-args: --file ${{ steps.paths.outputs.pom }} --settings settings.xml org.sonarsource.scanner.maven:sonar-maven-plugin:3.7.0.1746:sonar -Dsonar.projectVersion=${{ steps.semver.outputs.version }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
           working-directory: ${{ inputs.working-directory || '.' }}
+
+      # The image job builds the docker image from this tested jar instead of rebuilding it.
+      - name: Upload jar
+        if: ${{ github.ref == 'refs/heads/master' && inputs.native-image == false }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: jar-${{ inputs.GCR_image_name }}
+          path: ${{ inputs.working-directory || '.' }}/target/*.jar
+          if-no-files-found: error
+          retention-days: 1
 
       - name: Publish pacts
         if: ${{ inputs.do-pact-consumer-tests == true }}
@@ -336,10 +360,18 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
+      # JVM image: reuse the jar built and tested in the test job.
+      - name: Download jar
+        if: ${{ inputs.native-image == false }}
+        uses: actions/download-artifact@v4
+        with:
+          name: jar-${{ inputs.GCR_image_name }}
+          path: ${{ inputs.working-directory || '.' }}/target
+
+      # Native image: compile with GraalVM (the jar cannot be reused for this).
       - uses: extenda/actions/gcp-secret-manager@v0
+        if: ${{ inputs.native-image == true }}
         with:
           service-account-key: ${{ secrets.SECRET_AUTH }}
           secrets: |
@@ -348,12 +380,13 @@ jobs:
             NEXUS_USERNAME: nexus-username
 
       - name: Setup gcloud
+        if: ${{ inputs.native-image == true }}
         uses: extenda/actions/setup-gcloud@v0
         with:
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
       - name: Set up JDK
-        if: ${{ inputs.use-old-setup-java == false }}
+        if: ${{ inputs.native-image == true && inputs.use-old-setup-java == false }}
         uses: actions/setup-java@v5
         with:
           distribution: ${{ inputs.jdk-distribution }}
@@ -361,28 +394,19 @@ jobs:
           cache: maven
 
       - name: Set up JDK
-        if: ${{ inputs.use-old-setup-java == true }}
+        if: ${{ inputs.native-image == true && inputs.use-old-setup-java == true }}
         uses: actions/setup-java@v5
         with:
           distribution: ${{ inputs.jdk-distribution }}
           java-version: ${{ inputs.java-version }}
 
       - uses: actions/cache@v4
-        if: ${{ inputs.use-old-setup-java == true }}
+        if: ${{ inputs.native-image == true && inputs.use-old-setup-java == true }}
         with:
           path: ~/.m2/repository
           key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
           restore-keys: |
             ${{ runner.os }}-maven-
-
-      - name: Determine version
-        uses: extenda/actions/conventional-version@v0
-        id: semver
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag-prefix: ${{ inputs.tag-prefix }}
-          build-number: ${{ github.run_number }}
 
       - uses: graalvm/setup-graalvm@v1
         if: ${{ inputs.native-image == true }}
@@ -393,21 +417,12 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       # Tests run in the test job, so skip them here.
-      - name: Package with Maven
-        if: ${{ inputs.native-image == false }}
-        uses: extenda/actions/maven@v0
-        with:
-          args: package -DskipTests -s settings.xml
-          version: ${{ steps.semver.outputs.version }}
-          service-account-key: ${{ secrets.SECRET_AUTH }}
-          working-directory: ${{ inputs.working-directory || '.' }}
-
       - name: Package Native image with maven
         if: ${{ inputs.native-image == true }}
         uses: extenda/actions/maven@v0
         with:
           args: package -Dpackaging=native-image -DskipTests -s settings.xml
-          version: ${{ steps.semver.outputs.version }}
+          version: ${{ needs.test.outputs.version }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
           working-directory: ${{ inputs.working-directory || '.' }}
 
@@ -423,13 +438,13 @@ jobs:
       - name: Docker build and push
         run: |
           IMAGE=eu.gcr.io/extenda/${{ inputs.GCR_image_name }}
-          docker build "./${{ inputs.working-directory || '.' }}" -f ${{ inputs.path-to-dockerfile }} --build-arg jar_version=${{ steps.semver.outputs.version }} -t $IMAGE:${{ steps.semver.outputs.version }} -t $IMAGE:${{ github.sha }} -t $IMAGE:latest
+          docker build "./${{ inputs.working-directory || '.' }}" -f ${{ inputs.path-to-dockerfile }} --build-arg jar_version=${{ needs.test.outputs.version }} -t $IMAGE:${{ needs.test.outputs.version }} -t $IMAGE:${{ github.sha }} -t $IMAGE:latest
           docker push --all-tags $IMAGE
 
       - name: Scan image with Trivy
         uses: extenda/actions/trivy-scan@v0
         with:
-          image: eu.gcr.io/extenda/${{ inputs.GCR_image_name }}:${{ steps.semver.outputs.version }}
+          image: eu.gcr.io/extenda/${{ inputs.GCR_image_name }}:${{ needs.test.outputs.version }}
           service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
           # Only report HIGH and CRITICAL vulnerabilities
           severity: 'HIGH,CRITICAL'
