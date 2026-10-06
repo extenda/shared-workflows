@@ -40,7 +40,7 @@ on:
         type: string
         required: true
       release-version:
-        description: 'deploy release version'
+        description: 'DEPRECATED, will be removed: if true, skips the staging deploy. It never deploys to prod; use pnp-processor-deploy-autopilot.yml with release-version: true for prod.'
         type: boolean
         required: false
         default: false
@@ -124,7 +124,8 @@ on:
 #             one), tag the image with the release version, create the Pact staging release.
 # 3. staging  pnp-processor-deploy-autopilot.yml for every path in service-definition (matrix):
 #             deploy the release image to Autopilot staging, trigger synthetic monitoring tests,
-#             record the deployment to staging in Pact. Skipped when release-version is true.
+#             record the deployment to staging in Pact. Skipped when the deprecated
+#             release-version input is true.
 #
 # On non-master branches a newer push cancels the running jobs; master runs are never cancelled.
 # Any failure on master is reported to slack-channel.
@@ -166,6 +167,10 @@ jobs:
     needs: build-stage
     runs-on: ubuntu-latest
     steps:
+      - name: Warn about deprecated inputs
+        if: ${{ inputs.release-version == true }}
+        run: echo "::warning title=Deprecated input::release-version is deprecated and will be removed. It only skips the staging deploy; prod deploys use pnp-processor-deploy-autopilot.yml with release-version true."
+
       - name: Check results
         env:
           RESULTS: ${{ join(needs.*.result, ' ') }}
