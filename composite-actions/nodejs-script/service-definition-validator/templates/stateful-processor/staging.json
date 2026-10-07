@@ -3,14 +3,32 @@
     "keySuffix": "APPLICATION_ID"
   },
   {
-    "keySuffix": "PROCESSING_GUARANTEE"
+    "keySuffix": "TOPOLOGY_OPTIMIZATION",
+    "value": "all"
   },
   {
     "keySuffix": "REPLICATION_FACTOR",
     "value": "sm://*/kafka_replication_factor"
   },
   {
-    "keySuffix": "CONSUMER_AUTO_OFFSET_RESET"
+    "keySuffix": "CONSUMER_AUTO_OFFSET_RESET",
+    "value": "sm://*/kafka_consumer_auto_offset_reset"
+  },
+  {
+    "keySuffix": "PRODUCER_COMPRESSION_TYPE",
+    "value": "sm://*/kafka_producer_compression_type"
+  },
+  {
+    "keySuffix": "PRODUCER_ENABLE_IDEMPOTENCE",
+    "value": "sm://*/kafka_producer_enable_idempotence"
+  },
+  {
+    "keySuffix": "PRODUCER_BATCH_SIZE",
+    "value": "sm://*/kafka_producer_batch_size"
+  },
+  {
+    "keySuffix": "PRODUCER_LINGER_MS",
+    "value": "sm://*/kafka_producer_linger_ms"
   },
   {
     "keySuffix": "BOOTSTRAP_SERVERS",
@@ -43,6 +61,10 @@
   {
     "keySuffix": "BASIC_AUTH_CREDENTIALS_SOURCE",
     "value": "USER_INFO"
+  },
+  {
+    "keySuffix": "NUM_STANDBY_REPLICAS",
+    "value": "1"
   },
   {
     "keySuffix": "STATE_DIR",
