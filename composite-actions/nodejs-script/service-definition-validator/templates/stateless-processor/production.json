@@ -11,10 +11,6 @@
     "value": "sm://*/kafka_replication_factor"
   },
   {
-    "keySuffix": "CONSUMER_POLL_MS",
-    "value": "sm://*/kafka_consumer_poll_ms"
-  },
-  {
     "keySuffix": "CONSUMER_AUTO_OFFSET_RESET",
     "value": "sm://*/kafka_consumer_auto_offset_reset"
   },
@@ -39,8 +35,7 @@
     "value": "sm://*/kafka_stream_cluster_bootstrap_server"
   },
   {
-    "keySuffix": "SASL_JAAS_CONFIG",
-    "value": "sm://*/kafka_sasl_jaas_config"
+    "keySuffix": "SASL_JAAS_CONFIG"
   },
   {
     "keySuffix": "BASIC_AUTH_USER_INFO",
