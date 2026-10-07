@@ -112,19 +112,27 @@ on:
 
 # Pipeline flow (all checks passing):
 #
-#   PR / branch push                     master push
-#   ────────────────                     ───────────
-#   build-stage: test ─┐                 build-stage: test ─┐
-#                lint ─┘ (parallel)                   lint ─┴─> image ─> release ─> staging (per service)
+#   PR / branch push                       master push
+#   ────────────────                       ───────────
+#   build-stage: changes ─> test ─┐        build-stage: changes ─> test ─┐
+#                       └─> lint ─┘                            └─> lint ─┴─> image ─> release ─> staging (per service)
 #   build: status check over build-stage (keeps the required check name "<caller job> / build")
 #
-# 1. build-stage pnp-processor-build-image.yml: test + lint in parallel, then on master the image
-#             (package, docker push, Trivy, attestation). See the flow description in that file.
+# What runs depends on the changes check (build-stage outputs, see composite-actions/pr-changes-check):
+#
+#   action    test, lint, image, release   staging deploy
+#   build     yes                          yes, the new release
+#   redeploy  no                           yes, the current release with the changed service definitions
+#   none      no                           no
+#
+# 1. build-stage pnp-processor-build-image.yml: changes check, then test + lint in parallel, then
+#             on master the image (package, docker push, Trivy, attestation). See the flow
+#             description in that file.
 # 2. release  pnp-processor-release.yml, once: create the GitHub release (or reuse the current
 #             one), tag the image with the release version, create the Pact staging release.
 # 3. staging  pnp-processor-deploy-autopilot.yml for every path in service-definition (matrix):
 #             deploy the release image to Autopilot staging, trigger synthetic monitoring tests,
-#             record the deployment to staging in Pact. Skipped when the deprecated
+#             record the deployment to staging in Pact (only after a build). Skipped when the deprecated
 #             release-version input is true.
 #
 # On non-master branches a newer push cancels the running jobs; master runs are never cancelled.
@@ -179,7 +187,7 @@ jobs:
           [[ " $RESULTS " != *" failure "* && " $RESULTS " != *" cancelled "* ]]
 
   release:
-    if: github.ref == 'refs/heads/master'
+    if: github.ref == 'refs/heads/master' && needs.build-stage.outputs.build == 'true'
     needs: build-stage
     uses: extenda/shared-workflows/.github/workflows/pnp-processor-release.yml@v0
     permissions:
@@ -199,7 +207,8 @@ jobs:
 
   # Turns service-definition (one path per line) into a JSON list for the staging matrix.
   services:
-    if: github.ref == 'refs/heads/master' && inputs.release-version == false
+    if: github.ref == 'refs/heads/master' && inputs.release-version == false && needs.build-stage.outputs.action != 'none'
+    needs: build-stage
     runs-on: ubuntu-latest
     outputs:
       list: ${{ steps.list.outputs.list }}
@@ -213,9 +222,15 @@ jobs:
           echo "Service definitions: $LIST"
           echo "list=$LIST" >> "$GITHUB_OUTPUT"
 
+  # Deploys the new release after a build, or the current release when only service definitions
+  # changed (release is skipped then, so always() is needed to run).
   staging:
-    if: github.ref == 'refs/heads/master' && inputs.release-version == false
-    needs: [release, services]
+    if: >-
+      always() && github.ref == 'refs/heads/master' && inputs.release-version == false
+      && needs.services.result == 'success'
+      && ((needs.build-stage.outputs.action == 'build' && needs.release.result == 'success')
+        || needs.build-stage.outputs.action == 'redeploy')
+    needs: [build-stage, release, services]
     strategy:
       fail-fast: false
       matrix:
@@ -236,3 +251,5 @@ jobs:
       do-pact-consumer-tests: ${{ inputs.do-pact-consumer-tests }}
       tag-prefix: ${{ inputs.tag-prefix }}
       trigger-synthetic-monitoring-tests: ${{ inputs.trigger-synthetic-monitoring-tests }}
+      # Without a build the commit was never published to Pact, so there is nothing to record.
+      record-pact-deployment: ${{ needs.build-stage.outputs.build == 'true' }}
