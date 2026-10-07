@@ -1,0 +1,169 @@
+# Opens a pull request that lifts a Checkout Engine dependency to a new version, and closes
+# older lift pull requests with the same label. The pull request is created with the org token
+# so that push and pull_request workflows run on it. See docs/ce-dependency-lift.md.
+name: Checkout Engine dependency lift
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: The version to lift to, e.g. 48.7.0.
+        required: true
+        type: string
+      property:
+        description: The Maven property that holds the version.
+        required: false
+        default: std.checkout-engine.version
+        type: string
+      pom-file:
+        description: The POM file that defines the property.
+        required: false
+        default: pom.xml
+        type: string
+      update-dockerfile-tag:
+        description: Also update the checkout-engine image tag in the Dockerfile.
+        required: false
+        default: true
+        type: boolean
+      dependency-name:
+        description: The name used in the pull request title and branch, e.g. CE.
+        required: false
+        default: CE
+        type: string
+      label:
+        description: The pull request label. Older open pull requests with this label are closed.
+        required: false
+        default: std-lift
+        type: string
+      slack-channel:
+        description: A Slack channel to notify when the pull request is created. Leave empty to skip.
+        required: false
+        default: ""
+        type: string
+      base:
+        description: The branch to lift and open the pull request against.
+        required: false
+        default: master
+        type: string
+    secrets:
+      SECRET_AUTH:
+        required: true
+      GPG_PRIVATE_KEY:
+        required: true
+      GPG_PASSPHRASE:
+        required: true
+    outputs:
+      pull-request-number:
+        description: The number of the lift pull request. Empty if the base already has the version.
+        value: ${{ jobs.lift.outputs.pull-request-number }}
+      pull-request-url:
+        description: The URL of the lift pull request. Empty if the base already has the version.
+        value: ${{ jobs.lift.outputs.pull-request-url }}
+
+jobs:
+  lift:
+    runs-on: ubuntu-latest
+    # Writes to the repository use the org token, so the workflow token only needs to read.
+    permissions:
+      contents: read
+      id-token: write
+    concurrency:
+      group: ce-dependency-lift-${{ github.repository }}-${{ inputs.label }}
+      cancel-in-progress: false
+    outputs:
+      pull-request-number: ${{ steps.cpr.outputs.pull-request-number }}
+      pull-request-url: ${{ steps.cpr.outputs.pull-request-url }}
+    env:
+      VERSION: ${{ inputs.version }}
+      DEPENDENCY_NAME: ${{ inputs.dependency-name }}
+      LABEL: ${{ inputs.label }}
+    steps:
+      - name: Validate version
+        run: |
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Version '$VERSION' is not a semantic version (X.Y.Z)"
+            exit 1
+          fi
+
+      - uses: extenda/actions/gcp-secret-manager@v0
+        with:
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+          secrets: |
+            NEXUS_PASSWORD: nexus-password
+            NEXUS_USERNAME: nexus-username
+            ORG_TOKEN: github-token
+
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.base }}
+          persist-credentials: false
+
+      - uses: extenda/actions/setup-git@v0
+        env:
+          GITHUB_TOKEN: ${{ env.ORG_TOKEN }}
+
+      - name: Update ${{ inputs.property }} in ${{ inputs.pom-file }}
+        uses: extenda/actions/maven@v0
+        with:
+          args: versions:set-property -Dproperty=${{ inputs.property }} -DnewVersion=${{ inputs.version }} -DgenerateBackupPoms=false -f ${{ inputs.pom-file }}
+          # 'pom.xml' is the maven action's value for keeping the project version as it is.
+          version: pom.xml
+
+      - name: Update Dockerfile image tag
+        if: inputs.update-dockerfile-tag
+        run: |
+          if ! grep -qE 'checkout-engine:v[0-9]+\.[0-9]+\.[0-9]+' Dockerfile; then
+            echo "::error::No checkout-engine:vX.Y.Z image tag found in Dockerfile"
+            exit 1
+          fi
+          sed -i -E "s/(checkout-engine:)v[0-9]+\.[0-9]+\.[0-9]+/\1v${VERSION}/" Dockerfile
+
+      - name: Import GPG key
+        uses: crazy-max/ghaction-import-gpg@v7
+        with:
+          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.GPG_PASSPHRASE }}
+          git_user_signingkey: true
+          git_commit_gpgsign: true
+          git_config_global: true
+
+      - name: Branch name
+        id: branch
+        run: |
+          name="$(echo "$DEPENDENCY_NAME" | tr '[:upper:]' '[:lower:]')"
+          echo "name=chore/update-${name}-version-${VERSION//./-}" >> "$GITHUB_OUTPUT"
+
+      - name: Create pull request
+        id: cpr
+        uses: peter-evans/create-pull-request@v8
+        with:
+          token: ${{ env.ORG_TOKEN }}
+          title: "chore: Update ${{ inputs.dependency-name }} to version ${{ inputs.version }}"
+          commit-message: "chore: Update ${{ inputs.dependency-name }} to version ${{ inputs.version }}"
+          body: Automated ${{ inputs.dependency-name }} version lift to ${{ inputs.version }}.
+          committer: Extenda-DevOps-Bot <devops_team@extenda.se>
+          branch: ${{ steps.branch.outputs.name }}
+          base: ${{ inputs.base }}
+          labels: ${{ inputs.label }}
+
+      - name: Close older lift pull requests
+        if: steps.cpr.outputs.pull-request-number != ''
+        env:
+          GH_TOKEN: ${{ env.ORG_TOKEN }}
+          REPO: ${{ github.repository }}
+          NEW_PR: ${{ steps.cpr.outputs.pull-request-number }}
+        run: |
+          gh pr list --repo "$REPO" --label "$LABEL" --state open --json number --jq '.[].number' |
+            while read -r pr; do
+              if [ "$pr" != "$NEW_PR" ]; then
+                gh pr close "$pr" --repo "$REPO" --delete-branch --comment "Superseded by #${NEW_PR}."
+              fi
+            done
+
+      - name: Notify Slack
+        if: inputs.slack-channel != '' && steps.cpr.outputs.pull-request-url != ''
+        uses: extenda/actions/slack-notify@v0
+        with:
+          text: |
+            ${{ inputs.dependency-name }} version ${{ inputs.version }} is available: ${{ steps.cpr.outputs.pull-request-url }}
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+          channel: ${{ inputs.slack-channel }}
