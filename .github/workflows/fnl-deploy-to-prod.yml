@@ -63,26 +63,37 @@ jobs:
             service-account-key: ${{ secrets.GCLOUD_AUTH_PROD }}
 
         - name: Wait for previous canary to reach 100%
-          timeout-minutes: ${{ inputs.canary-wait-minutes }}
+          shell: bash
           run: |
             SERVICE=$(yq '.cloud-run.service // ""' cloud-deploy.yaml)
             if [ -z "$SERVICE" ]; then
               echo "No Cloud Run service in cloud-deploy.yaml, skipping canary wait"
               exit 0
             fi
+            DEADLINE=$(( $(date +%s) + WAIT_MINUTES * 60 ))
             while true; do
-              SPLIT=$(gcloud run services list --project "$PROJECT" \
-                --filter="metadata.name=$SERVICE" --format=json \
-                | jq '[.[] | [.status.traffic[] | select((.percent // 0) > 0)] | length] | max // 1')
-              if [ "$SPLIT" -le 1 ]; then
-                echo "Traffic for $SERVICE is on a single revision"
+              # Same check as extenda/actions cloud-deploy build-manifest.js: revisions with Active=True in europe-west1.
+              ACTIVE=$(gcloud run revisions list --service "$SERVICE" --project "$PROJECT" \
+                --region europe-west1 --format=json \
+                | jq '[.[] | select(any(.status.conditions[]?; .type == "Active" and .status == "True"))] | length')
+              if ! [[ "$ACTIVE" =~ ^[0-9]+$ ]]; then
+                echo "::error::Could not read revisions for $SERVICE"
+                exit 1
+              fi
+              if [ "$ACTIVE" -le 1 ]; then
+                echo "$SERVICE has a single active revision"
                 break
               fi
-              echo "Canary in progress for $SERVICE ($SPLIT revisions serving traffic), waiting..."
+              if [ "$(date +%s)" -ge "$DEADLINE" ]; then
+                echo "::error::$SERVICE still has $ACTIVE active revisions after $WAIT_MINUTES minutes (canary-wait-minutes)"
+                exit 1
+              fi
+              echo "Canary in progress for $SERVICE ($ACTIVE active revisions), waiting..."
               sleep 60
             done
           env:
             PROJECT: ${{ steps.gcloud.outputs.project-id }}
+            WAIT_MINUTES: ${{ inputs.canary-wait-minutes }}
 
         - uses: extenda/actions/gcp-secret-manager@v0
           if: ${{ inputs.das-deploy }}
