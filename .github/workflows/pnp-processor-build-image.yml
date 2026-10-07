@@ -118,9 +118,9 @@ on:
 #                    └─> build (status check, needs changes + test + lint)
 #
 # 0. changes If enable-changes-check: composite-actions/pr-changes-check decides from the changed
-#           files whether the jar and image must be rebuilt. On pull requests the PR is compared
-#           with its base; on a push the pushed commits are compared with the previous tip. Any
-#           other event, or a failed check, falls back to a full build. test, lint and image only
+#           files whether the jar and image must be rebuilt. Pull requests and pushes to other
+#           branches are compared with the default branch; a push to the default branch with
+#           its previous tip. Any other event, or a failed check, falls back to a full build. test, lint and image only
 #           run when build is true; the decision is exposed as the action / build / redeploy
 #           outputs. If enable-changes-check is false (default), every run is a full build.
 # 1. test   Determine version, Maven verify in working-directory (compile, tests, coverage,
@@ -161,16 +161,22 @@ jobs:
           PR_BASE: ${{ github.event.pull_request.base.sha }}
           PR_HEAD: ${{ github.event.pull_request.head.sha }}
           PUSH_BEFORE: ${{ github.event.before }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
+          BASE="" HEAD=""
           case "$EVENT_NAME" in
             pull_request|pull_request_target)
               BASE="$PR_BASE"; HEAD="$PR_HEAD" ;;
             push)
-              # A new branch has no previous tip (all zeros).
-              [[ "$PUSH_BEFORE" =~ ^0*$ ]] && BASE="" || BASE="$PUSH_BEFORE"
-              HEAD="$GITHUB_SHA" ;;
-            *)
-              BASE=""; HEAD="" ;;
+              HEAD="$GITHUB_SHA"
+              if [[ "$GITHUB_REF" == "refs/heads/$DEFAULT_BRANCH" ]]; then
+                # The commits in this push. Empty when there is no previous tip (all zeros).
+                [[ "$PUSH_BEFORE" =~ ^0*$ ]] || BASE="$PUSH_BEFORE"
+              elif [[ "$GITHUB_REF" == refs/heads/* ]]; then
+                # Like a pull request: the whole branch against the default branch. Comparing
+                # only this push would let a docs-only push pass after a push with failing tests.
+                BASE=$(git rev-parse --verify --quiet "origin/$DEFAULT_BRANCH") || BASE=""
+              fi ;;
           esac
           echo "base=$BASE" >> "$GITHUB_OUTPUT"
           echo "head=$HEAD" >> "$GITHUB_OUTPUT"
