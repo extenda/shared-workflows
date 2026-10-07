@@ -10,7 +10,7 @@ The workflow:
 2. Optionally updates the `checkout-engine:vX.Y.Z` image tag in the `Dockerfile`.
 3. Opens a GPG-signed pull request on `chore/update-<dependency-name>-version-<X-Y-Z>` with the given label.
 4. Closes every other open pull request with the same label, and deletes their branches.
-5. Optionally posts the pull request link to a Slack channel. This step is disabled for now, and `slack-channel` is ignored.
+5. Optionally posts the pull request link to a Slack channel.
 
 The pull request is created with the org token (Secret Manager key `github-token`), not `GITHUB_TOKEN`.
 GitHub doesn't start `push` or `pull_request` workflows for events caused by `GITHUB_TOKEN`, so with
@@ -66,7 +66,7 @@ and give it its own name and label so the two lifts don't close each other's pul
 | `update-dockerfile-tag` | `true`                        | Also update the `checkout-engine:vX.Y.Z` image tag in the `Dockerfile`.             |
 | `dependency-name`       | `CE`                          | The name used in the pull request title and branch.                                 |
 | `label`                 | `std-lift`                    | The pull request label. Older open pull requests with this label are closed.        |
-| `slack-channel`         |                               | A Slack channel to notify when the pull request is created. Ignored for now.        |
+| `slack-channel`         |                               | A Slack channel to notify when the pull request is created. Empty skips the step.   |
 | `base`                  | `master`                      | The branch to lift and open the pull request against.                              |
 
 ## Secrets

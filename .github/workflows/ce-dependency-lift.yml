@@ -160,13 +160,11 @@ jobs:
               fi
             done
 
-      # Slack notification is disabled for now. The slack-channel input is kept so callers don't change
-      # when it's turned back on.
-      # - name: Notify Slack
-      #   if: inputs.slack-channel != '' && steps.cpr.outputs.pull-request-url != ''
-      #   uses: extenda/actions/slack-notify@v0
-      #   with:
-      #     text: |
-      #       ${{ inputs.dependency-name }} version ${{ inputs.version }} is available: ${{ steps.cpr.outputs.pull-request-url }}
-      #     service-account-key: ${{ secrets.SECRET_AUTH }}
-      #     channel: ${{ inputs.slack-channel }}
+      - name: Notify Slack
+        if: inputs.slack-channel != '' && steps.cpr.outputs.pull-request-url != ''
+        uses: extenda/actions/slack-notify@v0
+        with:
+          text: |
+            ${{ inputs.dependency-name }} version ${{ inputs.version }} is available: ${{ steps.cpr.outputs.pull-request-url }}
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+          channel: ${{ inputs.slack-channel }}
