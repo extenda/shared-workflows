@@ -1,0 +1,51 @@
+name: 'PR Rebuild Check'
+description: |
+  Decides whether the changes in a pull request require the container image to be rebuilt,
+  and whether any autopilot/cloud-deploy service definition changed.
+  Must run after actions/checkout. Shallow clones are deepened automatically.
+
+inputs:
+  base-sha:
+    description: 'Base commit to compare against. Defaults to the pull request base.'
+    required: false
+    default: ${{ github.event.pull_request.base.sha }}
+  head-sha:
+    description: 'Head commit to compare. Defaults to the pull request head.'
+    required: false
+    default: ${{ github.event.pull_request.head.sha }}
+
+outputs:
+  rebuild:
+    description: "'true' when at least one changed file can affect the image"
+    value: ${{ steps.check.outputs.rebuild }}
+  service-config-changed:
+    description: "'true' when at least one autopilot/cloud-deploy service definition changed"
+    value: ${{ steps.check.outputs.service-config-changed }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: PR rebuild check - fetch history
+      shell: bash
+      env:
+        BASE_SHA: ${{ inputs.base-sha }}
+        HEAD_SHA: ${{ inputs.head-sha }}
+      run: |
+        if [[ -z "$BASE_SHA" || -z "$HEAD_SHA" ]]; then
+          echo "::error::base-sha and head-sha are required outside pull_request events"
+          exit 1
+        fi
+        # The merge base is needed for the three-dot diff.
+        if [[ "$(git rev-parse --is-shallow-repository)" == "true" ]]; then
+          git fetch --no-tags --quiet --unshallow origin
+        fi
+        git cat-file -e "$BASE_SHA^{commit}" 2>/dev/null || git fetch --no-tags --quiet origin "$BASE_SHA"
+        git cat-file -e "$HEAD_SHA^{commit}" 2>/dev/null || git fetch --no-tags --quiet origin "$HEAD_SHA"
+
+    - name: PR rebuild check - decide
+      id: check
+      shell: bash
+      env:
+        BASE_SHA: ${{ inputs.base-sha }}
+        HEAD_SHA: ${{ inputs.head-sha }}
+      run: '"$GITHUB_ACTION_PATH/rebuild-check.sh" "$BASE_SHA" "$HEAD_SHA"'
