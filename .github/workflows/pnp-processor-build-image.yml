@@ -90,6 +90,16 @@ on:
         type: string
         required: false
         default: 'v'
+      enable-changes-check:
+        description: >-
+          If true, test, lint and image only run when the changes require a build (see
+          composite-actions/pr-changes-check). Only enable it when every job after this workflow
+          also follows the action / build / redeploy outputs: a release or deploy job that runs
+          after a skipped image fails, because no image was pushed for the commit. Always safe on
+          pull requests, which never release. If false, every run is a full build.
+        type: boolean
+        required: false
+        default: false
     outputs:
       action:
         description: "What the changes require: 'build' (jar + image + deploy), 'redeploy' (deploy the current release image with changed service definitions) or 'none'"
@@ -107,11 +117,12 @@ on:
 #          └─> lint ─┴─> image (master only)
 #                    └─> build (status check, needs changes + test + lint)
 #
-# 0. changes composite-actions/pr-changes-check: decides from the changed files whether the jar
-#           and image must be rebuilt. On pull requests the PR is compared with its base; on a
-#           push the pushed commits are compared with the previous tip. Any other event, or a
-#           failed check, falls back to a full build. test, lint and image only run when
-#           build is true; the decision is exposed as the action / build / redeploy outputs.
+# 0. changes If enable-changes-check: composite-actions/pr-changes-check decides from the changed
+#           files whether the jar and image must be rebuilt. On pull requests the PR is compared
+#           with its base; on a push the pushed commits are compared with the previous tip. Any
+#           other event, or a failed check, falls back to a full build. test, lint and image only
+#           run when build is true; the decision is exposed as the action / build / redeploy
+#           outputs. If enable-changes-check is false (default), every run is a full build.
 # 1. test   Determine version, Maven verify in working-directory (compile, tests, coverage,
 #           jar named with the version), then Sonar analysis on that build (quality gate).
 #           Publish pacts and run can-i-deploy (if enabled). On master, upload the jar.
@@ -137,12 +148,14 @@ jobs:
       redeploy: ${{ steps.decide.outputs.redeploy }}
     steps:
       - uses: actions/checkout@v4
+        if: ${{ inputs.enable-changes-check == true }}
         with:
           fetch-depth: 0
 
       # Commits to compare. Empty when the event has no usable base, which forces a full build.
       - name: Determine commits to compare
         id: commits
+        if: ${{ inputs.enable-changes-check == true }}
         env:
           EVENT_NAME: ${{ github.event_name }}
           PR_BASE: ${{ github.event.pull_request.base.sha }}
@@ -171,16 +184,20 @@ jobs:
           base-sha: ${{ steps.commits.outputs.base }}
           head-sha: ${{ steps.commits.outputs.head }}
 
-      # Falls back to a full build when the check was skipped or failed.
+      # Full build when the check is disabled, or falls back to one when it was skipped or failed.
       - name: Decide
         id: decide
         env:
+          ENABLED: ${{ inputs.enable-changes-check }}
           OUTCOME: ${{ steps.check.outcome }}
           ACTION: ${{ steps.check.outputs.action }}
           BUILD: ${{ steps.check.outputs.build }}
           REDEPLOY: ${{ steps.check.outputs.redeploy }}
         run: |
-          if [[ "$OUTCOME" != "success" ]]; then
+          if [[ "$ENABLED" != "true" ]]; then
+            echo "Changes check disabled (enable-changes-check is false), full build"
+            ACTION=build BUILD=true REDEPLOY=true
+          elif [[ "$OUTCOME" != "success" ]]; then
             if [[ "$OUTCOME" == "skipped" ]]; then
               REASON="The $GITHUB_EVENT_NAME event has no commit to compare with."
             else

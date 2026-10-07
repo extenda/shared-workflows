@@ -167,6 +167,8 @@ jobs:
       working-directory: ${{ inputs.working-directory }}
       path-to-pact-tests: ${{ inputs.path-to-pact-tests }}
       tag-prefix: ${{ inputs.tag-prefix }}
+      # release and staging below follow the action / build / redeploy outputs.
+      enable-changes-check: true
 
   # Required status check: keeps the check name "<caller job> / build" that branch protection
   # expects. Passes when the build stage succeeded or was skipped.

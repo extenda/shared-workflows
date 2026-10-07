@@ -86,6 +86,17 @@ A skipped job counts as passing for required status checks, so docs-only PRs are
 This is why gating a job with `if:` is preferred over `paths-ignore` on the workflow: a workflow
 filtered out by paths never reports its checks.
 
+### In the PnP processor pipelines
+
+`pnp-build-autopilot-processor.yml` runs this check and follows its outputs: release only after a
+build, staging after a build or for `redeploy`.
+
+`pnp-processor-build-image.yml` runs it only with `enable-changes-check: true` (default `false`).
+Repositories that call it directly and chain `pnp-processor-release.yml` after it must gate that
+release job on `needs.<build job>.outputs.build == 'true'` before enabling it. Otherwise the release
+runs after a skipped image and fails, because no image was pushed for the commit. On pull requests
+it is always safe to enable, since they never release.
+
 ## How it works
 
 1. All changed files are listed with `git diff --name-only <base>...<head>`. The three-dot diff
