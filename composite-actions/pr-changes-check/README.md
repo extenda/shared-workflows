@@ -6,7 +6,7 @@ Decides what the changes in a pull request require:
 |------------|----------------------------------------------------------------------------|------------------------------------|
 | `build`    | Rebuild the jar and container image, then deploy them                      | `src/`, `pom.xml`, `Dockerfile`    |
 | `redeploy` | Redeploy the existing image with a changed autopilot/cloud-deploy service definition | `conf/autopilot/*.yaml` only |
-| `none`     | Nothing that reaches the running service changed                           | README, docs, `.github/` only      |
+| `none`     | Nothing that reaches the running service changed                           | README, docs, CODEOWNERS only      |
 
 Skipping the build for `redeploy` and `none` PRs saves CI time, because the image would be
 byte-for-byte the same.
@@ -114,7 +114,7 @@ always require a build, so a new kind of file can never be silently skipped.
 |-----------------------------------------------------------------|----------------------------------|
 | `*.md`                                                          | Documentation                    |
 | `docs/**`, `<module>/docs/**`                                   | Documentation, topology dumps    |
-| `.github/**`                                                    | CI config, CODEOWNERS, dependabot |
+| `.github/**`, except `.github/workflows/**` and `.github/actions/**` | CODEOWNERS, dependabot, templates |
 | `LICENSE`, `.gitignore`, `*.iml`                                | Repo / IDE metadata              |
 | `openspec/**`, `<module>/openspec/**`                           | Spec tooling                     |
 | `.pre-commit-config.yaml`, `micronaut-cli.yml` (any directory)  | Developer tooling                |
@@ -152,6 +152,9 @@ Everything else, including:
 
 - source and resources under `src/` (including `application.yml`)
 - `pom.xml`, `Dockerfile`, `entrypoint.sh`, `.mvn/**`, `settings.xml`
+- `.github/workflows/**` and `.github/actions/**`: they define how the jar and image are built
+  (`java-version`, `native-image`, the shared workflow version), so a change there must run the
+  tests and build
 - application config that happens to live under `conf/`, e.g.
   `change-detection-ks/conf/asmt-policy/asmt-policy.yml`. A blanket `conf/**` ignore would be
   unsafe for this reason.
@@ -192,7 +195,7 @@ Outputs: `action=build`, `build=true`, `redeploy=true`. Compared `1a2b3c4...5d6e
 - `conf/autopilot/item-identifier-inheritance-validate.yaml`
 
 **Ignored files (2):**
-- `.github/workflows/pr-changes-check.yml`
+- `.github/CODEOWNERS`
 - `README.md`
 
 action=build
@@ -210,11 +213,11 @@ Empty groups are left out of the report.
 of a base commit and asserts all three outputs. It covers:
 
 - **Build:** Java source, `pom.xml`, `Dockerfile`, `application.yml`, service-definition-like
-  YAML under `src/`, app config under `conf/`, YAML missing the `security:` key, mixed
-  docs + source changes.
+  YAML under `src/`, app config under `conf/`, YAML missing the `security:` key,
+  `.github/workflows/`, `.github/actions/`, mixed docs + source changes.
 - **Redeploy:** every service-definition layout listed above, cloud-run definitions, deleted
   and renamed definitions, service definition + docs.
-- **None:** README, `docs/` at root and in modules, `.github/`, tooling files, empty diffs.
+- **None:** README, `docs/` at root and in modules, `.github/` metadata, tooling files, empty diffs.
 - **Both:** service definition + source (`action=build`, `build=true`, `redeploy=true`).
 - **Merge base:** source changes that exist only on `master` are not counted.
 - **Usage:** missing arguments exit non-zero.

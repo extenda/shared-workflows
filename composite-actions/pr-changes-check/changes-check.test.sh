@@ -130,6 +130,16 @@ write_files README.md '# Readme v2' src/main/java/App.java 'class App {}'
 commit
 assert_result "docs and source change together" build true false
 
+new_repo .github/workflows/build.yml "java-version: '25'"
+write_files .github/workflows/build.yml "java-version: '26'"
+commit
+assert_result ".github/workflows change" build true false
+
+new_repo
+write_files .github/actions/setup/action.yml 'runs: { using: composite }'
+commit
+assert_result ".github/actions change" build true false
+
 # --- Changes that require neither a build nor a redeploy ---------------------------------
 
 new_repo README.md '# Readme'
@@ -142,10 +152,11 @@ write_files docs/topology/Topology.txt 'b' module-ks/docs/notes.txt 'c'
 commit
 assert_result "docs/ change at root and in module" none false false
 
-new_repo .github/workflows/build.yml 'name: build'
-write_files .github/workflows/build.yml 'name: build2'
+new_repo .github/CODEOWNERS '* @team'
+write_files .github/CODEOWNERS '* @team2' .github/dependabot.yml 'version: 2' \
+  .github/ISSUE_TEMPLATE/bug.yml 'name: bug'
 commit
-assert_result ".github change" none false false
+assert_result ".github metadata (CODEOWNERS, dependabot, templates)" none false false
 
 new_repo
 write_files .pre-commit-config.yaml 'repos: []' micronaut-cli.yml 'applicationType: default' \

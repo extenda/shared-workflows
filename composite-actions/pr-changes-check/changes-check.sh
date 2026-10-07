@@ -32,6 +32,9 @@ is_service_definition() {
 # Files that never end up in the image, recognised by path alone.
 is_ignored_path() {
   case "$1" in
+    # Workflows and local actions define how the jar and image are built (JDK version,
+    # native image, shared workflow version), so they are not ignored.
+    .github/workflows/*|.github/actions/*) return 1 ;;
     *.md|docs/*|*/docs/*|.github/*|LICENSE|.gitignore|*.iml) return 0 ;;
     openspec/*|*/openspec/*|.pre-commit-config.yaml|*/.pre-commit-config.yaml|micronaut-cli.yml|*/micronaut-cli.yml) return 0 ;;
   esac
@@ -101,7 +104,7 @@ main() {
       if [ "$changed" -eq 0 ]; then
         reason="No files changed."
       else
-        reason="All changed files ($changed) are ignored: docs, CI config or tooling."
+        reason="All changed files ($changed) are ignored: docs, repo metadata or tooling."
       fi
       tests_row="skipped"; build_row="skipped"; deploy_row="skipped"
       ;;
