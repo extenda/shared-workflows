@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Tests for rebuild-check.sh. Each case builds a throwaway git repo, commits a change on top
-# of a base commit and asserts the rebuild and service-config-changed decisions.
+# Tests for changes-check.sh. Each case builds a throwaway git repo, commits a change on top
+# of a base commit and asserts the action, build and redeploy decisions.
 #
-# Usage: composite-actions/pr-rebuild-check/rebuild-check.test.sh
+# Usage: composite-actions/pr-changes-check/changes-check.test.sh
 set -uo pipefail
 
-SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/rebuild-check.sh"
+SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/changes-check.sh"
 WORK_DIR=$(mktemp -d)
 trap 'rm -rf "$WORK_DIR"' EXIT
 
@@ -63,97 +63,95 @@ commit() {
   HEAD=$(git -C "$REPO" rev-parse HEAD)
 }
 
-# Arguments: <test name> <expected rebuild> <expected service-config-changed>
+# Arguments: <test name> <expected action> <expected build> <expected redeploy>
 assert_result() {
-  local name="$1" expected_rebuild="$2" expected_service_config="$3" output rebuild service_config
-  output=$(cd "$REPO" && GITHUB_OUTPUT= GITHUB_STEP_SUMMARY= bash "$SCRIPT" "$BASE" "$HEAD" 2>&1)
-  rebuild=$(sed -n 's/^rebuild=//p' <<< "$output" | tail -1)
-  service_config=$(sed -n 's/^service-config-changed=//p' <<< "$output" | tail -1)
-  if [ "$rebuild" = "$expected_rebuild" ] && [ "$service_config" = "$expected_service_config" ]; then
+  local name="$1" expected="action=$2 build=$3 redeploy=$4" output actual
+  output=$(cd "$REPO" && GITHUB_OUTPUT='' GITHUB_STEP_SUMMARY='' bash "$SCRIPT" "$BASE" "$HEAD" 2>&1)
+  actual=$(grep -E '^(action|build|redeploy)=' <<< "$output" | paste -sd' ')
+  if [ "$actual" = "$expected" ]; then
     echo "PASS  $name"
     passed=$((passed + 1))
   else
-    echo "FAIL  $name (expected rebuild=$expected_rebuild service-config-changed=$expected_service_config," \
-      "got rebuild='$rebuild' service-config-changed='$service_config')"
-    sed 's/^/      /' <<< "$output"
+    echo "FAIL  $name (expected '$expected', got '$actual')"
+    echo "      ${output//$'\n'/$'\n'      }"
     failed=$((failed + 1))
   fi
 }
 
-# --- Changes that must trigger a rebuild -------------------------------------------------
+# --- Changes that require a build --------------------------------------------------------
 
 new_repo src/main/java/App.java 'class App {}'
 write_files src/main/java/App.java 'class App { int x; }'
 commit
-assert_result "java source change" true false
+assert_result "java source change" build true false
 
 new_repo pom.xml '<project/>'
 write_files pom.xml '<project><version>2</version></project>'
 commit
-assert_result "pom.xml change" true false
+assert_result "pom.xml change" build true false
 
 new_repo Dockerfile 'FROM eclipse-temurin:25'
 write_files Dockerfile 'FROM eclipse-temurin:25-jre'
 commit
-assert_result "Dockerfile change" true false
+assert_result "Dockerfile change" build true false
 
 new_repo src/main/resources/application.yml 'micronaut: {}'
 write_files src/main/resources/application.yml 'micronaut: { application: { name: x } }'
 commit
-assert_result "application.yml change" true false
+assert_result "application.yml change" build true false
 
 new_repo src/main/resources/fake.yaml "$AUTOPILOT"
 write_files src/main/resources/fake.yaml "$AUTOPILOT
 # changed"
 commit
-assert_result "service-definition-like yaml under src/ is not ignored" true false
+assert_result "service-definition-like yaml under src/ is not ignored" build true false
 
 new_repo change-detection-ks/conf/asmt-policy/asmt-policy.yml "$APP_CONFIG"
 write_files change-detection-ks/conf/asmt-policy/asmt-policy.yml "$APP_CONFIG
   extra: true"
 commit
-assert_result "app config under conf/ is not ignored" true false
+assert_result "app config under conf/ is not ignored" build true false
 
 new_repo
 write_files staging_kubernetes.yaml 'name: x
 requests:
   cpu: 1'
 commit
-assert_result "yaml without kubernetes/cloud-run + security keys" true false
+assert_result "yaml without kubernetes/cloud-run + security keys" build true false
 
 new_repo
 write_files only-kubernetes.yaml 'kubernetes:
   service: x'
 commit
-assert_result "yaml with kubernetes key but no security key" true false
+assert_result "yaml with kubernetes key but no security key" build true false
 
 new_repo README.md '# Readme'
 write_files README.md '# Readme v2' src/main/java/App.java 'class App {}'
 commit
-assert_result "docs and source change together" true false
+assert_result "docs and source change together" build true false
 
-# --- Changes that must not trigger a rebuild ---------------------------------------------
+# --- Changes that require neither a build nor a redeploy ---------------------------------
 
 new_repo README.md '# Readme'
 write_files README.md '# Readme v2'
 commit
-assert_result "README change" false false
+assert_result "README change" none false false
 
 new_repo docs/topology/Topology.txt 'a'
 write_files docs/topology/Topology.txt 'b' module-ks/docs/notes.txt 'c'
 commit
-assert_result "docs/ change at root and in module" false false
+assert_result "docs/ change at root and in module" none false false
 
 new_repo .github/workflows/build.yml 'name: build'
 write_files .github/workflows/build.yml 'name: build2'
 commit
-assert_result ".github change" false false
+assert_result ".github change" none false false
 
 new_repo
 write_files .pre-commit-config.yaml 'repos: []' micronaut-cli.yml 'applicationType: default' \
   openspec/config.yaml 'schema: x' module-ks/openspec/changes/a/.openspec.yaml 'x: 1'
 commit
-assert_result "tooling files (pre-commit, micronaut-cli, openspec)" false false
+assert_result "tooling files (pre-commit, micronaut-cli, openspec)" none false false
 
 for path in \
   conf/autopilot/item-flat-fanout.yaml \
@@ -170,41 +168,41 @@ for path in \
   new_repo "$path" "$AUTOPILOT"
   write_files "$path" "${AUTOPILOT/min-instances: 1/min-instances: 3}"
   commit
-  assert_result "autopilot definition: $path" false true
+  assert_result "autopilot definition: $path" redeploy false true
 done
 
 new_repo
 write_files pnp-task-handler-ks/cloud-deploy.yaml "$CLOUD_RUN"
 commit
-assert_result "new cloud-run definition" false true
+assert_result "new cloud-run definition" redeploy false true
 
 new_repo conf/autopilot/item.yaml "$AUTOPILOT"
 git -C "$REPO" rm -q conf/autopilot/item.yaml
 commit
-assert_result "deleted autopilot definition" false true
+assert_result "deleted autopilot definition" redeploy false true
 
 new_repo conf/autopilot/item.yaml "$AUTOPILOT"
 git -C "$REPO" mv conf/autopilot/item.yaml conf/autopilot/item-renamed.yaml
 commit
-assert_result "renamed autopilot definition" false true
+assert_result "renamed autopilot definition" redeploy false true
 
 new_repo README.md '# Readme'
 git -C "$REPO" commit -q --allow-empty -m empty
 HEAD=$(git -C "$REPO" rev-parse HEAD)
-assert_result "no file changes" false false
+assert_result "no file changes" none false false
 
-# --- Service config and source changes together ------------------------------------------
+# --- Service definition and source changes together --------------------------------------
 
 new_repo conf/autopilot/item.yaml "$AUTOPILOT" src/main/java/App.java 'class App {}'
 write_files conf/autopilot/item.yaml "${AUTOPILOT/min-instances: 1/min-instances: 3}" \
   src/main/java/App.java 'class App { int x; }'
 commit
-assert_result "service definition and source change" true true
+assert_result "service definition and source change" build true true
 
 new_repo conf/autopilot/item.yaml "$AUTOPILOT" README.md '# Readme'
 write_files conf/autopilot/item.yaml "${AUTOPILOT/min-instances: 1/min-instances: 3}" README.md '# Readme v2'
 commit
-assert_result "service definition and docs change" false true
+assert_result "service definition and docs change" redeploy false true
 
 # --- Diff is against the merge base, not the current base tip ----------------------------
 
@@ -218,7 +216,7 @@ write_files src/main/java/App.java 'class App {}'
 commit
 BASE=$HEAD
 HEAD=$FEATURE_HEAD
-assert_result "source changes on base branch only are not counted" false false
+assert_result "source changes on base branch only are not counted" none false false
 
 # --- Usage -------------------------------------------------------------------------------
 

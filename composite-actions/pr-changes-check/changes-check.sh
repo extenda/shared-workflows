@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
-# Decides whether the changes between two commits require the container image to be rebuilt.
+# Decides what the changes between two commits require:
+#   build    - rebuild the jar and container image (and deploy it)
+#   redeploy - redeploy the service with a changed autopilot/cloud-deploy service definition
+#   none     - nothing that affects the running service changed
 #
-# Usage: rebuild-check.sh <base-sha> <head-sha>
+# Usage: changes-check.sh <base-sha> <head-sha>
 #
 # Prints a markdown report and the decisions. When run in GitHub Actions, also writes
-# `rebuild=true|false` and `service-config-changed=true|false` to $GITHUB_OUTPUT and the
-# report to $GITHUB_STEP_SUMMARY.
+# `action=build|redeploy|none`, `build=true|false` and `redeploy=true|false` to $GITHUB_OUTPUT
+# and the report to $GITHUB_STEP_SUMMARY.
 # The script can be sourced to test the individual functions.
 
 # Autopilot / cloud-deploy service definitions are recognised by content rather than path,
@@ -38,6 +41,7 @@ is_ignored_path() {
 print_files() {
   local title="$1" file
   shift
+  [ $# -eq 0 ] && return
   echo "**$title ($#):**"
   for file in "$@"; do echo "- \`$file\`"; done
   echo
@@ -51,38 +55,53 @@ main() {
   BASE_SHA="$1"
   HEAD_SHA="$2"
 
-  local rebuild=false service_config_changed=false file report
-  local -a triggering=() service_definitions=() skipped=()
+  local build=false redeploy=false action=none file report outputs
+  local -a build_files=() service_definitions=() ignored=()
   while IFS= read -r file; do
     [ -z "$file" ] && continue
     if is_ignored_path "$file"; then
-      skipped+=("$file")
+      ignored+=("$file")
     elif is_service_definition "$file"; then
       service_definitions+=("$file")
-      service_config_changed=true
+      redeploy=true
     else
-      triggering+=("$file")
-      rebuild=true
+      build_files+=("$file")
+      build=true
     fi
   done < <(git diff --name-only "$BASE_SHA...$HEAD_SHA")
 
+  # A build deploys the new image together with the current service definitions,
+  # so it also covers any service definition change.
+  if [ "$build" = true ]; then
+    action=build
+  elif [ "$redeploy" = true ]; then
+    action=redeploy
+  fi
+
   report=$(
-    echo "### Image rebuild needed: \`$rebuild\`"
-    echo "### Service config changed: \`$service_config_changed\`"
+    case "$action" in
+      build) echo "### Action: \`build\` - rebuild the jar and image, then deploy" ;;
+      redeploy) echo "### Action: \`redeploy\` - redeploy the existing image with the new service definition" ;;
+      none) echo "### Action: \`none\` - no build or deploy needed" ;;
+    esac
     echo
-    print_files "Files triggering rebuild" "${triggering[@]}"
+    echo "| Output | Value |"
+    echo "|---|---|"
+    echo "| \`build\` | \`$build\` |"
+    echo "| \`redeploy\` | \`$redeploy\` |"
+    echo
+    print_files "Files requiring a build" "${build_files[@]}"
     print_files "Changed service definitions" "${service_definitions[@]}"
-    print_files "Ignored files" "${skipped[@]}"
+    print_files "Ignored files" "${ignored[@]}"
   )
 
+  outputs=$(printf 'action=%s\nbuild=%s\nredeploy=%s' "$action" "$build" "$redeploy")
+
   echo "$report"
+  echo "$outputs"
   [ -n "${GITHUB_STEP_SUMMARY:-}" ] && echo "$report" >> "$GITHUB_STEP_SUMMARY"
-  if [ -n "${GITHUB_OUTPUT:-}" ]; then
-    echo "rebuild=$rebuild" >> "$GITHUB_OUTPUT"
-    echo "service-config-changed=$service_config_changed" >> "$GITHUB_OUTPUT"
-  fi
-  echo "rebuild=$rebuild"
-  echo "service-config-changed=$service_config_changed"
+  [ -n "${GITHUB_OUTPUT:-}" ] && echo "$outputs" >> "$GITHUB_OUTPUT"
+  return 0
 }
 
 if [ "${BASH_SOURCE[0]}" = "$0" ]; then

@@ -1,7 +1,8 @@
-name: 'PR Rebuild Check'
+name: 'PR Changes Check'
 description: |
-  Decides whether the changes in a pull request require the container image to be rebuilt,
-  and whether any autopilot/cloud-deploy service definition changed.
+  Decides what the changes in a pull request require: rebuild the jar and image (build),
+  redeploy the existing image with a changed autopilot/cloud-deploy service definition (redeploy),
+  or nothing (none).
   Must run after actions/checkout. Shallow clones are deepened automatically.
 
 inputs:
@@ -15,17 +16,20 @@ inputs:
     default: ${{ github.event.pull_request.head.sha }}
 
 outputs:
-  rebuild:
-    description: "'true' when at least one changed file can affect the image"
-    value: ${{ steps.check.outputs.rebuild }}
-  service-config-changed:
+  action:
+    description: "'build', 'redeploy' or 'none'. 'build' wins when both a build and a redeploy are needed"
+    value: ${{ steps.check.outputs.action }}
+  build:
+    description: "'true' when at least one changed file can affect the jar or image"
+    value: ${{ steps.check.outputs.build }}
+  redeploy:
     description: "'true' when at least one autopilot/cloud-deploy service definition changed"
-    value: ${{ steps.check.outputs.service-config-changed }}
+    value: ${{ steps.check.outputs.redeploy }}
 
 runs:
   using: 'composite'
   steps:
-    - name: PR rebuild check - fetch history
+    - name: PR changes check - fetch history
       shell: bash
       env:
         BASE_SHA: ${{ inputs.base-sha }}
@@ -42,10 +46,10 @@ runs:
         git cat-file -e "$BASE_SHA^{commit}" 2>/dev/null || git fetch --no-tags --quiet origin "$BASE_SHA"
         git cat-file -e "$HEAD_SHA^{commit}" 2>/dev/null || git fetch --no-tags --quiet origin "$HEAD_SHA"
 
-    - name: PR rebuild check - decide
+    - name: PR changes check - decide
       id: check
       shell: bash
       env:
         BASE_SHA: ${{ inputs.base-sha }}
         HEAD_SHA: ${{ inputs.head-sha }}
-      run: '"$GITHUB_ACTION_PATH/rebuild-check.sh" "$BASE_SHA" "$HEAD_SHA"'
+      run: '"$GITHUB_ACTION_PATH/changes-check.sh" "$BASE_SHA" "$HEAD_SHA"'

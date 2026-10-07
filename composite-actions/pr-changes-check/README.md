@@ -1,18 +1,21 @@
-# PR Rebuild Check Composite Action
+# PR Changes Check Composite Action
 
-Decides whether the changes in a pull request require the container image to be rebuilt. If a PR
-only touches files that never end up in the image (README, docs, autopilot/cloud-deploy service
-definitions, CI config, ...), the image would be byte-for-byte the same, so the build can be
-skipped to save CI time.
+Decides what the changes in a pull request require:
 
-It also reports separately whether any autopilot/cloud-deploy service definition changed, so
-jobs that only need to redeploy or validate service config can run without a full rebuild.
+| `action`   | Meaning                                                                    | Example PR                         |
+|------------|----------------------------------------------------------------------------|------------------------------------|
+| `build`    | Rebuild the jar and container image, then deploy them                      | `src/`, `pom.xml`, `Dockerfile`    |
+| `redeploy` | Redeploy the existing image with a changed autopilot/cloud-deploy service definition | `conf/autopilot/*.yaml` only |
+| `none`     | Nothing that reaches the running service changed                           | README, docs, `.github/` only      |
+
+Skipping the build for `redeploy` and `none` PRs saves CI time, because the image would be
+byte-for-byte the same.
 
 | File                     | Purpose                    |
 |--------------------------|----------------------------|
 | `action.yml`             | Composite action           |
-| `rebuild-check.sh`       | Decision logic             |
-| `rebuild-check.test.sh`  | Test suite                 |
+| `changes-check.sh`       | Decision logic             |
+| `changes-check.test.sh`  | Test suite                 |
 
 ## Usage
 
@@ -25,13 +28,15 @@ Both must be given explicitly outside `pull_request` events.
 
 ### Outputs
 
-| Output                   | `true` when                                                                                   |
-|--------------------------|-----------------------------------------------------------------------------------------------|
-| `rebuild`                | at least one changed file can affect the image                                                |
-| `service-config-changed` | at least one autopilot/cloud-deploy service definition was added, changed, deleted or renamed |
+| Output     | Value                                                                                                |
+|------------|------------------------------------------------------------------------------------------------------|
+| `action`   | `build`, `redeploy` or `none`. `build` wins when both apply, since a build deploys the new image together with the current service definitions |
+| `build`    | `true` when at least one changed file can affect the jar or image                                    |
+| `redeploy` | `true` when at least one autopilot/cloud-deploy service definition was added, changed, deleted or renamed |
 
-The two outputs are independent: a PR changing both `src/` and `conf/autopilot/*.yaml` sets both
-to `true`; a PR changing only an autopilot file sets `rebuild=false`, `service-config-changed=true`.
+`build` and `redeploy` are independent: a PR changing both `src/` and `conf/autopilot/*.yaml`
+sets both to `true` (and `action=build`). Use `action` to pick one path, and the booleans to gate
+jobs that care about one kind of change only, e.g. validating service definitions.
 
 ### Example
 
@@ -45,26 +50,32 @@ jobs:
   changes:
     runs-on: ubuntu-latest
     outputs:
-      rebuild: ${{ steps.check.outputs.rebuild }}
-      service-config-changed: ${{ steps.check.outputs.service-config-changed }}
+      action: ${{ steps.check.outputs.action }}
+      redeploy: ${{ steps.check.outputs.redeploy }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: PR rebuild check
+      - name: PR changes check
         id: check
-        uses: extenda/shared-workflows/composite-actions/pr-rebuild-check@master
+        uses: extenda/shared-workflows/composite-actions/pr-changes-check@master
 
   build:
     needs: changes
-    if: needs.changes.outputs.rebuild == 'true'
+    if: needs.changes.outputs.action == 'build'
     uses: extenda/shared-workflows/.github/workflows/pnp-processor-build-image.yml@v0
+    # ...
+
+  redeploy:
+    needs: changes
+    if: needs.changes.outputs.action == 'redeploy'
+    # redeploy the current image with the new service definition
     # ...
 
   validate-service-definition:
     needs: changes
-    if: needs.changes.outputs.service-config-changed == 'true'
+    if: needs.changes.outputs.redeploy == 'true'
     # ...
 ```
 
@@ -82,18 +93,19 @@ filtered out by paths never reports its checks.
    branch was created are not counted.
 2. Each file is put in one of three groups:
    - **ignored by path** (docs, CI config, tooling)
-   - **service definition** (sets `service-config-changed=true`, does not affect the image)
-   - **triggering** (sets `rebuild=true`). A single triggering file is enough to require a rebuild.
-3. Both decisions are written to the step outputs and a report is added to the run's summary
-   page, listing the files in each group.
+   - **service definition** (sets `redeploy=true`, does not affect the image)
+   - **build** (sets `build=true`). A single such file is enough to require a build.
+3. `action` is derived: `build` if `build=true`, else `redeploy` if `redeploy=true`, else `none`.
+4. All outputs are written to the step outputs and a report is added to the run's summary page,
+   listing the files in each group.
 
 Each push re-evaluates the whole PR against the base branch, not just the latest commit. Once a
-PR contains a source change it keeps `rebuild=true`.
+PR contains a source change it keeps `action=build`.
 
 ## What is checked
 
-The rule is **rebuild unless every changed file is known to be safe to ignore**. Unknown file
-types always trigger a rebuild, so a new kind of file can never be silently skipped.
+The rule is **build unless every changed file is known to be safe to skip**. Unknown file types
+always require a build, so a new kind of file can never be silently skipped.
 
 ### Ignored by path
 
@@ -106,7 +118,7 @@ types always trigger a rebuild, so a new kind of file can never be silently skip
 | `openspec/**`, `<module>/openspec/**`                           | Spec tooling                     |
 | `.pre-commit-config.yaml`, `micronaut-cli.yml` (any directory)  | Developer tooling                |
 
-### Service definitions: autopilot and cloud-deploy (sets `service-config-changed`)
+### Service definitions: autopilot and cloud-deploy (sets `redeploy`)
 
 Service definitions use many different paths and names across repositories, so they are
 recognised by **content** instead of path. A file is treated as a service definition when all of
@@ -133,7 +145,7 @@ This covers every layout currently in use, for example:
 | `clusters-configs/<env>-*-cloud-deploy.yaml`                 | `clusters-configs/prod-elastic-cloud-deploy.yaml`    |
 | `[<module>/]cloud-deploy.yaml`                               | `pnp-item-id-deduplication-ks/cloud-deploy.yaml`     |
 
-### Always triggers a rebuild
+### Always requires a build
 
 Everything else, including:
 
@@ -149,57 +161,62 @@ Everything else, including:
 ```bash
 # From a service repo, with shared-workflows cloned next to it
 # decide for the current branch against master
-../shared-workflows/composite-actions/pr-rebuild-check/rebuild-check.sh origin/master HEAD
+../shared-workflows/composite-actions/pr-changes-check/changes-check.sh origin/master HEAD
 
 # From shared-workflows, run the test suite (needs only bash and git)
-composite-actions/pr-rebuild-check/rebuild-check.test.sh
+composite-actions/pr-changes-check/changes-check.test.sh
 ```
 
 Example output:
 
 ```
-### Image rebuild needed: `true`
-### Service config changed: `true`
+### Action: `build` - rebuild the jar and image, then deploy
 
-**Files triggering rebuild (1):**
+| Output | Value |
+|---|---|
+| `build` | `true` |
+| `redeploy` | `true` |
+
+**Files requiring a build (1):**
 - `src/main/resources/application.yml`
 
 **Changed service definitions (1):**
 - `conf/autopilot/item-identifier-inheritance-validate.yaml`
 
 **Ignored files (2):**
-- `.github/workflows/pr-rebuild-check.yml`
+- `.github/workflows/pr-changes-check.yml`
 - `README.md`
 
-rebuild=true
-service-config-changed=true
+action=build
+build=true
+redeploy=true
 ```
+
+Empty groups are left out of the report.
 
 ## Tests
 
-`rebuild-check.test.sh` builds a throwaway git repository for each case, commits a change on top
-of a base commit and asserts both outputs. It covers:
+`changes-check.test.sh` builds a throwaway git repository for each case, commits a change on top
+of a base commit and asserts all three outputs. It covers:
 
-- **Rebuild:** Java source, `pom.xml`, `Dockerfile`, `application.yml`, service-definition-like
+- **Build:** Java source, `pom.xml`, `Dockerfile`, `application.yml`, service-definition-like
   YAML under `src/`, app config under `conf/`, YAML missing the `security:` key, mixed
   docs + source changes.
-- **No rebuild:** README, `docs/` at root and in modules, `.github/`, tooling files, every
-  service-definition layout listed above, cloud-run definitions, deleted and renamed
-  definitions, empty diffs.
-- **Service config changed:** every service-definition case above, plus service definition +
-  source (`rebuild=true`, `service-config-changed=true`) and service definition + docs
-  (`rebuild=false`, `service-config-changed=true`).
+- **Redeploy:** every service-definition layout listed above, cloud-run definitions, deleted
+  and renamed definitions, service definition + docs.
+- **None:** README, `docs/` at root and in modules, `.github/`, tooling files, empty diffs.
+- **Both:** service definition + source (`action=build`, `build=true`, `redeploy=true`).
 - **Merge base:** source changes that exist only on `master` are not counted.
 - **Usage:** missing arguments exit non-zero.
 
 ## Changing the rules
 
 1. Edit `is_ignored_path` (path rules) or `is_service_definition` (content rules) in
-   `rebuild-check.sh`.
-2. Add a test case to `rebuild-check.test.sh` for the new rule, covering both the ignored case
-   and a case that must still rebuild.
-3. Run `composite-actions/pr-rebuild-check/rebuild-check.test.sh` locally. CI runs it again, together with
+   `changes-check.sh`.
+2. Add a test case to `changes-check.test.sh` for the new rule, covering both the skipped case
+   and a case that must still build.
+3. Run `composite-actions/pr-changes-check/changes-check.test.sh` locally. CI runs it again, together with
    ShellCheck, on the PR.
 
-When in doubt, prefer triggering a rebuild: a skipped build that should have run ships a stale
+When in doubt, prefer requiring a build: a skipped build that should have run ships a stale
 image, while an unnecessary build only costs a few minutes.
