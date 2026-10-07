@@ -140,6 +140,7 @@ jobs:
           title: "chore: Update ${{ inputs.dependency-name }} to version ${{ inputs.version }}"
           commit-message: "chore: Update ${{ inputs.dependency-name }} to version ${{ inputs.version }}"
           body: Automated ${{ inputs.dependency-name }} version lift to ${{ inputs.version }}.
+          author: Extenda-DevOps-Bot <devops_team@extenda.se>
           committer: Extenda-DevOps-Bot <devops_team@extenda.se>
           branch: ${{ steps.branch.outputs.name }}
           base: ${{ inputs.base }}
