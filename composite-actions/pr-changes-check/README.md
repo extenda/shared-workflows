@@ -96,8 +96,9 @@ filtered out by paths never reports its checks.
    - **service definition** (sets `redeploy=true`, does not affect the image)
    - **build** (sets `build=true`). A single such file is enough to require a build.
 3. `action` is derived: `build` if `build=true`, else `redeploy` if `redeploy=true`, else `none`.
-4. All outputs are written to the step outputs and a report is added to the run's summary page,
-   listing the files in each group.
+4. All outputs are written to the step outputs. The run's summary page gets a report with the
+   decision, the reason, which stages run and the files in each group, and a notice shows the
+   decision on the run page.
 
 Each push re-evaluates the whole PR against the base branch, not just the latest commit. Once a
 PR contains a source change it keeps `action=build`.
@@ -170,12 +171,19 @@ composite-actions/pr-changes-check/changes-check.test.sh
 Example output:
 
 ```
-### Action: `build` - rebuild the jar and image, then deploy
+## Changes check: `build`
 
-| Output | Value |
+**Decision:** Rebuild the jar and image, then release and deploy them.
+
+**Why:** 1 of 4 changed files can affect the jar or image, e.g. src/main/resources/application.yml.
+
+| Stage | Result |
 |---|---|
-| `build` | `true` |
-| `redeploy` | `true` |
+| Tests and lint | runs |
+| Jar and image build, release (master only) | runs |
+| Staging deploy (master only) | runs, deploys the new release |
+
+Outputs: `action=build`, `build=true`, `redeploy=true`. Compared `1a2b3c4...5d6e7f8`.
 
 **Files requiring a build (1):**
 - `src/main/resources/application.yml`
@@ -192,6 +200,8 @@ build=true
 redeploy=true
 ```
 
+In GitHub Actions the report goes to the job summary, and the decision and reason are also shown
+as a notice on the run page and in the pull request checks.
 Empty groups are left out of the report.
 
 ## Tests

@@ -181,7 +181,19 @@ jobs:
           REDEPLOY: ${{ steps.check.outputs.redeploy }}
         run: |
           if [[ "$OUTCOME" != "success" ]]; then
-            echo "::notice title=Changes check::Check $OUTCOME (event $GITHUB_EVENT_NAME), falling back to a full build"
+            if [[ "$OUTCOME" == "skipped" ]]; then
+              REASON="The $GITHUB_EVENT_NAME event has no commit to compare with."
+            else
+              REASON="The changes check failed, see the Check changes step."
+            fi
+            echo "::notice title=Changes check: build (fallback)::Full build without checking the changes. $REASON"
+            {
+              echo "## Changes check: \`build\` (fallback)"
+              echo
+              echo "**Decision:** Full build, release and deploy, without checking the changes."
+              echo
+              echo "**Why:** $REASON A full build is always safe."
+            } >> "$GITHUB_STEP_SUMMARY"
             ACTION=build BUILD=true REDEPLOY=true
           fi
           echo "action=$ACTION build=$BUILD redeploy=$REDEPLOY"

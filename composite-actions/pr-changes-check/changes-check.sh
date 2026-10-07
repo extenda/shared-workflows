@@ -38,6 +38,11 @@ is_ignored_path() {
   return 1
 }
 
+# Prints "<count> <word>", adding an "s" unless the count is 1.
+plural() {
+  if [ "$1" -eq 1 ]; then echo "1 $2"; else echo "$1 $2s"; fi
+}
+
 print_files() {
   local title="$1" file
   shift
@@ -78,17 +83,45 @@ main() {
     action=redeploy
   fi
 
+  local decision reason tests_row build_row deploy_row
+  local changed=$((${#build_files[@]} + ${#service_definitions[@]} + ${#ignored[@]}))
+  case "$action" in
+    build)
+      decision="Rebuild the jar and image, then release and deploy them."
+      reason="${#build_files[@]} of $(plural "$changed" "changed file") can affect the jar or image, e.g. ${build_files[0]}."
+      tests_row="runs"; build_row="runs"; deploy_row="runs, deploys the new release"
+      ;;
+    redeploy)
+      decision="Redeploy the current release image with the changed service definitions. No build."
+      reason="$(plural "${#service_definitions[@]}" "service definition") changed and no changed file can affect the jar or image."
+      tests_row="skipped"; build_row="skipped"; deploy_row="runs, deploys the current release"
+      ;;
+    none)
+      decision="Nothing to build or deploy."
+      if [ "$changed" -eq 0 ]; then
+        reason="No files changed."
+      else
+        reason="All changed files ($changed) are ignored: docs, CI config or tooling."
+      fi
+      tests_row="skipped"; build_row="skipped"; deploy_row="skipped"
+      ;;
+  esac
+
   report=$(
-    case "$action" in
-      build) echo "### Action: \`build\` - rebuild the jar and image, then deploy" ;;
-      redeploy) echo "### Action: \`redeploy\` - redeploy the existing image with the new service definition" ;;
-      none) echo "### Action: \`none\` - no build or deploy needed" ;;
-    esac
+    echo "## Changes check: \`$action\`"
     echo
-    echo "| Output | Value |"
+    echo "**Decision:** $decision"
+    echo
+    echo "**Why:** $reason"
+    echo
+    echo "| Stage | Result |"
     echo "|---|---|"
-    echo "| \`build\` | \`$build\` |"
-    echo "| \`redeploy\` | \`$redeploy\` |"
+    echo "| Tests and lint | $tests_row |"
+    echo "| Jar and image build, release (master only) | $build_row |"
+    echo "| Staging deploy (master only) | $deploy_row |"
+    echo
+    echo "Outputs: \`action=$action\`, \`build=$build\`, \`redeploy=$redeploy\`." \
+      "Compared \`${BASE_SHA:0:7}...${HEAD_SHA:0:7}\`."
     echo
     print_files "Files requiring a build" "${build_files[@]}"
     print_files "Changed service definitions" "${service_definitions[@]}"
@@ -99,6 +132,8 @@ main() {
 
   echo "$report"
   echo "$outputs"
+  # The notice shows the decision on the run page and in the pull request checks.
+  [ -n "${GITHUB_ACTIONS:-}" ] && echo "::notice title=Changes check: $action::$decision $reason"
   [ -n "${GITHUB_STEP_SUMMARY:-}" ] && echo "$report" >> "$GITHUB_STEP_SUMMARY"
   [ -n "${GITHUB_OUTPUT:-}" ] && echo "$outputs" >> "$GITHUB_OUTPUT"
   return 0
