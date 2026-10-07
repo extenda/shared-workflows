@@ -24,6 +24,14 @@ inputs:
   RUN_E2E_TESTS:
     description: "Run e2e tests"
     required: false
+  PLAYWRIGHT_BROWSERS:
+    description: "Space-separated Playwright browsers to install for e2e tests, e.g. 'chromium'. Empty installs all browsers."
+    required: false
+    default: ""
+  FREE_DISK_SPACE:
+    description: "Remove unused preinstalled SDKs (dotnet, Android, GHC) from the runner before building (true/false)"
+    required: false
+    default: "false"
   BUILD_TOOL:
     description: "Build tool"
     required: false
@@ -43,6 +51,14 @@ inputs:
 runs:
   using: "composite"
   steps:
+    - name: Free disk space
+      if: inputs.FREE_DISK_SPACE == 'true'
+      shell: bash
+      run: |
+        df -h /
+        sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
+        df -h /
+
     - uses: actions/checkout@v4
       with:
         fetch-depth: 0
@@ -84,6 +100,8 @@ runs:
         gcloud --quiet auth configure-docker
         docker build --provenance=false --build-arg LD_CLIENT_ID=${{ env.LD_CLIENT_ID }} -t ${{ inputs.IMAGE }}:${{ github.sha }} .
         docker push ${{ inputs.IMAGE }}:${{ github.sha }}
+        docker image rm ${{ inputs.IMAGE }}:${{ github.sha }}
+        docker builder prune -af
 
     - name: Attest image
       uses: extenda/actions/binary-auth-attestation@v0
@@ -128,6 +146,7 @@ runs:
         GCLOUD_AUTH_STAGING: ${{ inputs.GCLOUD_AUTH_STAGING }}
         BUILD_TOOL: ${{ inputs.BUILD_TOOL }}
         GAR_WORKFLOW: ${{ inputs.GAR_WORKFLOW }}
+        PLAYWRIGHT_BROWSERS: ${{ inputs.PLAYWRIGHT_BROWSERS }}
 
     - uses: extenda/actions/setup-gcloud@v0
       with:

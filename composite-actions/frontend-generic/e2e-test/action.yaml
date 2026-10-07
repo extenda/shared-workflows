@@ -13,6 +13,10 @@ inputs:
     description: "Use GAR auth workflow (true/false)"
     required: false
     default: "false"
+  PLAYWRIGHT_BROWSERS:
+    description: "Space-separated Playwright browsers to install, e.g. 'chromium'. Empty installs all browsers."
+    required: false
+    default: ""
 
 outputs:
   e2e_test_failed:
@@ -71,7 +75,7 @@ runs:
 
     - name: Install Playwright Browsers
       shell: bash
-      run: npx playwright install --with-deps
+      run: npx playwright install --with-deps ${{ inputs.PLAYWRIGHT_BROWSERS }}
 
     - uses: extenda/actions/gcp-secret-manager@v0
       with:
