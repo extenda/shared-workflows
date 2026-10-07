@@ -10,4 +10,5 @@ This is typical action, to test e2e testing on staging environment, it should be
   uses: extenda/shared-workflows/composite-actions/frontend-generic/e2e-test@master
   with:
     GCLOUD_AUTH_STAGING: ${{ inputs.GCLOUD_AUTH_STAGING }}
+    PLAYWRIGHT_BROWSERS: chromium # optional, empty installs all browsers
 ```

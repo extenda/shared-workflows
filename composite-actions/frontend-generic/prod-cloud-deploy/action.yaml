@@ -24,6 +24,10 @@ inputs:
   RUN_E2E_TESTS:
     description: "Run e2e tests"
     required: false
+  PLAYWRIGHT_BROWSERS:
+    description: "Space-separated Playwright browsers to install for e2e tests, e.g. 'chromium'. Empty installs all browsers."
+    required: false
+    default: ""
   BUILD_TOOL:
     description: "Build tool"
     required: false
@@ -128,6 +132,7 @@ runs:
         GCLOUD_AUTH_STAGING: ${{ inputs.GCLOUD_AUTH_STAGING }}
         BUILD_TOOL: ${{ inputs.BUILD_TOOL }}
         GAR_WORKFLOW: ${{ inputs.GAR_WORKFLOW }}
+        PLAYWRIGHT_BROWSERS: ${{ inputs.PLAYWRIGHT_BROWSERS }}
 
     - uses: extenda/actions/setup-gcloud@v0
       with:
