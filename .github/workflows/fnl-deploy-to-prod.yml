@@ -40,14 +40,49 @@ on:
       service-name:
         type: string
         required: false
+      canary-wait-minutes:
+        description: Maximum minutes to wait for a previous canary rollout to reach 100% traffic before deploying
+        type: number
+        required: false
+        default: 120
 
 jobs:
   deploy:
       runs-on: ubuntu-latest
+      concurrency:
+        group: fnl-prod-${{ github.repository }}
+        cancel-in-progress: false
       steps:
         - uses: actions/checkout@v3
           with:
             fetch-depth: 0
+
+        - uses: extenda/actions/setup-gcloud@v0
+          id: gcloud
+          with:
+            service-account-key: ${{ secrets.GCLOUD_AUTH_PROD }}
+
+        - name: Wait for previous canary to reach 100%
+          timeout-minutes: ${{ inputs.canary-wait-minutes }}
+          run: |
+            SERVICE=$(yq '.cloud-run.service // ""' cloud-deploy.yaml)
+            if [ -z "$SERVICE" ]; then
+              echo "No Cloud Run service in cloud-deploy.yaml, skipping canary wait"
+              exit 0
+            fi
+            while true; do
+              SPLIT=$(gcloud run services list --project "$PROJECT" \
+                --filter="metadata.name=$SERVICE" --format=json \
+                | jq '[.[] | [.status.traffic[] | select((.percent // 0) > 0)] | length] | max // 1')
+              if [ "$SPLIT" -le 1 ]; then
+                echo "Traffic for $SERVICE is on a single revision"
+                break
+              fi
+              echo "Canary in progress for $SERVICE ($SPLIT revisions serving traffic), waiting..."
+              sleep 60
+            done
+          env:
+            PROJECT: ${{ steps.gcloud.outputs.project-id }}
 
         - uses: extenda/actions/gcp-secret-manager@v0
           if: ${{ inputs.das-deploy }}
@@ -69,11 +104,6 @@ jobs:
           id: release
           env:
             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-        - uses: extenda/actions/setup-gcloud@v0
-          id: gcloud
-          with:
-            service-account-key: ${{ secrets.GCLOUD_AUTH_PROD }}
 
         - name: Add release tag to Docker image
           run: |
