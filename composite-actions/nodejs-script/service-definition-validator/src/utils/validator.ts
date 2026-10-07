@@ -216,7 +216,8 @@ export function validateEnvVars(
         return;
       }
 
-      if (actualValue !== templateEnvVar.value) {
+      // Unquoted YAML scalars (e.g. `1`, `true`) are parsed as numbers/booleans
+      if (String(actualValue) !== templateEnvVar.value) {
         const environmentsNode = doc.get("environments");
         if (!isMap(environmentsNode)) {
           core.warning("⚠️ 'environments' section is missing or not a map.");
@@ -240,7 +241,7 @@ export function validateEnvVars(
         mismatchedVars.push({
           variableName,
           expectedValue: templateEnvVar.value,
-          actualValue,
+          actualValue: String(actualValue),
           comment,
         });
       }

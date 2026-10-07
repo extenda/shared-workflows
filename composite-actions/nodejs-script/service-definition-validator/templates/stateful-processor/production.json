@@ -3,36 +3,14 @@
     "keySuffix": "APPLICATION_ID"
   },
   {
-    "keySuffix": "TOPOLOGY_OPTIMIZATION",
-    "value": "all"
+    "keySuffix": "PROCESSING_GUARANTEE"
   },
   {
     "keySuffix": "REPLICATION_FACTOR",
     "value": "sm://*/kafka_replication_factor"
   },
   {
-    "keySuffix": "CONSUMER_POLL_MS",
-    "value": "sm://*/kafka_consumer_poll_ms"
-  },
-  {
-    "keySuffix": "CONSUMER_AUTO_OFFSET_RESET",
-    "value": "sm://*/kafka_consumer_auto_offset_reset"
-  },
-  {
-    "keySuffix": "PRODUCER_COMPRESSION_TYPE",
-    "value": "sm://*/kafka_producer_compression_type"
-  },
-  {
-    "keySuffix": "PRODUCER_ENABLE_IDEMPOTENCE",
-    "value": "sm://*/kafka_producer_enable_idempotence"
-  },
-  {
-    "keySuffix": "PRODUCER_BATCH_SIZE",
-    "value": "sm://*/kafka_producer_batch_size"
-  },
-  {
-    "keySuffix": "PRODUCER_LINGER_MS",
-    "value": "sm://*/kafka_producer_linger_ms"
+    "keySuffix": "CONSUMER_AUTO_OFFSET_RESET"
   },
   {
     "keySuffix": "BOOTSTRAP_SERVERS",
@@ -67,20 +45,8 @@
     "value": "USER_INFO"
   },
   {
-    "keySuffix": "STATE_CLEANUP_DELAY_MS",
-    "value": "15778476000"
-  },
-  {
     "keySuffix": "NUM_STANDBY_REPLICAS",
     "value": "1"
-  },
-  {
-    "keySuffix": "MAX_WARMUP_REPLICAS",
-    "value": "8"
-  },
-  {
-    "keySuffix": "PROBING_REBALANCE_INTERVAL_MS",
-    "value": "300000"
   },
   {
     "keySuffix": "STATE_DIR",
