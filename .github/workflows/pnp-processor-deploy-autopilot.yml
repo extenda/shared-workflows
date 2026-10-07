@@ -43,6 +43,11 @@ on:
         type: boolean
         required: false
         default: true
+      record-pact-deployment:
+        description: 'If false, skips recording the deployment in Pact even when do-pact-consumer-tests is true. Used for redeploys without a build, whose commit was never published to Pact.'
+        type: boolean
+        required: false
+        default: true
 jobs:
   deploy:
     if: github.ref == 'refs/heads/master'
@@ -134,7 +139,7 @@ jobs:
           jira-project-key: EA
 
       - name: PACT record deployment 
-        if: ${{ inputs.do-pact-consumer-tests == true }}
+        if: ${{ inputs.do-pact-consumer-tests == true && inputs.record-pact-deployment == true }}
         uses: extenda/actions/pact-record-deployment@v0
         with:
           service-account-key: ${{ secrets.SECRET_AUTH }}

@@ -5,8 +5,8 @@
 #
 #   extenda/shared-workflows/.github/workflows/pnp-build-autopilot-processor.yml@v0
 #
-# which runs test + lint (parallel) -> image -> release -> staging; see the flow description
-# at the top of that file. Steps run in `working-directory`, while `path-to-pom` and
+# which runs changes check -> test + lint (parallel) -> image -> release -> staging; see the
+# flow description at the top of that file. Steps run in `working-directory`, while `path-to-pom` and
 # `path-to-dockerfile` stay relative to the repository root.
 #
 # Migration for callers: replace

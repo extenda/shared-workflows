@@ -90,13 +90,39 @@ on:
         type: string
         required: false
         default: 'v'
+      enable-changes-check:
+        description: >-
+          If true, test, lint and image only run when the changes require a build (see
+          composite-actions/pr-changes-check). Only enable it when every job after this workflow
+          also follows the action / build / redeploy outputs: a release or deploy job that runs
+          after a skipped image fails, because no image was pushed for the commit. Always safe on
+          pull requests, which never release. If false, every run is a full build.
+        type: boolean
+        required: false
+        default: false
+    outputs:
+      action:
+        description: "What the changes require: 'build' (jar + image + deploy), 'redeploy' (deploy the current release image with changed service definitions) or 'none'"
+        value: ${{ jobs.changes.outputs.action }}
+      build:
+        description: "'true' when the jar and image were rebuilt"
+        value: ${{ jobs.changes.outputs.build }}
+      redeploy:
+        description: "'true' when an autopilot/cloud-deploy service definition changed"
+        value: ${{ jobs.changes.outputs.redeploy }}
 
 # Build stage shared by all PnP processor pipelines (also called by pnp-build-autopilot-processor.yml).
 #
-#   test ─┐
-#   lint ─┴─> image (master only)
-#         └─> build (status check, needs test + lint)
+#   changes ─> test ─┐
+#          └─> lint ─┴─> image (master only)
+#                    └─> build (status check, needs changes + test + lint)
 #
+# 0. changes If enable-changes-check: composite-actions/pr-changes-check decides from the changed
+#           files whether the jar and image must be rebuilt. Pull requests and pushes to other
+#           branches are compared with the default branch; a push to the default branch with
+#           its previous tip. Any other event, or a failed check, falls back to a full build. test, lint and image only
+#           run when build is true; the decision is exposed as the action / build / redeploy
+#           outputs. If enable-changes-check is false (default), every run is a full build.
 # 1. test   Determine version, Maven verify in working-directory (compile, tests, coverage,
 #           jar named with the version), then Sonar analysis on that build (quality gate).
 #           Publish pacts and run can-i-deploy (if enabled). On master, upload the jar.
@@ -112,7 +138,97 @@ on:
 # Any failure on master is reported to slack-channel.
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      action: ${{ steps.decide.outputs.action }}
+      build: ${{ steps.decide.outputs.build }}
+      redeploy: ${{ steps.decide.outputs.redeploy }}
+    steps:
+      - uses: actions/checkout@v4
+        if: ${{ inputs.enable-changes-check == true }}
+        with:
+          fetch-depth: 0
+
+      # Commits to compare. Empty when the event has no usable base, which forces a full build.
+      - name: Determine commits to compare
+        id: commits
+        if: ${{ inputs.enable-changes-check == true }}
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          BASE="" HEAD=""
+          case "$EVENT_NAME" in
+            pull_request|pull_request_target)
+              BASE="$PR_BASE"; HEAD="$PR_HEAD" ;;
+            push)
+              HEAD="$GITHUB_SHA"
+              if [[ "$GITHUB_REF" == "refs/heads/$DEFAULT_BRANCH" ]]; then
+                # The commits in this push. Empty when there is no previous tip (all zeros).
+                [[ "$PUSH_BEFORE" =~ ^0*$ ]] || BASE="$PUSH_BEFORE"
+              elif [[ "$GITHUB_REF" == refs/heads/* ]]; then
+                # Like a pull request: the whole branch against the default branch. Comparing
+                # only this push would let a docs-only push pass after a push with failing tests.
+                BASE=$(git rev-parse --verify --quiet "origin/$DEFAULT_BRANCH") || BASE=""
+              fi ;;
+          esac
+          echo "base=$BASE" >> "$GITHUB_OUTPUT"
+          echo "head=$HEAD" >> "$GITHUB_OUTPUT"
+
+      - name: Check changes
+        id: check
+        if: ${{ steps.commits.outputs.base != '' && steps.commits.outputs.head != '' }}
+        continue-on-error: true
+        uses: extenda/shared-workflows/composite-actions/pr-changes-check@master
+        with:
+          base-sha: ${{ steps.commits.outputs.base }}
+          head-sha: ${{ steps.commits.outputs.head }}
+
+      # Full build when the check is disabled, or falls back to one when it was skipped or failed.
+      - name: Decide
+        id: decide
+        env:
+          ENABLED: ${{ inputs.enable-changes-check }}
+          OUTCOME: ${{ steps.check.outcome }}
+          ACTION: ${{ steps.check.outputs.action }}
+          BUILD: ${{ steps.check.outputs.build }}
+          REDEPLOY: ${{ steps.check.outputs.redeploy }}
+        run: |
+          if [[ "$ENABLED" != "true" ]]; then
+            echo "Changes check disabled (enable-changes-check is false), full build"
+            ACTION=build BUILD=true REDEPLOY=true
+          elif [[ "$OUTCOME" != "success" ]]; then
+            if [[ "$OUTCOME" == "skipped" ]]; then
+              REASON="The $GITHUB_EVENT_NAME event has no commit to compare with."
+            else
+              REASON="The changes check failed, see the Check changes step."
+            fi
+            echo "::notice title=Changes check: build (fallback)::Full build without checking the changes. $REASON"
+            {
+              echo "## Changes check: \`build\` (fallback)"
+              echo
+              echo "**Decision:** Full build, release and deploy, without checking the changes."
+              echo
+              echo "**Why:** $REASON A full build is always safe."
+            } >> "$GITHUB_STEP_SUMMARY"
+            ACTION=build BUILD=true REDEPLOY=true
+          fi
+          echo "action=$ACTION build=$BUILD redeploy=$REDEPLOY"
+          {
+            echo "action=$ACTION"
+            echo "build=$BUILD"
+            echo "redeploy=$REDEPLOY"
+          } >> "$GITHUB_OUTPUT"
+
   test:
+    needs: changes
+    if: ${{ needs.changes.outputs.build == 'true' }}
     runs-on: ubuntu-latest
     concurrency:
       group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.GCR_image_name }}-test
@@ -243,7 +359,8 @@ jobs:
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
   lint:
-    if: ${{ inputs.enable-kafka-streams-lint == true }}
+    needs: changes
+    if: ${{ inputs.enable-kafka-streams-lint == true && needs.changes.outputs.build == 'true' }}
     runs-on: ubuntu-latest
     concurrency:
       group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.GCR_image_name }}-lint
@@ -327,10 +444,10 @@ jobs:
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
   # Required status check: keeps the check name "<caller job> / build" that branch protection
-  # expects. Passes when test and lint succeeded or was skipped.
+  # expects. Passes when the changes check succeeded and test and lint succeeded or were skipped.
   build:
     if: always()
-    needs: [test, lint]
+    needs: [changes, test, lint]
     runs-on: ubuntu-latest
     steps:
       - name: Check results

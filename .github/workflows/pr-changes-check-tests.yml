@@ -1,0 +1,37 @@
+name: PR Changes Check tests
+
+on:
+  pull_request:
+    paths:
+      - 'composite-actions/pr-changes-check/**'
+      - '.github/workflows/pr-changes-check-tests.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: ShellCheck
+        run: shellcheck composite-actions/pr-changes-check/*.sh
+
+      - name: Run tests
+        run: composite-actions/pr-changes-check/changes-check.test.sh
+
+  run-action:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: PR changes check
+        id: check
+        uses: ./composite-actions/pr-changes-check
+
+      - name: Verify outputs
+        env:
+          ACTION: ${{ steps.check.outputs.action }}
+          BUILD: ${{ steps.check.outputs.build }}
+          REDEPLOY: ${{ steps.check.outputs.redeploy }}
+        run: |
+          echo "action=$ACTION build=$BUILD redeploy=$REDEPLOY"
+          [[ "$ACTION" =~ ^(build|redeploy|none)$ && "$BUILD" =~ ^(true|false)$ && "$REDEPLOY" =~ ^(true|false)$ ]]
