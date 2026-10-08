@@ -1,0 +1,79 @@
+name: 'PnP GKE Service Control'
+description: |
+  Restarts or scales a PnP GKE service (deployment or statefulset) in the k8s-cluster.
+  The deployment/statefulset name is expected to match its namespace.
+  Notifies Slack on failure when slack-channel is set.
+
+inputs:
+  operation:
+    description: "'restart' or 'scale'"
+    required: true
+  replicas:
+    description: "Number of replicas to scale to. Used with operation 'scale' only"
+    required: false
+    default: ''
+  service-namespace:
+    description: 'Namespace (and workload name) of the service'
+    required: true
+  gcp-project:
+    description: 'GCP project hosting the k8s-cluster'
+    required: true
+  is-statefulset:
+    description: "'true' for a statefulset, 'false' for a deployment"
+    required: false
+    default: 'false'
+  service-account-key:
+    description: 'GCP service account key for the target environment'
+    required: true
+  slack-channel:
+    description: 'Slack channel to notify on failure. No notification when empty'
+    required: false
+    default: ''
+  slack-service-account-key:
+    description: 'Service account key used by slack-notify'
+    required: false
+    default: ''
+
+runs:
+  using: 'composite'
+  steps:
+    - uses: extenda/actions/setup-gcloud@v0
+      with:
+        service-account-key: ${{ inputs.service-account-key }}
+
+    - name: ${{ inputs.operation }} service
+      shell: bash
+      env:
+        OPERATION: ${{ inputs.operation }}
+        REPLICAS: ${{ inputs.replicas }}
+        NAMESPACE: ${{ inputs.service-namespace }}
+        GCP_PROJECT: ${{ inputs.gcp-project }}
+        KIND: ${{ inputs.is-statefulset == 'true' && 'statefulset' || 'deployment' }}
+      run: |
+        gcloud container clusters get-credentials k8s-cluster --zone europe-west1 --project "$GCP_PROJECT"
+        case "$OPERATION" in
+          restart)
+            kubectl rollout restart "$KIND/$NAMESPACE" -n "$NAMESPACE"
+            ;;
+          scale)
+            if [[ ! "$REPLICAS" =~ ^[0-9]+$ ]]; then
+              echo "::error::replicas must be a non-negative integer, got '$REPLICAS'"
+              exit 1
+            fi
+            kubectl scale --replicas="$REPLICAS" "$KIND/$NAMESPACE" -n "$NAMESPACE"
+            ;;
+          *)
+            echo "::error::Unknown operation '$OPERATION', expected 'restart' or 'scale'"
+            exit 1
+            ;;
+        esac
+
+    - name: Notify Slack if failed
+      if: failure() && inputs.slack-channel != ''
+      uses: extenda/actions/slack-notify@v0
+      with:
+        text: |
+          *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
+          Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{ github.job }}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
+        channel: ${{ inputs.slack-channel }}
+        service-account-key: ${{ inputs.slack-service-account-key }}
