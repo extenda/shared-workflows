@@ -19,7 +19,7 @@ on:
         required: false
     inputs:
       prod:
-        description: 'If true restarts the service in prod'     
+        description: 'If true stops the service in prod'
         required: true
         type: boolean
       is-statefulset:
@@ -34,42 +34,17 @@ permissions:
 
 jobs:
   stop-service:
+    name: Stop GKE ${{ inputs.is-statefulset && 'statefulset' || 'deployment' }} in ${{ inputs.prod && 'prod' || 'staging' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: extenda/actions/setup-gcloud@v0
-        if: ${{ inputs.prod == false }}
+      - name: Scale the GKE ${{ inputs.is-statefulset && 'statefulset' || 'deployment' }} to 0 replicas
+        uses: extenda/shared-workflows/composite-actions/pnp-gke-service-control@master
         with:
-          service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
-
-      - uses: extenda/actions/setup-gcloud@v0
-        if: ${{ inputs.prod == true }}
-        with:
-          service-account-key: ${{ secrets.GCLOUD_AUTH_PROD }}
-
-      - name: Authenticate to gcp
-        run: |
-          gcloud container clusters get-credentials k8s-cluster --zone europe-west1 --project ${{ secrets.gcp-project }}
-
-      - name: Scale deployment service to 0
-        if: ${{ inputs.is-statefulset == false }}
-        run: |
-          kubectl config set-context --current --namespace=${{ secrets.service-namespace }}
-          kubectl scale --replicas=0 deployment/${{ secrets.service-namespace }}
-
-      - name: Scale statefulset service to 0
-        if: ${{ inputs.is-statefulset == true }}
-        run: |
-          kubectl config set-context --current --namespace=${{ secrets.service-namespace }}
-          kubectl scale --replicas=0 statefulset/${{ secrets.service-namespace }}
-
-      - name: Notify Slack if failed
-        if: failure()
-        uses: extenda/actions/slack-notify@v0
-        with:
-          text: |
-            *Build failed for ${{ github.repository }}: ${{ github.workflow }}* :heavy_exclamation_mark:
-            Build failed on ${{ github.event_name }} event. Workflow: ${{ github.workflow }}. Job: ${{github.job}}. Run id: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>
-          channel: ${{ secrets.slack-channel }}
-          service-account-key: ${{ secrets.SECRET_AUTH }}
+          operation: scale
+          replicas: '0'
+          service-namespace: ${{ secrets.service-namespace }}
+          gcp-project: ${{ secrets.gcp-project }}
+          is-statefulset: ${{ inputs.is-statefulset }}
+          service-account-key: ${{ inputs.prod && secrets.GCLOUD_AUTH_PROD || secrets.GCLOUD_AUTH_STAGING }}
+          slack-channel: ${{ secrets.slack-channel }}
+          slack-service-account-key: ${{ secrets.SECRET_AUTH }}

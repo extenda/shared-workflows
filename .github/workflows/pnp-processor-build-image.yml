@@ -1,4 +1,4 @@
-name: test and build docker image
+name: PnP processor - test, lint and build image
 
 on:
   workflow_call:
@@ -111,6 +111,14 @@ on:
         description: "'true' when an autopilot/cloud-deploy service definition changed"
         value: ${{ jobs.changes.outputs.redeploy }}
 
+# Tool versions used by this workflow, in one place. Action versions (uses: ...@vN) cannot be
+# set from variables and stay pinned in the steps.
+env:
+  # org.sonarsource.scanner.maven:sonar-maven-plugin
+  SONAR_MAVEN_PLUGIN_VERSION: '5.8.0.7211'
+  # GraalVM release used by graalvm/setup-graalvm for native images
+  GRAALVM_VERSION: 'latest'
+
 # Build stage shared by all PnP processor pipelines (also called by pnp-build-autopilot-processor.yml).
 #
 #   changes ─> test ─┐
@@ -138,8 +146,11 @@ on:
 # Any failure on master is reported to slack-channel.
 
 jobs:
+  # Decides whether the changes require a build (jar + image), a redeploy or nothing.
+  # Always a full build when enable-changes-check is false or the check cannot run.
   changes:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     permissions:
       contents: read
     outputs:
@@ -226,10 +237,13 @@ jobs:
             echo "redeploy=$REDEPLOY"
           } >> "$GITHUB_OUTPUT"
 
+  # Determines the version, compiles, tests and packages the jar, runs Sonar analysis,
+  # publishes pacts and runs can-i-deploy. On master, uploads the jar for the image job.
   test:
     needs: changes
     if: ${{ needs.changes.outputs.build == 'true' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     concurrency:
       group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.GCR_image_name }}-test
       cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
@@ -294,7 +308,7 @@ jobs:
       - name: Verify with Maven
         uses: extenda/actions/maven@v0
         with:
-          args: verify -s settings.xml
+          args: verify -ntp -s settings.xml
           version: ${{ steps.semver.outputs.version }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
           working-directory: ${{ inputs.working-directory || '.' }}
@@ -305,7 +319,8 @@ jobs:
         with:
           sonar-host: https://sonarcloud.io
           # The Sonar action runs Maven from the repository root, so paths are root-relative.
-          maven-args: --file ${{ inputs.path-to-pom }} --settings ${{ inputs.working-directory || '.' }}/settings.xml org.sonarsource.scanner.maven:sonar-maven-plugin:3.7.0.1746:sonar -Dsonar.projectVersion=${{ steps.semver.outputs.version }}
+          # skipJreProvisioning: analyze with the job's JDK instead of downloading a JRE on every run.
+          maven-args: --file ${{ inputs.path-to-pom }} --settings ${{ inputs.working-directory || '.' }}/settings.xml -ntp org.sonarsource.scanner.maven:sonar-maven-plugin:${{ env.SONAR_MAVEN_PLUGIN_VERSION }}:sonar -Dsonar.scanner.skipJreProvisioning=true -Dsonar.projectVersion=${{ steps.semver.outputs.version }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
           working-directory: ${{ inputs.working-directory || '.' }}
 
@@ -318,6 +333,8 @@ jobs:
           path: ${{ inputs.working-directory || '.' }}/target/*.jar
           if-no-files-found: error
           retention-days: 1
+          # A jar is already zip-compressed.
+          compression-level: 0
 
       - name: Publish pacts
         if: ${{ inputs.do-pact-consumer-tests == true }}
@@ -358,10 +375,12 @@ jobs:
           channel: ${{ inputs.slack-channel }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
 
+  # Compiles and runs the Kafka Streams Detekt rules, in parallel with test.
   lint:
     needs: changes
     if: ${{ inputs.enable-kafka-streams-lint == true && needs.changes.outputs.build == 'true' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     concurrency:
       group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.GCR_image_name }}-lint
       cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
@@ -369,9 +388,8 @@ jobs:
       contents: read
       id-token: write
     steps:
+      # Shallow clone: lint needs neither the version nor the git history.
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - uses: extenda/actions/gcp-secret-manager@v0
         with:
@@ -409,20 +427,10 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-maven-
 
-      - name: Determine version
-        uses: extenda/actions/conventional-version@v0
-        id: semver
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag-prefix: ${{ inputs.tag-prefix }}
-          build-number: ${{ github.run_number }}
-
       - name: Compile with Maven
         uses: extenda/actions/maven@v0
         with:
-          args: compile -s settings.xml
-          version: ${{ steps.semver.outputs.version }}
+          args: compile -ntp -s settings.xml
           service-account-key: ${{ secrets.SECRET_AUTH }}
           working-directory: ${{ inputs.working-directory || '.' }}
 
@@ -449,6 +457,7 @@ jobs:
     if: always()
     needs: [changes, test, lint]
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Check results
         env:
@@ -457,11 +466,15 @@ jobs:
           echo "Results: $RESULTS"
           [[ " $RESULTS " != *" failure "* && " $RESULTS " != *" cancelled "* ]]
 
+  # Master only: builds the docker image from the tested jar (or compiles a native image),
+  # pushes it, scans it with Trivy and attests it for Binary Authorization.
+  # Runs only after test passed and lint passed or was disabled.
   image:
-    # Build only after tests passed and lint passed or was disabled.
     if: ${{ always() && github.ref == 'refs/heads/master' && needs.test.result == 'success' && (needs.lint.result == 'success' || needs.lint.result == 'skipped') }}
     needs: [test, lint]
     runs-on: ubuntu-latest
+    # Native compilation with GraalVM takes much longer than a JVM image build.
+    timeout-minutes: ${{ inputs.native-image && 60 || 20 }}
     concurrency:
       group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.GCR_image_name }}-image
       cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
@@ -521,7 +534,7 @@ jobs:
       - uses: graalvm/setup-graalvm@v1
         if: ${{ inputs.native-image == true }}
         with:
-          version: 'latest'
+          version: ${{ env.GRAALVM_VERSION }}
           java-version: ${{ inputs.java-version }}
           components: 'native-image'
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -531,7 +544,7 @@ jobs:
         if: ${{ inputs.native-image == true }}
         uses: extenda/actions/maven@v0
         with:
-          args: package -Dpackaging=native-image -DskipTests -s settings.xml
+          args: package -ntp -Dpackaging=native-image -DskipTests -s settings.xml
           version: ${{ needs.test.outputs.version }}
           service-account-key: ${{ secrets.SECRET_AUTH }}
           working-directory: ${{ inputs.working-directory || '.' }}
