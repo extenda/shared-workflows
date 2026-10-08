@@ -102,7 +102,7 @@ runs:
         LIB_JARS_CLASSPATH="$(find "$BASE_DIR/lib" -maxdepth 1 -type f -name '*.jar' -printf ':%p' | tr -d '\n')"
 
         DETEKT_PLUGIN_JAR="$HOME/.m2/repository/com/retailsvc/pnp-processors-core-common/${PNP_PROCESSORS_CORE_COMMON_VERSION}/pnp-processors-core-common-${PNP_PROCESSORS_CORE_COMMON_VERSION}.jar"
-        KAFKA_STREAMS_JAR="$(tr ':' '\n' < "$BASE_DIR/cp.txt" | grep -E '/kafka-streams-[^/]+\.jar$' | head -n1 || true)"
+        KAFKA_STREAMS_JAR="$(tr ':' '\n' < "$BASE_DIR/cp.txt" | grep -E '/org/apache/kafka/kafka-streams/[^/]+/kafka-streams-[^/]+\.jar$' | head -n1 || true)"
 
         if [[ ! -f "$DETEKT_PLUGIN_JAR" ]]; then
           echo "Detekt plugin jar not found: $DETEKT_PLUGIN_JAR"
