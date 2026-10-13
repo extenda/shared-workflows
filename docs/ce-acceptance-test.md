@@ -38,6 +38,16 @@ jobs:
     secrets: inherit
 ```
 
+A repository with one country lists only that country:
+
+```yaml
+    with:
+      countries: '["NO"]'
+```
+
+`COUNTRY_CODE` overrides the `countryCode` world parameter in the cucumber configuration, so list the
+country the engine runs with, also when `docker-compose.yaml` sets `COUNTRY_MODULE` to a fixed value.
+
 The calling workflow needs these permissions:
 
 ```yaml
@@ -50,7 +60,7 @@ permissions:
 
 | Input                 | Default                                     | Description                                                                                      |
 |-----------------------|---------------------------------------------|--------------------------------------------------------------------------------------------------|
-| `countries`           | `["SE"]`                                    | A JSON array of the country modules to test. Each runs in its own job.                           |
+| `countries`           | (required)                                  | A JSON array of the country modules to test, e.g. `["SE"]`. Each runs in its own job.            |
 | `image-name`          |                                             | Push and attest the engine image as `<image-name>:<commit SHA>`. Empty skips it.                 |
 | `cucumber-args`       |                                             | Extra arguments for the cucumber run, for example `--tags "not @staging"`.                       |
 | `working-directory`   | `acceptance/cucumber`                       | The directory of the cucumber project.                                                           |

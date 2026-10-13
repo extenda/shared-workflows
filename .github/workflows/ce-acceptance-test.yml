@@ -5,9 +5,10 @@ on:
   workflow_call:
     inputs:
       countries:
-        description: A JSON array of the country modules to test, e.g. ["SE", "NO"]. Each runs in its own job.
-        required: false
-        default: '["SE"]'
+        description: |
+          A JSON array of the country modules to test, e.g. ["SE"] or ["SE", "NO"]. Each runs in its own job,
+          with COUNTRY_MODULE and COUNTRY_CODE set to the country.
+        required: true
         type: string
       image-name:
         description: Push and attest the engine image with this name and the commit SHA as tag. Leave empty to skip.
