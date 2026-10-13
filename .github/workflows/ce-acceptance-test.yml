@@ -1,0 +1,156 @@
+# Runs a customer Checkout Engine's cucumber acceptance tests against the engine in docker compose,
+# once per country module, and optionally pushes the engine image. See docs/ce-acceptance-test.md.
+name: Checkout Engine acceptance test
+on:
+  workflow_call:
+    inputs:
+      countries:
+        description: A JSON array of the country modules to test, e.g. ["SE", "NO"]. Each runs in its own job.
+        required: false
+        default: '["SE"]'
+        type: string
+      image-name:
+        description: Push and attest the engine image with this name and the commit SHA as tag. Leave empty to skip.
+        required: false
+        default: ""
+        type: string
+      cucumber-args:
+        description: Extra arguments for the cucumber run, e.g. --tags "not @staging".
+        required: false
+        default: ""
+        type: string
+      working-directory:
+        description: The directory of the cucumber project.
+        required: false
+        default: acceptance/cucumber
+        type: string
+      build-test-database:
+        description: Build the test database image from the commit's test data. When false, docker compose pulls it.
+        required: false
+        default: true
+        type: boolean
+      test-database-args:
+        description: The Maven arguments that build the test database image.
+        required: false
+        default: test -Dtest=ITGeiTestData -DfailIfNoTests=false -Djava.system.class.loader=tx.engine.bundle.devmode.support.ClassPathLoader
+        type: string
+    secrets:
+      SECRET_AUTH:
+        required: true
+      GCLOUD_AUTH_STAGING:
+        required: true
+
+jobs:
+  test:
+    name: test (${{ matrix.country }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        country: ${{ fromJSON(inputs.countries) }}
+    env:
+      # Read by docker compose for the engine's country module, and by the cucumber suite
+      COUNTRY_MODULE: ${{ matrix.country }}
+      COUNTRY_CODE: ${{ matrix.country }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version-file: .java-version
+          cache: maven
+          # A separate cache key from the caller's other Maven jobs, which may resolve fewer dependencies.
+          cache-dependency-path: |
+            **/pom.xml
+            .java-version
+
+      - name: Package
+        uses: extenda/actions/maven@v0
+        with:
+          args: package -DskipTests
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+          version: pom.xml
+
+      - uses: extenda/actions/setup-gcloud@v0
+        id: gcloud
+        with:
+          service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
+
+      - name: Configure docker for GCR
+        run: gcloud --quiet auth configure-docker
+
+      - name: Identity token
+        if: inputs.build-test-database
+        uses: extenda/actions/identity-token@v0
+        with:
+          service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
+          service-account: ci-cd-pipeline@${{ steps.gcloud.outputs.project-id }}.iam.gserviceaccount.com
+          audiences: checkout-data
+
+      - name: Create test database container
+        if: inputs.build-test-database
+        uses: extenda/actions/maven@v0
+        env:
+          GOOGLE_TOKEN: ${{ env.IDENTITY_TOKEN }}
+        with:
+          service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
+          args: ${{ inputs.test-database-args }}
+          version: pom.xml
+
+      - name: Start docker compose
+        run: docker compose up --build --detach
+
+      - name: Wait until API is healthy
+        timeout-minutes: 5
+        run: while [[ ! "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/health)" =~ ^(200|204)$ ]]; do sleep 5; done
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: ${{ inputs.working-directory }}/package-lock.json
+
+      # @hiiretail/cucumber-checkout-engine is published to Artifact Registry
+      - name: Authenticate to Artifact Registry
+        run: npx --yes google-artifactregistry-auth
+        working-directory: ${{ inputs.working-directory }}
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: ${{ inputs.working-directory }}
+
+      - name: Run eslint
+        run: npm run lint:js --if-present
+        working-directory: ${{ inputs.working-directory }}
+
+      - name: Run cucumber
+        run: npm run test:ci -- ${{ inputs.cucumber-args }}
+        working-directory: ${{ inputs.working-directory }}
+        env:
+          API_BASE_URL: http://localhost:8080/api/v3
+
+      - name: Stop docker compose
+        if: always()
+        run: |
+          docker compose logs
+          docker compose down
+
+      # The image doesn't depend on the country, so the first country's job pushes it.
+      - name: Build and push docker image
+        if: inputs.image-name != '' && matrix.country == fromJSON(inputs.countries)[0]
+        env:
+          IMAGE: ${{ inputs.image-name }}:${{ github.sha }}
+        run: |
+          docker build -t "$IMAGE" .
+          docker push "$IMAGE"
+
+      - name: Attest image
+        if: inputs.image-name != '' && matrix.country == fromJSON(inputs.countries)[0]
+        uses: extenda/actions/binary-auth-attestation@v0
+        with:
+          image-path: ${{ inputs.image-name }}:${{ github.sha }}
+          service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
