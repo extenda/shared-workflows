@@ -11,8 +11,9 @@ The workflow runs one job per country in `countries`. Each job:
 2. Builds the test database image from the commit's test data (`ITGeiTestData`), so the tests use the
    test data of the commit and not the last one pushed from the default branch.
 3. Starts the engine with `docker compose up --build`, with `COUNTRY_MODULE` set to the country.
-4. Installs the cucumber project, after authenticating to Artifact Registry, and runs `npm run lint:js`
-   (if the project has it) and `npm run test:ci` with `COUNTRY_CODE` set to the country.
+4. Installs the cucumber project and runs `npm run lint:js` (if the project has it) and `npm run test:ci`
+   with `COUNTRY_CODE` set to the country. If the project has an `.npmrc`, it first authenticates npm to
+   Artifact Registry, where `@hiiretail/cucumber-checkout-engine` is published.
 5. Optionally builds, pushes and attests the engine image. Only the first country's job does this, after
    its tests pass. Gate releases on the whole calling workflow, so that every country must pass.
 
@@ -21,8 +22,9 @@ The workflow runs one job per country in `countries`. Each job:
 - `.java-version` and `.nvmrc` in the repository root.
 - A `docker-compose.yaml` that starts the engine on port 8080, with the country module from
   `COUNTRY_MODULE` (for example `COUNTRY_MODULE: ${COUNTRY_MODULE:-SE}`), and any stubs the engine needs.
-- A cucumber project in `working-directory` with a `package-lock.json`, an `.npmrc` for the
-  `@hiiretail` registry, and a `test:ci` script. To run scenarios only for some countries, tag them and
+- A cucumber project in `working-directory` with a `package-lock.json` and a `test:ci` script. With the
+  shared steps, it also needs an `.npmrc` for the `@hiiretail` registry. A suite with a copied step library
+  can move to this workflow first, and to the shared steps later. To run scenarios only for some countries, tag them and
   build a tag expression from `COUNTRY_CODE` in the cucumber configuration.
 - An `ITGeiTestData` test that builds the test database image, unless `build-test-database` is `false`.
 

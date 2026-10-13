@@ -115,8 +115,10 @@ jobs:
           cache: npm
           cache-dependency-path: ${{ inputs.working-directory }}/package-lock.json
 
-      # @hiiretail/cucumber-checkout-engine is published to Artifact Registry
+      # @hiiretail/cucumber-checkout-engine is published to Artifact Registry. Suites with a copied step
+      # library have no .npmrc for it, and don't need the login.
       - name: Authenticate to Artifact Registry
+        if: hashFiles(format('{0}/.npmrc', inputs.working-directory)) != ''
         run: npx --yes google-artifactregistry-auth
         working-directory: ${{ inputs.working-directory }}
 
