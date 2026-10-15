@@ -14,7 +14,7 @@
 # with
 #   uses: extenda/shared-workflows/.github/workflows/pnp-build-autopilot-processor.yml@v0
 # keeping the same `with:` and `secrets:`. Remove this file once no callers are left.
-name: Merge to master
+name: PnP processor (deprecated, nested) - build, release and deploy to Autopilot staging
 
 on:
   workflow_call:

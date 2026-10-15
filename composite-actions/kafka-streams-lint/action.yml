@@ -57,13 +57,7 @@ runs:
         service-account-key: ${{ inputs.service-account-key }}
         working-directory: ${{ inputs.working-directory }}
 
-    - name: Kafka Streams lint - build classpath with maven
-      uses: extenda/actions/maven@v0
-      with:
-        args: dependency:build-classpath -DincludeScope=runtime -Dmdep.outputFile=cp.txt -DexcludeGroupIds=org.jetbrains.kotlin -DexcludeArtifactIds=kotlin-compiler-embeddable -q ${{ steps.config.outputs.maven-settings }}
-        service-account-key: ${{ inputs.service-account-key }}
-        working-directory: ${{ inputs.working-directory }}
-
+    # lib/ holds the dependencies of all scopes, so it is the whole Detekt classpath.
     - name: Kafka Streams lint - build classpath lib dir with maven
       uses: extenda/actions/maven@v0
       with:
@@ -98,11 +92,12 @@ runs:
         # Detekt 1.23.8 supports up to JVM target 22.
         DETEKT_JVM_TARGET="21"
 
-        DETEKT_CLASSPATH="$BASE_DIR/target/classes:$(cat "$BASE_DIR/cp.txt")"
+        DETEKT_CLASSPATH="$BASE_DIR/target/classes"
         LIB_JARS_CLASSPATH="$(find "$BASE_DIR/lib" -maxdepth 1 -type f -name '*.jar' -printf ':%p' | tr -d '\n')"
 
         DETEKT_PLUGIN_JAR="$HOME/.m2/repository/com/retailsvc/pnp-processors-core-common/${PNP_PROCESSORS_CORE_COMMON_VERSION}/pnp-processors-core-common-${PNP_PROCESSORS_CORE_COMMON_VERSION}.jar"
-        KAFKA_STREAMS_JAR="$(tr ':' '\n' < "$BASE_DIR/cp.txt" | grep -E '/org/apache/kafka/kafka-streams/[^/]+/kafka-streams-[^/]+\.jar$' | head -n1 || true)"
+        # kafka-streams-<version>.jar, not kafka-streams-test-utils or kafka-streams-scala.
+        KAFKA_STREAMS_JAR="$(find "$BASE_DIR/lib" -maxdepth 1 -type f -name 'kafka-streams-[0-9]*.jar' | head -n1)"
 
         if [[ ! -f "$DETEKT_PLUGIN_JAR" ]]; then
           echo "Detekt plugin jar not found: $DETEKT_PLUGIN_JAR"
@@ -110,7 +105,7 @@ runs:
         fi
 
         if [[ -z "$KAFKA_STREAMS_JAR" || ! -f "$KAFKA_STREAMS_JAR" ]]; then
-          echo "Kafka Streams jar not found in cp.txt; required for custom detekt rule classloading"
+          echo "Kafka Streams jar not found in lib; required for custom detekt rule classloading"
           exit 1
         fi
 

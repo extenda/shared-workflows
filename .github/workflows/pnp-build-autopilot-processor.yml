@@ -1,4 +1,4 @@
-name: Merge to master 
+name: PnP processor - build, release and deploy to Autopilot staging
 
 on:
   workflow_call:
