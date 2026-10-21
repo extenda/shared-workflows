@@ -352,6 +352,36 @@ write_files config/allcountries/config/receipt.xml "${RECEIPT/<group name=\"Refu
 commit
 assert_report "added empty named element" 'Test this change' '`Business/Flag` in `config/allcountries/config/receipt.xml`'
 
+# --- Review comments on the pull request ------------------------------------------------
+
+new_repo
+write_files plugins/p/src/main/resources/survey/survey.yaml 'enabled: false'
+git -C "$REPO" add -A && git -C "$REPO" commit -q -m survey && BASE=$(git -C "$REPO" rev-parse HEAD)
+write_files plugins/p/src/main/resources/survey/survey.yaml 'enabled: "false"'
+commit
+assert_report "YAML value that changes type" 'Test this change' '`enabled` in `plugins/p/src/main/resources/survey/survey.yaml`'
+
+new_repo
+write_files plugins/p/src/main/java/com/x/Url.java 'class Url {
+  String url = "http://example.com/a"; // the old service
+}'
+git -C "$REPO" add -A && git -C "$REPO" commit -q -m url && BASE=$(git -C "$REPO" rev-parse HEAD)
+write_files plugins/p/src/main/java/com/x/Url.java 'class Url {
+  String url = "http://example.com/a"; // the new service
+}'
+commit
+assert_report "trailing Java comment change is no change" 'This pull request changes no customizations'
+write_files plugins/p/src/main/java/com/x/Url.java 'class Url {
+  String url = "http://example.com/b"; // the new service
+}'
+commit
+assert_report "change after // inside a Java string is code" 'Test this change' '`plugins/p/src/main/java/com/x/Url.java`'
+
+new_repo
+write_files config/allcountries/config/empty.xml '<config version="1"/>'
+commit
+assert_report "added XML file without keys" 'Test this change' '- `config/allcountries/config/empty.xml`'
+
 # --- fail-on ----------------------------------------------------------------------------
 
 new_repo

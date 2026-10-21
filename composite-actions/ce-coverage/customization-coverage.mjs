@@ -237,8 +237,8 @@ function flattenYaml(text) {
     if (node && typeof node === 'object') {
       for (const [key, child] of Object.entries(node)) walk(child, [...path, key]);
     } else {
-      const value = node == null ? '' : String(node);
-      entries.set(path.join('.'), { value, sig: value, path });
+      // Compared with its type, so false, "false" and null are different values
+      entries.set(path.join('.'), { value: node == null ? '' : String(node), sig: JSON.stringify(node ?? null), path });
     }
   };
   walk(doc, []);
@@ -278,16 +278,39 @@ function readDockerfile(text) {
   return dockerfile;
 }
 
-// Trimmed lines without blank lines and, in Java, without block comments and // comment lines. A line
-// that starts with * outside a comment is code, e.g. a wrapped multiplication.
-const codeOf = (path, text) => {
-  const java = path.endsWith('.java');
-  return (java ? (text ?? '').replace(/\/\*[\s\S]*?\*\//g, '') : (text ?? ''))
+// Java without its comments. Strings, characters and text blocks are kept as they are, so "http://x" isn't
+// a comment, and a line that starts with * outside a comment is code, e.g. a wrapped multiplication.
+function stripJavaComments(text) {
+  let code = '';
+  let i = 0;
+  const skipTo = (end, after) => {
+    const found = text.indexOf(end, after);
+    return found < 0 ? text.length : found;
+  };
+  while (i < text.length) {
+    if (text.startsWith('//', i)) i = skipTo('\n', i);
+    else if (text.startsWith('/*', i)) i = skipTo('*/', i + 2) + 2;
+    else if (text.startsWith('"""', i)) {
+      const end = skipTo('"""', i + 3) + 3;
+      code += text.slice(i, end);
+      i = end;
+    } else if (text[i] === '"' || text[i] === "'") {
+      let end = i + 1;
+      while (end < text.length && text[end] !== text[i] && text[end] !== '\n') end += text[end] === '\\' ? 2 : 1;
+      code += text.slice(i, end + 1);
+      i = end + 1;
+    } else code += text[i++];
+  }
+  return code;
+}
+
+// Trimmed lines without blank lines and, in Java, without comments.
+const codeOf = (path, text) =>
+  (path.endsWith('.java') ? stripJavaComments(text ?? '') : (text ?? ''))
     .split(/\r?\n/)
     .map((line) => line.trim())
-    .filter((line) => line && !(java && line.startsWith('//')))
+    .filter(Boolean)
     .join('\n');
-};
 
 function changedKeys(before, after) {
   return [...new Set([...before.keys(), ...after.keys()])]
@@ -336,9 +359,11 @@ function classifyFile(file, before, after, rules) {
       return { ...c, kind: wiringOr(false, c.key) };
     });
   }
-  // A file moved without changes, e.g. to another country module
-  if (!changes.length && file.oldPath && file.newPath && file.oldPath !== file.newPath) {
-    changes.push({ key: null, kind: matches(rules.text, path) ? 'text' : 'behaviour' });
+  // A file added, deleted or moved without a changed key of its own still changes what the engine loads, e.g.
+  // a config file with only <config version="1"> or one moved to another country module. Texts are compared
+  // by key, wherever their file is.
+  if (!changes.length && file.oldPath !== file.newPath && !matches(rules.text, path)) {
+    changes.push({ key: null, kind: 'behaviour' });
   }
   return changes;
 }

@@ -101,8 +101,9 @@ Every customer engine should run at least 85% of its plugins' lines in the accep
 summary and the comment show a warning, and the run gets a warning annotation. The build doesn't fail.
 Percentages are rounded down, so a coverage below 85% never shows as 85.0%.
 
-The coverage only counts countries whose scenarios ran. A country whose scenarios failed or didn't run, for
-example because lint failed, is named in a warning, and the coverage isn't compared with 85%. Without any data,
+The coverage counts the data of every country whose scenarios ran, also when some of them failed, since those
+lines did run. A country whose scenarios failed or didn't run, for example because lint failed, is named in a
+warning, and the coverage isn't compared with 85%, since it's lower than with every scenario. Without any data,
 the report says so instead of showing a number. The report names the commit it measured, and a warning names
 classes whose coverage data doesn't match their class files, which happens when the countries' builds differ.
 

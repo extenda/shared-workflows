@@ -67,8 +67,9 @@ runs:
         MODULES: ${{ inputs.modules }}
       run: '"$GITHUB_ACTION_PATH/plugin-coverage.sh" prepare'
 
+    # !cancelled(): without a status check, the step would be skipped when cucumber failed the job
     - name: Plugin coverage - collect
-      if: inputs.step == 'collect'
+      if: ${{ !cancelled() && inputs.step == 'collect' }}
       shell: bash
       env:
         MODULES: ${{ inputs.modules }}
@@ -77,7 +78,7 @@ runs:
       run: '"$GITHUB_ACTION_PATH/plugin-coverage.sh" collect'
 
     - name: Plugin coverage - upload
-      if: inputs.step == 'collect'
+      if: ${{ !cancelled() && inputs.step == 'collect' }}
       uses: actions/upload-artifact@v7
       with:
         name: plugin-coverage-${{ inputs.country }}

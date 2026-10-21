@@ -1,7 +1,7 @@
 // Tests for the sections of the coverage comment. Usage: node --test composite-actions/ce-coverage/comment.test.mjs
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { currentBody, isCoverageComment, MARKER, updateBody } from './comment.mjs';
+import { currentBody, isCoverageComment, MARKER, updateBody, writeSection } from './comment.mjs';
 
 const CUSTOMIZATION = '### Customization coverage\n\n✅ **This pull request changes no customizations.**';
 const PLUGIN = '### Plugin coverage\n\n**78.2%** of the plugins\' lines ran';
@@ -63,4 +63,63 @@ test('a stale note is replaced, not repeated', () => {
 test('other comments are left alone', () => {
   assert.ok(!isCoverageComment('LGTM'));
   assert.ok(!isCoverageComment(undefined));
+});
+
+// An in-memory GitHub with one pull request. other() runs while writeSection pauses, like the other workflow.
+function fakeGitHub(head, other = () => {}) {
+  const state = { head, comments: [], next: 1 };
+  const id = (path) => Number(path.split('/').at(-1));
+  const api = async (method, path, body) => {
+    if (method === 'GET' && /\/pulls\/\d+$/.test(path)) return { head: { sha: state.head } };
+    if (method === 'GET') return path.endsWith('page=1') ? state.comments.map((c) => ({ ...c })) : [];
+    if (method === 'POST') state.comments.push({ id: state.next++, body: body.body });
+    if (method === 'PATCH') state.comments.find((c) => c.id === id(path)).body = body.body;
+    if (method === 'DELETE') state.comments = state.comments.filter((c) => c.id !== id(path));
+    return null;
+  };
+  let pauses = 0;
+  const pause = async () => other(state, ++pauses);
+  return { state, write: (section, report, sha) => writeSection(api, 'o/r', 1, section, report, sha, pause) };
+}
+
+test('a section is written and read back', async () => {
+  const github = fakeGitHub('aaaaaaa1');
+  assert.match(await github.write('customization', CUSTOMIZATION, 'aaaaaaa1'), /^Wrote the customization coverage/);
+  assert.equal(github.state.comments.length, 1);
+  assert.ok(github.state.comments[0].body.includes(CUSTOMIZATION));
+});
+
+test('a section the other workflow overwrote at the same time is written again', async () => {
+  // The other workflow read the comment before this one wrote, and writes its section on the old body
+  const github = fakeGitHub('aaaaaaa1', (state, n) => {
+    if (n === 1) state.comments[0].body = updateBody(undefined, 'plugin', PLUGIN, 'aaaaaaa1');
+  });
+  await github.write('customization', CUSTOMIZATION, 'aaaaaaa1');
+  assert.equal(github.state.comments.length, 1);
+  assert.ok(github.state.comments[0].body.includes(CUSTOMIZATION));
+  assert.ok(github.state.comments[0].body.includes(PLUGIN));
+});
+
+test('two comments created at the same time become the oldest one', async () => {
+  const github = fakeGitHub('aaaaaaa1', (state, n) => {
+    if (n === 1) state.comments.push({ id: state.next++, body: updateBody(undefined, 'plugin', PLUGIN, 'aaaaaaa1') });
+  });
+  await github.write('customization', CUSTOMIZATION, 'aaaaaaa1');
+  assert.deepEqual(github.state.comments.map((c) => c.id), [1]);
+  assert.ok(github.state.comments[0].body.includes(CUSTOMIZATION));
+  assert.ok(github.state.comments[0].body.includes(PLUGIN));
+});
+
+test('a report for an earlier commit than the head is not written', async () => {
+  const github = fakeGitHub('bbbbbbb2');
+  github.state.comments.push({ id: github.state.next++, body: updateBody(undefined, 'plugin', PLUGIN, 'bbbbbbb2') });
+  assert.match(await github.write('plugin', '### Plugin coverage\n\nold', 'aaaaaaa1'), /isn't written/);
+  assert.ok(github.state.comments[0].body.includes(PLUGIN));
+});
+
+test('it stops after three overwrites', async () => {
+  const github = fakeGitHub('aaaaaaa1', (state) => {
+    state.comments[0].body = updateBody(undefined, 'plugin', PLUGIN, 'aaaaaaa1');
+  });
+  assert.match(await github.write('customization', CUSTOMIZATION, 'aaaaaaa1'), /overwritten three times/);
 });
