@@ -17,6 +17,9 @@ The workflow runs one job per country in `countries`. Each job:
 5. Optionally builds, pushes and attests the engine image. Only the first country's job does this, after
    its tests pass. Gate releases on the whole calling workflow, so that every country must pass.
 
+With `plugin-coverage`, it also measures which lines of the plugins the scenarios run, see
+[Plugin coverage](#plugin-coverage).
+
 ## Repository requirements
 
 - `.java-version` and `.nvmrc` in the repository root.
@@ -68,6 +71,8 @@ permissions:
 | `working-directory`   | `acceptance/cucumber`                       | The directory of the cucumber project.                                                           |
 | `build-test-database` | `true`                                      | Build the test database image from the commit's test data. When `false`, docker compose pulls it. |
 | `test-database-args`  | `test -Dtest=ITGeiTestData …ClassPathLoader` | The Maven arguments that build the test database image.                                          |
+| `plugin-coverage`     | `false`                                     | Measure with JaCoCo which lines of the plugins the scenarios run, see [Plugin coverage](#plugin-coverage). |
+| `plugin-modules`      | `plugins/*`                                 | A glob of the Maven modules with the plugins. Their classes are instrumented and reported.       |
 
 ## Secrets
 
@@ -77,6 +82,48 @@ Pass them with `secrets: inherit`.
 |-----------------------|----------------------------------------------------------------------------------------------|
 | `SECRET_AUTH`         | Service account key for Nexus.                                                               |
 | `GCLOUD_AUTH_STAGING` | Service account key for the test database, the cucumber test users, GCR and image attestation. |
+
+## Plugin coverage
+
+```yaml
+    with:
+      countries: '["SE", "NO"]'
+      plugin-coverage: true
+```
+
+Each country's job mounts the [JaCoCo](https://www.jacoco.org/jacoco/) agent into the engine container,
+instrumenting only the packages of the classes in `plugin-modules`. After the scenarios, it collects which
+lines ran. A `plugin coverage` job then merges the countries, since each country runs its own plugin code, and
+writes the share of lines and branches that ran, per package and with the classes that miss most, to the
+workflow summary. The line-by-line report is in the `plugin-coverage-report` artifact.
+
+Every customer engine should run at least 85% of its plugins' lines in the acceptance tests. Below that, the
+summary and the comment show a warning, and the run gets a warning annotation. The build doesn't fail.
+Percentages are rounded down, so a coverage below 85% never shows as 85.0%.
+
+The coverage only counts countries whose scenarios ran. A country whose scenarios failed or didn't run, for
+example because lint failed, is named in a warning, and the coverage isn't compared with 85%. Without any data,
+the report says so instead of showing a number. The report names the commit it measured, and a warning names
+classes whose coverage data doesn't match their class files, which happens when the countries' builds differ.
+
+When the pushed commit is the head of an open pull request, the job also writes the result to the pull
+request's coverage comment, next to the [customization coverage](ce-customization-coverage.md). That needs
+`pull-requests: write` in the calling workflow; without it, the job warns and leaves the comment out:
+
+```yaml
+permissions:
+  contents: read
+  id-token: write
+  pull-requests: write
+```
+
+The agent is added with a second compose file and `JDK_JAVA_OPTIONS`, which the `java` launcher reads on top of
+the repository's own `JAVA_TOOL_OPTIONS`. The engine service must be called `checkout-api`. The image that's
+pushed is built without the agent. Measured on Rusta, the agent made no noticeable difference to the run time.
+The steps are in the [`ce-coverage`](../composite-actions/ce-coverage) composite action.
+
+Plugin coverage tells which plugin code no scenario runs. For which configuration has no scenario, use
+[`ce-customization-coverage.yml`](ce-customization-coverage.md).
 
 ## Moving from a copied test job
 

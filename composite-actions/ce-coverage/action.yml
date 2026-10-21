@@ -1,0 +1,138 @@
+name: 'Checkout Engine coverage'
+description: |
+  The coverage reports of a customer Checkout Engine, in the job summary and one pull request comment:
+  which customizations a pull request changes and whether scenarios test them, and which lines of the plugins
+  the acceptance tests run. Used by ce-customization-coverage.yml and ce-acceptance-test.yml, one step at a time.
+  See docs/ce-customization-coverage.md and docs/ce-acceptance-test.md.
+
+inputs:
+  step:
+    description: |
+      customization: report the customization coverage of a pull request. Needs actions/checkout with fetch-depth: 0.
+      prepare: before docker compose, add the JaCoCo agent to the engine.
+      collect: after cucumber, save the country's plugin coverage.
+      report: in a job after every country, merge and report the plugin coverage.
+    required: true
+  fail-on:
+    description: "customization: 'none' never fails, 'unmapped' fails on changes no customization covers, 'untested' also on customizations and texts without scenarios"
+    required: false
+    default: 'none'
+  modules:
+    description: 'prepare and collect: a glob of the Maven modules with the plugins'
+    required: false
+    default: 'plugins/*'
+  country:
+    description: 'collect: the country module the scenarios ran for'
+    required: false
+  outcome:
+    description: "collect: the outcome of the cucumber step, e.g. 'success' or 'skipped'"
+    required: false
+  countries:
+    description: 'report: a JSON array of every country module that was tested'
+    required: false
+
+outputs:
+  report:
+    description: 'customization and report: path to the Markdown report'
+    value: ${{ steps.customization.outputs.report || steps.report.outputs.report }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Customization coverage
+      id: customization
+      if: inputs.step == 'customization'
+      shell: bash
+      env:
+        BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        FAIL_ON: ${{ inputs.fail-on }}
+      run: |
+        if [[ -z "$BASE_SHA" || -z "$HEAD_SHA" ]]; then
+          echo "::error::The customization coverage runs in pull_request events"
+          exit 1
+        fi
+        npm ci --prefix "$GITHUB_ACTION_PATH" --no-audit --no-fund --silent
+        report="$RUNNER_TEMP/customization-coverage.md"
+        failed=false
+        node "$GITHUB_ACTION_PATH/customization-coverage.mjs" --base "$BASE_SHA" --head "$HEAD_SHA" --out "$report" --fail-on "$FAIL_ON" || failed=true
+        cat "$report" >> "$GITHUB_STEP_SUMMARY"
+        echo "report=$report" >> "$GITHUB_OUTPUT"
+        echo "failed=$failed" >> "$GITHUB_OUTPUT"
+
+    - name: Plugin coverage - prepare
+      if: inputs.step == 'prepare'
+      shell: bash
+      env:
+        MODULES: ${{ inputs.modules }}
+      run: '"$GITHUB_ACTION_PATH/plugin-coverage.sh" prepare'
+
+    - name: Plugin coverage - collect
+      if: inputs.step == 'collect'
+      shell: bash
+      env:
+        MODULES: ${{ inputs.modules }}
+        COUNTRY: ${{ inputs.country }}
+        OUTCOME: ${{ inputs.outcome }}
+      run: '"$GITHUB_ACTION_PATH/plugin-coverage.sh" collect'
+
+    - name: Plugin coverage - upload
+      if: inputs.step == 'collect'
+      uses: actions/upload-artifact@v7
+      with:
+        name: plugin-coverage-${{ inputs.country }}
+        path: ${{ runner.temp }}/jacoco/coverage
+        if-no-files-found: warn
+        retention-days: 7
+
+    # When no country uploaded anything, the report says so instead
+    - name: Plugin coverage - download
+      if: inputs.step == 'report'
+      continue-on-error: true
+      uses: actions/download-artifact@v8
+      with:
+        pattern: plugin-coverage-*
+        path: coverage
+
+    - name: Plugin coverage - report
+      id: report
+      if: inputs.step == 'report'
+      shell: bash
+      env:
+        COUNTRIES: ${{ inputs.countries }}
+        SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      run: |
+        "$GITHUB_ACTION_PATH/plugin-coverage.sh" report
+        echo "report=$PWD/plugin-coverage.md" >> "$GITHUB_OUTPUT"
+
+    - name: Plugin coverage - upload report
+      if: inputs.step == 'report' && hashFiles('report/index.html') != ''
+      uses: actions/upload-artifact@v7
+      with:
+        name: plugin-coverage-report
+        path: report
+        retention-days: 14
+
+    # Each report is one section of the comment; a push comments on the open pull request with this head commit.
+    # Without pull-requests: write, it warns instead. Also after fail-on, so the comment says why.
+    - name: Coverage comment
+      if: ${{ !cancelled() && (steps.customization.outputs.report != '' || steps.report.outputs.report != '') }}
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+        SECTION: ${{ inputs.step == 'customization' && 'customization' || 'plugin' }}
+        REPORT: ${{ steps.customization.outputs.report || steps.report.outputs.report }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+        SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      run: node "$GITHUB_ACTION_PATH/comment.mjs" --section "$SECTION" --report "$REPORT" --sha "$SHA" --pr "$PR_NUMBER"
+
+    # A step of its own, so the comment is written before fail-on fails the action
+    - name: Customization coverage - result
+      if: steps.customization.outputs.failed == 'true'
+      shell: bash
+      env:
+        FAIL_ON: ${{ inputs.fail-on }}
+      run: |
+        echo "::error::Changes without known scenarios (fail-on: $FAIL_ON), see the job summary"
+        exit 1

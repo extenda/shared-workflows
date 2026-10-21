@@ -1,0 +1,31 @@
+name: Checkout Engine coverage tests
+
+on:
+  pull_request:
+    paths:
+      - 'composite-actions/ce-coverage/**'
+      - '.github/workflows/ce-coverage-tests.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: composite-actions/ce-coverage
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: ShellCheck
+        run: shellcheck ./*.sh
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      - name: Customization coverage tests
+        run: ./customization-coverage.test.sh
+
+      - name: Comment tests
+        run: node --test comment.test.mjs
+
+      - name: Plugin coverage report tests
+        run: python3 -m unittest plugin_report_test
