@@ -95,9 +95,10 @@ Each country's job mounts the [JaCoCo](https://www.jacoco.org/jacoco/) agent int
 instrumenting only the packages of the classes in `plugin-modules`. After the scenarios, it collects which
 lines ran. A `plugin coverage` job then merges the countries, since each country runs its own plugin code, and
 writes the share of lines and branches that ran, per package and with the classes that miss most, to the
-workflow summary. The line-by-line report is in the `plugin-coverage-report` artifact. Only classes compiled
-from a module's `src/main/java` count, so code generated at build time, for example from a `.proto` file,
-isn't part of the plugins' coverage.
+workflow summary. The line-by-line report is in the `plugin-coverage-report` artifact. In a module with
+`src/main/java`, only the classes of its `.java` files, with their nested and anonymous classes, count. Code
+generated at build time, for example from a `.proto` file or by an annotation processor, isn't part of the
+plugins' coverage.
 
 Every customer engine should run at least 85% of its plugins' lines in the acceptance tests. Below that, the
 summary and the comment show a warning, and the run gets a warning annotation. The build doesn't fail.

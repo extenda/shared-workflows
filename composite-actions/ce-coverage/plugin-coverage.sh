@@ -96,6 +96,8 @@ collect() {
 # Arguments: <module>
 own() {
   local file outer
+  # Also when nothing matches, since JaCoCo fails on a missing directory
+  mkdir -p "$1/target/own-classes"
   while IFS= read -r file; do
     outer=${file%.class}
     outer=${outer%%\$*}
