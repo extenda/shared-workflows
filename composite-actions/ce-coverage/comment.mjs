@@ -32,7 +32,8 @@ function sectionsOf(body) {
 }
 
 // The comment with its sections in order. A section for an earlier commit than the one just written says so,
-// until its own workflow reports on that commit.
+// until its own workflow reports on that commit. That may not happen, e.g. when the acceptance tests ignore
+// the pushed paths, so the note doesn't promise it.
 function bodyOf(sections, written, sha) {
   return [
     MARKER,
@@ -40,7 +41,7 @@ function bodyOf(sections, written, sha) {
       const { sha: of, content } = sections.get(s);
       const stale =
         s !== written && of && sha && of !== sha
-          ? [`<!-- stale -->\n> [!NOTE]\n> This is for an earlier commit, \`${short(of)}\`. The report for \`${short(sha)}\` hasn't arrived yet.\n<!-- /stale -->`]
+          ? [`<!-- stale -->\n> [!NOTE]\n> This is for an earlier commit, \`${short(of)}\`.\n<!-- /stale -->`]
           : [];
       return [begin(s, of), ...stale, content, end(s), ''];
     }),

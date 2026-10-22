@@ -60,6 +60,32 @@ runs:
         echo "report=$report" >> "$GITHUB_OUTPUT"
         echo "failed=$failed" >> "$GITHUB_OUTPUT"
 
+    # The plugin coverage of the head commit, when the acceptance tests finished before the pull request was
+    # opened: their run found no pull request to comment on. Needs actions: read.
+    - name: Plugin coverage - find the report
+      id: plugin
+      if: ${{ !cancelled() && inputs.step == 'customization' }}
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        SHA: ${{ github.event.pull_request.head.sha }}
+      run: |
+        query="[.artifacts[] | select(.workflow_run.head_sha == \"$SHA\" and (.expired | not))][0].workflow_run.id // empty"
+        if ! run=$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=plugin-coverage-summary&per_page=100" --jq "$query"); then
+          echo "::warning::Can't look for the plugin coverage. Give the workflow actions: read."
+          run=
+        fi
+        echo "run-id=$run" >> "$GITHUB_OUTPUT"
+
+    - name: Plugin coverage - download the report
+      if: steps.plugin.outputs.run-id != ''
+      uses: actions/download-artifact@v8
+      with:
+        name: plugin-coverage-summary
+        run-id: ${{ steps.plugin.outputs.run-id }}
+        github-token: ${{ github.token }}
+        path: ${{ runner.temp }}/plugin-coverage
+
     - name: Plugin coverage - prepare
       if: inputs.step == 'prepare'
       shell: bash
@@ -115,10 +141,20 @@ runs:
         path: report
         retention-days: 14
 
+    # For a pull request opened after this run: its customization step shows this report too
+    - name: Plugin coverage - upload summary
+      if: inputs.step == 'report'
+      uses: actions/upload-artifact@v7
+      with:
+        name: plugin-coverage-summary
+        path: ${{ steps.report.outputs.report }}
+        retention-days: 14
+
     # Each report is one section of the comment; a push comments on the open pull request with this head commit.
-    # Without pull-requests: write, it warns instead. Also after fail-on, so the comment says why.
+    # Without pull-requests: write, it warns instead. Also after fail-on, so the comment says why. Dependabot's
+    # token can't comment.
     - name: Coverage comment
-      if: ${{ !cancelled() && (steps.customization.outputs.report != '' || steps.report.outputs.report != '') }}
+      if: ${{ !cancelled() && (steps.customization.outputs.report != '' || steps.report.outputs.report != '') && github.actor != 'dependabot[bot]' }}
       shell: bash
       env:
         GITHUB_TOKEN: ${{ github.token }}
@@ -127,6 +163,15 @@ runs:
         PR_NUMBER: ${{ github.event.pull_request.number }}
         SHA: ${{ github.event.pull_request.head.sha || github.sha }}
       run: node "$GITHUB_ACTION_PATH/comment.mjs" --section "$SECTION" --report "$REPORT" --sha "$SHA" --pr "$PR_NUMBER"
+
+    - name: Plugin coverage comment
+      if: ${{ !cancelled() && steps.plugin.outputs.run-id != '' && github.actor != 'dependabot[bot]' }}
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+        SHA: ${{ github.event.pull_request.head.sha }}
+      run: node "$GITHUB_ACTION_PATH/comment.mjs" --section plugin --report "$RUNNER_TEMP/plugin-coverage/plugin-coverage.md" --sha "$SHA" --pr "$PR_NUMBER"
 
     # A step of its own, so the comment is written before fail-on fails the action
     - name: Customization coverage - result

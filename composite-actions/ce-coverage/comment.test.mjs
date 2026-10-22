@@ -44,7 +44,7 @@ test('a section for an earlier commit says so, until its own report arrives', ()
   const first = updateBody(updateBody(undefined, 'customization', CUSTOMIZATION, 'aaaaaaa1'), 'plugin', PLUGIN, 'aaaaaaa1');
   assert.ok(!first.includes('earlier commit'));
   const pushed = updateBody(first, 'customization', CUSTOMIZATION, 'bbbbbbb2');
-  assert.ok(pushed.includes('This is for an earlier commit, `aaaaaaa`. The report for `bbbbbbb` hasn\'t arrived yet.'));
+  assert.ok(pushed.includes('This is for an earlier commit, `aaaaaaa`.'));
   assert.ok(pushed.indexOf('earlier commit') > pushed.indexOf('section:plugin'));
   // Written again for the new commit, the note goes away
   const caughtUp = updateBody(pushed, 'plugin', PLUGIN, 'bbbbbbb2');
@@ -57,7 +57,6 @@ test('a stale note is replaced, not repeated', () => {
   body = updateBody(body, 'customization', CUSTOMIZATION, 'bbbbbbb2');
   body = updateBody(body, 'customization', CUSTOMIZATION, 'ccccccc3');
   assert.equal(body.match(/earlier commit/g).length, 1);
-  assert.ok(body.includes('The report for `ccccccc` hasn\'t arrived yet.'));
 });
 
 test('other comments are left alone', () => {

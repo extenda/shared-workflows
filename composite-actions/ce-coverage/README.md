@@ -47,7 +47,8 @@ and each workflow replaces only its own.
     countries: '["SE", "NO"]'
 ```
 
-The comment needs `pull-requests: write`. Without it, the action warns and doesn't fail.
+The comment needs `pull-requests: write`, and showing the plugin coverage of acceptance tests that ran before the
+pull request was opened needs `actions: read`. Without them, the action warns and doesn't fail.
 
 ### Inputs
 

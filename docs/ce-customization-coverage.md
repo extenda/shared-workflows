@@ -12,7 +12,8 @@ takes seconds.
 With `plugin-coverage` in [`ce-acceptance-test.yml`](ce-acceptance-test.md#plugin-coverage), the same comment
 also shows which plugin code the scenarios run. The customization coverage appears within seconds of a push, and
 the plugin coverage when the acceptance tests have finished. Each workflow replaces only its own section. Until
-the plugin coverage reports on a new push, its section says it's for an earlier commit.
+the plugin coverage reports on a new push, its section says it's for an earlier commit. When the acceptance
+tests finished before the pull request was opened, the customization coverage shows their plugin coverage too.
 
 ## What counts as a customization
 
@@ -110,6 +111,8 @@ on:
 permissions:
   contents: read
   pull-requests: write
+  # For the plugin coverage of acceptance tests that ran before the pull request was opened
+  actions: read
 
 jobs:
   coverage:
@@ -117,7 +120,9 @@ jobs:
 ```
 
 The workflow skips Dependabot pull requests, whose token can't comment, and cancels older runs of the same pull
-request, so the comment matches its head. A pull request whose head commit has `[skip ci]` gets no comment.
+request, so the comment matches its head. A pull request whose head commit has `[skip ci]` gets no comment, and
+GitHub doesn't run the workflow while a pull request has a merge conflict, so the comment keeps the report from
+before the conflict until it's resolved.
 
 ## Inputs
 
