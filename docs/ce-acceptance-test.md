@@ -123,6 +123,10 @@ the repository's own `JAVA_TOOL_OPTIONS`. The engine service must be called `che
 pushed is built without the agent. Measured on Rusta, the agent made no noticeable difference to the run time.
 The steps are in the [`ce-coverage`](../composite-actions/ce-coverage) composite action.
 
+The JaCoCo jars come from Maven Central, and the Actions cache keeps them, so most runs don't download them.
+When the agent can't be added, for example because Maven Central limits the rate, the country's scenarios still
+run, without it, and the report names the country as incomplete. The coverage never stops the acceptance tests.
+
 Plugin coverage tells which plugin code no scenario runs. For which configuration has no scenario, use
 [`ce-customization-coverage.yml`](ce-customization-coverage.md).
 

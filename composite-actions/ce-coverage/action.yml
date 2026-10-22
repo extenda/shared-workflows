@@ -86,6 +86,21 @@ runs:
         github-token: ${{ github.token }}
         path: ${{ runner.temp }}/plugin-coverage
 
+    # The JaCoCo jars, so most runs don't download them from Maven Central, which can limit the rate
+    - name: Plugin coverage - JaCoCo version
+      id: jacoco
+      if: inputs.step == 'prepare' || inputs.step == 'report'
+      shell: bash
+      run: echo "version=$("$GITHUB_ACTION_PATH/plugin-coverage.sh" version)" >> "$GITHUB_OUTPUT"
+
+    - name: Plugin coverage - JaCoCo cache
+      if: steps.jacoco.outputs.version != ''
+      continue-on-error: true
+      uses: actions/cache@v4
+      with:
+        path: ${{ runner.temp }}/jacoco-jars
+        key: jacoco-${{ steps.jacoco.outputs.version }}
+
     - name: Plugin coverage - prepare
       if: inputs.step == 'prepare'
       shell: bash

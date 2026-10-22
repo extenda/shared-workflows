@@ -4,6 +4,7 @@
 #   plugin-coverage.sh prepare   Before docker compose: adds the agent to the engine, for the plugins' packages
 #   plugin-coverage.sh collect   After cucumber: saves the country's data, outcome, classes and sources
 #   plugin-coverage.sh report    With every country's artifact in coverage/: writes plugin-coverage.md
+#   plugin-coverage.sh version   Prints the pinned JaCoCo version, the key of the jars' cache
 #
 # Reads MODULES (a glob of the plugin modules), COUNTRY, OUTCOME (of the cucumber step), COUNTRIES (a JSON
 # array), SHA and RUN_URL from the environment, as the step needs them.
@@ -14,12 +15,26 @@ JACOCO_VERSION=0.8.15
 JACOCO_AGENT_SHA256=fb5b0036a0899ea97edfa0fc2c7985b55f3f7c5695028163e5e60d4f3cf6075d
 JACOCO_CLI_SHA256=d2b74b20b415163c1f53261e7c5ef4445b788327094208ff821e0c2baf9bc8f1
 DIR="$RUNNER_TEMP/jacoco"
+# The action restores this directory from the Actions cache, so most runs don't download the jars
+JARS="$RUNNER_TEMP/jacoco-jars"
 HERE=$(cd "$(dirname "$0")" && pwd)
 
-# Downloads a JaCoCo jar from Maven Central and checks it. Arguments: <artifact> <classifier> <sha256> <file>
+# Copies a checked JaCoCo jar from the cache, or downloads it from Maven Central first.
+# Arguments: <artifact> <classifier> <sha256> <file>
 download() {
-  curl -sSfo "$4" "https://repo1.maven.org/maven2/org/jacoco/org.jacoco.$1/$JACOCO_VERSION/org.jacoco.$1-$JACOCO_VERSION-$2.jar"
-  echo "$3  $4" | sha256sum --check --strict --quiet
+  local jar="$JARS/org.jacoco.$1-$JACOCO_VERSION-$2.jar"
+  if ! echo "$3  $jar" | sha256sum --check --strict --status 2> /dev/null; then
+    mkdir -p "$JARS"
+    # --retry also retries a 429 when Maven Central limits the rate, after its Retry-After
+    curl -sSf --retry 5 --retry-max-time 120 -o "$jar" \
+      "https://repo1.maven.org/maven2/org/jacoco/org.jacoco.$1/$JACOCO_VERSION/org.jacoco.$1-$JACOCO_VERSION-$2.jar"
+    echo "$3  $jar" | sha256sum --check --strict --quiet
+  fi
+  cp "$jar" "$4"
+}
+
+version() {
+  echo "$JACOCO_VERSION"
 }
 
 prepare() {
@@ -52,11 +67,15 @@ EOF
 }
 
 # Without a cucumber run the data would only hold the engine's startup, so it isn't collected. The outcome is
-# saved next to the data, so the report knows when a country is incomplete.
+# saved next to the data, so the report knows when a country is incomplete. When prepare failed, the
+# scenarios ran without the agent, and there's no data to collect.
 collect() {
   mkdir -p "$DIR/coverage"
   local result=$OUTCOME
-  if [ "$result" != skipped ] &&
+  if [ "$result" != skipped ] && [ ! -f "$DIR/docker-compose.coverage.yaml" ]; then
+    echo "::warning::The engine in $COUNTRY ran without the JaCoCo agent, because preparing the plugin coverage failed"
+    result=no-agent
+  elif [ "$result" != skipped ] &&
     ! java -jar "$DIR/jacococli.jar" dump --address localhost --port 6300 --destfile "$DIR/coverage/$COUNTRY.exec" --quiet; then
     echo "::warning::No plugin coverage data from the engine in $COUNTRY"
     result=no-data

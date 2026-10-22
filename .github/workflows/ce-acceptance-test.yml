@@ -114,10 +114,12 @@ jobs:
           version: pom.xml
 
       # The JaCoCo agent records which lines of the plugins the scenarios run. The image that's pushed is built
-      # without it.
+      # without it. When it can't be added, e.g. Maven Central is down, the scenarios still run, without it,
+      # and the report names the country.
       # @v0, so the action comes from the same release as this workflow
       - name: Prepare plugin coverage
         if: inputs.plugin-coverage
+        continue-on-error: true
         uses: extenda/shared-workflows/composite-actions/ce-coverage@v0
         with:
           step: prepare

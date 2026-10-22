@@ -23,6 +23,7 @@ REASONS = {
     'failure': 'scenarios failed',
     'skipped': "scenarios didn't run",
     'no-data': 'no data from the engine',
+    'no-agent': "the JaCoCo agent couldn't be added",
     'missing': 'no result',
     'cancelled': 'cancelled',
 }

@@ -69,6 +69,14 @@ class ReportTest(unittest.TestCase):
         self.assertNotIn('below 85%', out)
         self.assertEqual(len(warnings), 1)
 
+    def test_a_country_without_the_agent_is_named(self):
+        self.country('SE', 'success')
+        self.country('DE', 'no-agent', data=False)
+        self.csv('p,com.x,A,0,0,0,0,10,90')
+        out, _ = self.run_report(['SE', 'DE'])
+        self.assertIn('Countries: SE.', out)
+        self.assertIn("The coverage is incomplete: DE (the JaCoCo agent couldn't be added).", out)
+
     def test_without_data(self):
         self.country('SE', 'skipped', data=False)
         self.csv()
