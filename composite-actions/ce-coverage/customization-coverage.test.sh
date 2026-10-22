@@ -385,7 +385,10 @@ assert_report "added XML file without keys" 'Test this change' '- `config/allcou
 new_repo
 write_files txengine_prod.properties 'label=OK'
 git -C "$REPO" add -A && git -C "$REPO" commit -q -m props && BASE=$(git -C "$REPO" rev-parse HEAD)
-write_files txengine_prod.properties 'label=OK'
+# A Unicode escape of O, built here so the file holds the escape
+# shellcheck disable=SC1003 # one backslash
+backslash='\'
+write_files txengine_prod.properties "label=${backslash}u004fK"
 commit
 assert_report "escaped property value that means the same" 'This pull request changes no customizations'
 
