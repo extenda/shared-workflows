@@ -1,0 +1,40 @@
+# Comments on a customer Checkout Engine pull request with the customizations it changes and whether
+# acceptance scenarios test them. The plugin coverage of ce-acceptance-test.yml reports in the same comment.
+# See docs/ce-customization-coverage.md.
+name: Checkout Engine customization coverage
+on:
+  workflow_call:
+    inputs:
+      fail-on:
+        description: |
+          none never fails. unmapped fails on changes no customization in the manifest covers. untested also
+          fails on customizations and texts without scenarios.
+        required: false
+        default: none
+        type: string
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    # Dependabot's token can't comment, and its updates aren't customizations
+    if: github.actor != 'dependabot[bot]'
+    permissions:
+      contents: read
+      pull-requests: write
+      # For the plugin coverage of a head commit whose acceptance tests ran before the pull request was opened
+      actions: read
+    # Only the latest push comments, so a pull request gets one comment that matches its head
+    concurrency:
+      group: ce-customization-coverage-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # @v0, so the action comes from the same release as this workflow
+      - name: Customization coverage
+        uses: extenda/shared-workflows/composite-actions/ce-coverage@v0
+        with:
+          step: customization
+          fail-on: ${{ inputs.fail-on }}

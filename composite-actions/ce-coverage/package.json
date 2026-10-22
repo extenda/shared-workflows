@@ -1,0 +1,11 @@
+{
+  "name": "ce-coverage",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "yaml": "2.5.1"
+  }
+}

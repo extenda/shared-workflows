@@ -1,5 +1,6 @@
 # Runs a customer Checkout Engine's cucumber acceptance tests against the engine in docker compose,
-# once per country module, and optionally pushes the engine image. See docs/ce-acceptance-test.md.
+# once per country module, optionally measures which plugin code they run, and optionally pushes the
+# engine image. See docs/ce-acceptance-test.md.
 name: Checkout Engine acceptance test
 on:
   workflow_call:
@@ -34,6 +35,16 @@ on:
         description: The Maven arguments that build the test database image.
         required: false
         default: test -Dtest=ITGeiTestData -DfailIfNoTests=false -Djava.system.class.loader=tx.engine.bundle.devmode.support.ClassPathLoader
+        type: string
+      plugin-coverage:
+        description: Measure with JaCoCo which lines of the plugins the scenarios run, and report it in the workflow summary.
+        required: false
+        default: false
+        type: boolean
+      plugin-modules:
+        description: A glob of the Maven modules with the plugins. Their classes are instrumented and reported.
+        required: false
+        default: plugins/*
         type: string
     secrets:
       SECRET_AUTH:
@@ -102,6 +113,16 @@ jobs:
           args: ${{ inputs.test-database-args }}
           version: pom.xml
 
+      # The JaCoCo agent records which lines of the plugins the scenarios run. The image that's pushed is built
+      # without it.
+      # @v0, so the action comes from the same release as this workflow
+      - name: Prepare plugin coverage
+        if: inputs.plugin-coverage
+        uses: extenda/shared-workflows/composite-actions/ce-coverage@v0
+        with:
+          step: prepare
+          modules: ${{ inputs.plugin-modules }}
+
       - name: Start docker compose
         run: docker compose up --build --detach
 
@@ -131,10 +152,20 @@ jobs:
         working-directory: ${{ inputs.working-directory }}
 
       - name: Run cucumber
+        id: cucumber
         run: npm run test:ci -- ${{ inputs.cucumber-args }}
         working-directory: ${{ inputs.working-directory }}
         env:
           API_BASE_URL: http://localhost:8080/api/v3
+
+      - name: Collect plugin coverage
+        if: inputs.plugin-coverage && !cancelled()
+        uses: extenda/shared-workflows/composite-actions/ce-coverage@v0
+        with:
+          step: collect
+          modules: ${{ inputs.plugin-modules }}
+          country: ${{ matrix.country }}
+          outcome: ${{ steps.cucumber.outcome || 'skipped' }}
 
       - name: Stop docker compose
         if: always()
@@ -157,3 +188,19 @@ jobs:
         with:
           image-path: ${{ inputs.image-name }}:${{ github.sha }}
           service-account-key: ${{ secrets.GCLOUD_AUTH_STAGING }}
+
+  # Merges the countries' coverage, since each country runs its own plugin code
+  plugin-coverage:
+    name: plugin coverage
+    needs: test
+    if: inputs.plugin-coverage && !cancelled()
+    runs-on: ubuntu-latest
+    # No permissions of its own: the pull request comment needs pull-requests: write from the caller, and is
+    # skipped with a warning without it
+    steps:
+      # Also in the pull request comment, next to the customization coverage
+      - name: Report plugin coverage
+        uses: extenda/shared-workflows/composite-actions/ce-coverage@v0
+        with:
+          step: report
+          countries: ${{ inputs.countries }}
