@@ -119,6 +119,7 @@ async function main() {
         accept: 'application/vnd.github+json',
         authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
         'x-github-api-version': '2022-11-28',
+        ...(body && { 'content-type': 'application/json' }),
       },
       body: body && JSON.stringify(body),
     });

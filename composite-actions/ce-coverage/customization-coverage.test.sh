@@ -382,6 +382,21 @@ write_files config/allcountries/config/empty.xml '<config version="1"/>'
 commit
 assert_report "added XML file without keys" 'Test this change' '- `config/allcountries/config/empty.xml`'
 
+new_repo
+write_files txengine_prod.properties 'label=OK'
+git -C "$REPO" add -A && git -C "$REPO" commit -q -m props && BASE=$(git -C "$REPO" rev-parse HEAD)
+write_files txengine_prod.properties 'label=OK'
+commit
+assert_report "escaped property value that means the same" 'This pull request changes no customizations'
+
+new_repo
+write_files acceptance/customizations.yaml "$MANIFEST
+  gift-cards:
+    paths:
+      - config/allcountries/config/eft.xml"
+commit
+assert_report "manifest change is a test change" 'This pull request changes no customizations' '**Tests:** 1 file under the acceptance folder.'
+
 # --- fail-on ----------------------------------------------------------------------------
 
 new_repo

@@ -218,7 +218,9 @@ function flattenProperties(text) {
     const line = raw.trim();
     if (!line || /^[#!]/.test(line)) continue;
     const [, key, value] = PROPERTY.exec(line);
-    entries.set(unescapeProperty(key), { value: unescapeProperty(value), sig: value });
+    // Compared as Java reads it, so \u004fK and OK are the same value
+    const unescaped = unescapeProperty(value);
+    entries.set(unescapeProperty(key), { value: unescaped, sig: unescaped });
   }
   return entries;
 }
