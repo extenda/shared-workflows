@@ -96,7 +96,7 @@ runs:
     - name: Plugin coverage - JaCoCo cache
       if: steps.jacoco.outputs.version != ''
       continue-on-error: true
-      uses: actions/cache@v4
+      uses: actions/cache@v6
       with:
         path: ${{ runner.temp }}/jacoco-jars
         key: jacoco-${{ steps.jacoco.outputs.version }}
