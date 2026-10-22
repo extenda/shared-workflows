@@ -45,11 +45,35 @@ test('a section for an earlier commit says so, until its own report arrives', ()
   assert.ok(!first.includes('earlier commit'));
   const pushed = updateBody(first, 'customization', CUSTOMIZATION, 'bbbbbbb2');
   assert.ok(pushed.includes('This is for an earlier commit, `aaaaaaa`.'));
-  assert.ok(pushed.indexOf('earlier commit') > pushed.indexOf('section:plugin'));
-  // Written again for the new commit, the note goes away
+  // Under the section's own heading, so it isn't read as part of the section above it
+  assert.ok(pushed.indexOf('earlier commit') > pushed.indexOf('### Plugin coverage'));
+  // Written again for the new commit, the note goes away and leaves the section as it was
   const caughtUp = updateBody(pushed, 'plugin', PLUGIN, 'bbbbbbb2');
   assert.ok(!caughtUp.includes('earlier commit'));
   assert.equal(caughtUp.match(/stale/g), null);
+  assert.equal(updateBody(pushed, 'customization', CUSTOMIZATION, 'bbbbbbb2'), pushed);
+  assert.equal(caughtUp, updateBody(updateBody(undefined, 'customization', CUSTOMIZATION, 'bbbbbbb2'), 'plugin', PLUGIN, 'bbbbbbb2'));
+});
+
+test('a note written before the heading by an earlier version moves under it', () => {
+  const old = [
+    MARKER,
+    '<!-- section:customization sha=bbbbbbb2 -->', CUSTOMIZATION, '<!-- /section:customization -->', '',
+    '<!-- section:plugin sha=aaaaaaa1 -->',
+    '<!-- stale -->\n> [!NOTE]\n> This is for an earlier commit, `aaaaaaa`.\n<!-- /stale -->',
+    PLUGIN, '<!-- /section:plugin -->', '',
+  ].join('\n');
+  const body = updateBody(old, 'customization', CUSTOMIZATION, 'ccccccc3');
+  assert.equal(body.match(/earlier commit/g).length, 1);
+  assert.ok(body.indexOf('earlier commit') > body.indexOf('### Plugin coverage'));
+  assert.ok(updateBody(old, 'plugin', PLUGIN, 'bbbbbbb2').includes(`<!-- section:plugin sha=bbbbbbb2 -->\n${PLUGIN}\n`));
+});
+
+test('a section without a heading gets the note first', () => {
+  const first = updateBody(updateBody(undefined, 'customization', CUSTOMIZATION, 'aaaaaaa1'), 'plugin', 'No heading', 'aaaaaaa1');
+  const pushed = updateBody(first, 'customization', CUSTOMIZATION, 'bbbbbbb2');
+  assert.ok(pushed.includes('<!-- /stale -->\n\nNo heading'));
+  assert.ok(updateBody(pushed, 'plugin', 'No heading', 'bbbbbbb2').includes('<!-- section:plugin sha=bbbbbbb2 -->\nNo heading\n'));
 });
 
 test('a stale note is replaced, not repeated', () => {

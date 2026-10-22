@@ -12,7 +12,7 @@ takes seconds.
 With `plugin-coverage` in [`ce-acceptance-test.yml`](ce-acceptance-test.md#plugin-coverage), the same comment
 also shows which plugin code the scenarios run. The customization coverage appears within seconds of a push, and
 the plugin coverage when the acceptance tests have finished. Each workflow replaces only its own section. Until
-the plugin coverage reports on a new push, its section says it's for an earlier commit. When the acceptance
+the plugin coverage reports on a new push, a note under its heading says it's for an earlier commit. When the acceptance
 tests finished before the pull request was opened, the customization coverage shows their plugin coverage too.
 
 ## What counts as a customization

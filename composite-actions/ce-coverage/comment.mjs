@@ -18,8 +18,18 @@ export const SECTIONS = ['customization', 'plugin'];
 
 const begin = (section, sha) => `<!-- section:${section}${sha ? ` sha=${sha}` : ''} -->`;
 const end = (section) => `<!-- /section:${section} -->`;
-const STALE = /<!-- stale -->\n[\s\S]*?<!-- \/stale -->\n/;
+// A note under the section's heading, or before a section without one. The second form is also how comments
+// written before the note moved under the heading hold it.
+const STALE = /\n\n<!-- stale -->[\s\S]*?<!-- \/stale -->|^<!-- stale -->[\s\S]*?<!-- \/stale -->\n+/;
 const short = (sha) => sha.slice(0, 7);
+
+// The note goes under the section's heading, so it isn't read as part of the section above it
+function withNote(content, note) {
+  const heading = /^#{1,6} .*$/m.exec(content);
+  if (!heading) return `${note}\n\n${content}`;
+  const at = heading.index + heading[0].length;
+  return `${content.slice(0, at)}\n\n${note}${content.slice(at)}`;
+}
 
 // The sections of a comment, without their notes: section -> { sha, content }
 function sectionsOf(body) {
@@ -39,11 +49,9 @@ function bodyOf(sections, written, sha) {
     MARKER,
     ...SECTIONS.filter((s) => sections.has(s)).flatMap((s) => {
       const { sha: of, content } = sections.get(s);
-      const stale =
-        s !== written && of && sha && of !== sha
-          ? [`<!-- stale -->\n> [!NOTE]\n> This is for an earlier commit, \`${short(of)}\`.\n<!-- /stale -->`]
-          : [];
-      return [begin(s, of), ...stale, content, end(s), ''];
+      const stale = s !== written && of && sha && of !== sha;
+      const note = () => `<!-- stale -->\n> [!NOTE]\n> This is for an earlier commit, \`${short(of)}\`.\n<!-- /stale -->`;
+      return [begin(s, of), stale ? withNote(content, note()) : content, end(s), ''];
     }),
   ].join('\n');
 }
