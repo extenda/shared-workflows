@@ -23,7 +23,7 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 # Arguments: <artifact> <classifier> <sha256> <file>
 download() {
   local jar="$JARS/org.jacoco.$1-$JACOCO_VERSION-$2.jar"
-  if ! echo "$3  $jar" | sha256sum --check --strict --status 2> /dev/null; then
+  if ! echo "$3  $jar" | sha256sum --check --strict --status > /dev/null 2>&1; then
     mkdir -p "$JARS"
     # --retry also retries a 429 when Maven Central limits the rate, after its Retry-After
     curl -sSf --retry 5 --retry-max-time 120 -o "$jar" \
@@ -94,6 +94,15 @@ collect() {
 # Merges the countries, since each runs its own plugin code. Always writes a report, also without data, so a
 # pull request comment never keeps an old number.
 report() {
+  # download-artifact extracts a lone artifact straight into coverage/, so a single country's files get the
+  # directory they have when there are more
+  local lone code
+  for lone in coverage/*.outcome; do
+    code=$(basename "$lone" .outcome)
+    mkdir -p "coverage/plugin-coverage-$code"
+    mv coverage/"$code".* "coverage/plugin-coverage-$code/"
+    if [ -f coverage/plugins.tgz ]; then mv coverage/plugins.tgz "coverage/plugin-coverage-$code/"; fi
+  done
   local execs=(coverage/*/*.exec) archives=(coverage/*/plugins.tgz)
   : > coverage.csv
   if [ ${#execs[@]} -gt 0 ] && [ ${#archives[@]} -gt 0 ]; then
