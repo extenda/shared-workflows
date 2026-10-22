@@ -91,6 +91,21 @@ collect() {
   if [ ${#classes[@]} -gt 0 ]; then tar -czf "$DIR/coverage/plugins.tgz" "${classes[@]}" "${sources[@]}"; fi
 }
 
+# Copies a module's classes that are compiled from its src/main/java into target/own-classes. Generated code,
+# e.g. from protobuf, isn't the customer's to test, and would hide the plugins' own coverage.
+# Arguments: <module>
+own() {
+  local file outer
+  while IFS= read -r file; do
+    outer=${file%.class}
+    outer=${outer%%\$*}
+    if [ -f "$1/src/main/java/$outer.java" ]; then
+      mkdir -p "$1/target/own-classes/$(dirname "$file")"
+      cp "$1/target/classes/$file" "$1/target/own-classes/$file"
+    fi
+  done < <(cd "$1/target/classes" && find . -name '*.class' | sed 's#^\./##')
+}
+
 # Merges the countries, since each runs its own plugin code. Always writes a report, also without data, so a
 # pull request comment never keeps an old number.
 report() {
@@ -109,10 +124,15 @@ report() {
     download cli nodeps "$JACOCO_CLI_SHA256" jacococli.jar
     mkdir -p plugins
     tar -xzf "${archives[0]}" -C plugins
-    local args=() classes
+    local args=() classes module
     while IFS= read -r classes; do
-      args+=(--classfiles "$classes")
-      if [ -d "${classes%/target/classes}/src/main/java" ]; then args+=(--sourcefiles "${classes%/target/classes}/src/main/java"); fi
+      module=${classes%/target/classes}
+      if [ -d "$module/src/main/java" ]; then
+        own "$module"
+        args+=(--classfiles "$module/target/own-classes" --sourcefiles "$module/src/main/java")
+      else
+        args+=(--classfiles "$classes")
+      fi
     done < <(find plugins -type d -path '*/target/classes')
     # Not --quiet: plugin_report.py warns when a country's data doesn't match the classes
     if ! java -jar jacococli.jar report "${execs[@]}" "${args[@]}" --csv coverage.csv --html report --name "Plugin coverage" > jacoco.log 2>&1; then
