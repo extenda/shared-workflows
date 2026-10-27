@@ -102,6 +102,12 @@ on:
         type: boolean
         required: false
         default: true
+      use-onprem-release:
+        description: |
+          Build the on-prem release artifact and upload it to Artifact Registry. Disable for cloud-only services.
+        type: boolean
+        required: false
+        default: true
       acceptance-username:
         description: |
           Acceptance username (usually service name)
@@ -256,6 +262,7 @@ jobs:
       id-token: write
     if: |
       always() &&
+      inputs.use-onprem-release &&
       ((github.ref == 'refs/heads/master' && needs.build-test-sonarqube.result == 'success') ||
       (startsWith(github.ref, 'refs/tags/') && needs.build-test-sonarqube.result == 'skipped'))
     runs-on: ubuntu-latest
