@@ -32,6 +32,29 @@ inputs:
 runs:
   using: 'composite'
   steps:
+    - name: Free disk space
+      shell: bash
+      if: runner.os == 'Linux'
+      run: |
+        echo "Disk space before cleanup:"
+        df -h /
+
+        # GitHub-hosted Linux runners ship with toolchains this frontend
+        # pipeline never uses (Android SDK, .NET, Haskell, CodeQL), which
+        # between them consume most of the runner's limited free disk space
+        # before this job even starts. Removing them buys back headroom for
+        # npm/yarn install, the vulnerability scan's Docker build, and the
+        # Trivy vulnerability DB download later in this job - all of which
+        # have caused "no space left on device" failures on this pipeline.
+        sudo rm -rf /usr/local/lib/android
+        sudo rm -rf /usr/share/dotnet
+        sudo rm -rf /usr/local/.ghcup
+        sudo rm -rf /opt/ghc
+        sudo rm -rf /opt/hostedtoolcache/CodeQL
+
+        echo "Disk space after cleanup:"
+        df -h /
+
     - uses: actions/checkout@v4
       with:
         fetch-depth: 0
@@ -206,6 +229,16 @@ runs:
         service-account-key: ${{ inputs.GCLOUD_AUTH_STAGING }}
         fail-on-vulnerabilities: true
         notify-slack-on-vulnerabilities: false
+
+    - name: Clean up vulnerability scan image
+      shell: bash
+      # Always run (even if the scan above failed or found vulnerabilities)
+      # so the image and its build cache don't eat into the disk space the
+      # Sonar scan needs next. Only runs when an image was actually built.
+      if: always() && runner.os == 'Linux' && steps.scan-image.outputs.image != ''
+      run: |
+        docker image rm "${{ steps.scan-image.outputs.image }}" >/dev/null 2>&1 || true
+        docker builder prune --force >/dev/null 2>&1 || true
 
     - name: Analyze with SonarCloud
       uses: extenda/actions/sonar-scanner@v0
