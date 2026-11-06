@@ -6,7 +6,7 @@ inputs:
     description: 'SECRET_AUTH value from secrets. '
     required: true
   secret-push-attest-auth:
-    description: 'Auth to use for pushing and attesting the docker image. Usually secrets.GCLOUD_AUTH_STAGING.'
+    description: 'Auth to use for pushing and attesting the docker image, also used for the vulnerability scan. Usually secrets.GCLOUD_AUTH_STAGING.'
     required: true
   dotnet-version:
     description: 'Version of dotnet to install, used for build and test'
@@ -38,6 +38,10 @@ inputs:
     description: 'Base URI for the pact broker, used to publish pacts. Usage dependant off setting pact-directory'
     required: false
     default: 'https://pact-broker.retailsvc.com'
+  skip-vulnerability-scan:
+    description: 'Skip the Trivy vulnerability scan of the built docker image (true/false)'
+    required: false
+    default: 'false'
 
 outputs:
   version:
@@ -156,6 +160,15 @@ runs:
         sonar-host: ${{ inputs.sonar-host }}
         sonar-scanner: dotnet
         service-account-key: ${{ inputs.secret-auth }}
+
+    - name: Vulnerability scan
+      if: inputs.skip-vulnerability-scan != 'true'
+      uses: extenda/actions/trivy-scan@v0
+      with:
+        image: eu.gcr.io/extenda/${{ inputs.clan }}/${{ inputs.application-name }}:${{ steps.safe-version.outputs.tag }}
+        service-account-key: ${{ inputs.secret-push-attest-auth }}
+        fail-on-vulnerabilities: true
+        notify-slack-on-vulnerabilities: false
 
     - name: Push and Attest
       if: github.ref == 'refs/heads/master'
