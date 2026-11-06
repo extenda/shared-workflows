@@ -60,12 +60,12 @@ on:
         description: 'Path to Postman collection'
         required: false
         type: string
-        default: './mcpe-common/tests/acceptance/scanngo-acceptance.postman_collection.json'
+        default: './mcpe-common/tests/acceptance/mcpe-acceptance.postman_collection.json'
       acceptance-postman-environment-path:
         description: 'Path to Postman environment variables'
         required: false
         type: string
-        default: './mcpe-common/tests/acceptance/scanngo-acceptance.postman_environment.json'
+        default: './mcpe-common/tests/acceptance/mcpe-acceptance.postman_environment.json'
       acceptance-globals-path:
         description: 'Path to globals.json'
         required: false
