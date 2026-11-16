@@ -1,6 +1,6 @@
 # Acceptance Composite Action
 
-Performs acceptance tests for Scan&Go services.
+Performs acceptance tests for MCPE services.
 
 ## Usage
 
@@ -30,4 +30,4 @@ jobs:
         with:
           secret-auth: ${{ secrets.SECRET_AUTH }}
           gcloud-auth-staging: ${{ secrets.GCLOUD_AUTH_STAGING }}
-          acceptance-username: 'scanngo-selfscan'
+          acceptance-username: 'mcpe-selfscan'
