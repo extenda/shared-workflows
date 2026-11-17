@@ -1,6 +1,6 @@
 name: 'PnP GKE Service Control'
 description: |
-  Restarts or scales a PnP GKE service (deployment or statefulset) in the k8s-cluster.
+  Restarts or scales a PnP GKE service (deployment or statefulset) in the given GKE cluster.
   The deployment/statefulset name is expected to match its namespace.
   Notifies Slack on failure when slack-channel is set.
 
@@ -16,7 +16,10 @@ inputs:
     description: 'Namespace (and workload name) of the service'
     required: true
   gcp-project:
-    description: 'GCP project hosting the k8s-cluster'
+    description: 'GCP project hosting the cluster'
+    required: true
+  cluster-name:
+    description: "GKE cluster in europe-west1, e.g. 'pnp-cluster-prod' or 'pnp-cluster-staging'"
     required: true
   is-statefulset:
     description: "'true' for a statefulset, 'false' for a deployment"
@@ -48,9 +51,14 @@ runs:
         REPLICAS: ${{ inputs.replicas }}
         NAMESPACE: ${{ inputs.service-namespace }}
         GCP_PROJECT: ${{ inputs.gcp-project }}
+        CLUSTER_NAME: ${{ inputs.cluster-name }}
         KIND: ${{ inputs.is-statefulset == 'true' && 'statefulset' || 'deployment' }}
       run: |
-        gcloud container clusters get-credentials k8s-cluster --zone europe-west1 --project "$GCP_PROJECT"
+        if [[ -z "$CLUSTER_NAME" ]]; then
+          echo "::error::cluster-name is required"
+          exit 1
+        fi
+        gcloud container clusters get-credentials "$CLUSTER_NAME" --zone europe-west1 --project "$GCP_PROJECT"
         case "$OPERATION" in
           restart)
             kubectl rollout restart "$KIND/$NAMESPACE" -n "$NAMESPACE"

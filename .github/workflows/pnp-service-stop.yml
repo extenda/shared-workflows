@@ -44,6 +44,7 @@ jobs:
           replicas: '0'
           service-namespace: ${{ secrets.service-namespace }}
           gcp-project: ${{ secrets.gcp-project }}
+          cluster-name: ${{ inputs.prod && 'pnp-cluster-prod' || 'pnp-cluster-staging' }}
           is-statefulset: ${{ inputs.is-statefulset }}
           service-account-key: ${{ inputs.prod && secrets.GCLOUD_AUTH_PROD || secrets.GCLOUD_AUTH_STAGING }}
           slack-channel: ${{ secrets.slack-channel }}
