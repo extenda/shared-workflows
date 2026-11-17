@@ -1,0 +1,66 @@
+# Posts the build result of a Checkout Engine lift pull request to Slack, green or red, once all of its
+# checks have finished. Call it as the last job of the workflow that builds the lift branch, with
+# `needs` on the build jobs and `if: always()`. See docs/ce-lift-status.md.
+name: Checkout Engine lift status
+on:
+  workflow_call:
+    inputs:
+      slack-channel:
+        description: The Slack channel to post the result to.
+        required: true
+        type: string
+      dependency-name:
+        description: The dependency name used in the message, the same as in ce-dependency-lift.
+        required: false
+        default: CE
+        type: string
+    secrets:
+      SECRET_AUTH:
+        required: true
+
+jobs:
+  status:
+    name: Lift build status
+    runs-on: ubuntu-latest
+    permissions:
+      checks: read
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Collect check results
+        id: status
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.ref_name }}
+          DEPENDENCY_NAME: ${{ inputs.dependency-name }}
+          SELF: Lift build status
+        run: |
+          # ce-dependency-lift names the branch chore/update-<name>-version-<X-Y-Z>.
+          version="${BRANCH##*-version-}"
+          version="${version//-/.}"
+          url="$(gh pr view "$BRANCH" --repo "$GITHUB_REPOSITORY" --json url --jq .url)"
+
+          # Other workflows on the pull request are normally done by now; wait up to 2 minutes for any
+          # that are not. This job's own check is left out, as it is still running.
+          checks='[]'
+          for _ in $(seq 1 12); do
+            checks="$(gh pr checks "$BRANCH" --repo "$GITHUB_REPOSITORY" --json name,bucket \
+              --jq "[.[] | select(.name | endswith(env.SELF) | not)]" || true)"
+            [ "$(jq '[.[] | select(.bucket == "pending")] | length' <<< "$checks")" = 0 ] && break
+            sleep 10
+          done
+
+          failed="$(jq -r '[.[] | select(.bucket != "pass" and .bucket != "skipping") | .name] | unique | join(", ")' <<< "$checks")"
+          if [ -z "$failed" ]; then
+            text="🟢 ${DEPENDENCY_NAME} version ${version} is available, build passed, ready to merge: ${url}"
+          else
+            text="🔴 ${DEPENDENCY_NAME} version ${version} is available, build failed, needs attention: ${url} (failed: ${failed})"
+          fi
+          echo "text=${text}" >> "$GITHUB_OUTPUT"
+
+      - name: Notify Slack
+        uses: extenda/actions/slack-notify@v0
+        with:
+          text: ${{ steps.status.outputs.text }}
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+          channel: ${{ inputs.slack-channel }}
