@@ -1,0 +1,95 @@
+# Posts the build result of a Checkout Engine lift pull request to Slack, green or red, once all of its
+# checks have finished. Call it as the last job of the workflow that builds the lift branch, with
+# `needs` on the build jobs and `if: always()`. See docs/ce-lift-status.md.
+name: Checkout Engine lift status
+on:
+  workflow_call:
+    inputs:
+      slack-channel:
+        description: The Slack channel to post the result to.
+        required: true
+        type: string
+      dependency-name:
+        description: The dependency name used in the message, the same as in ce-dependency-lift.
+        required: false
+        default: CE
+        type: string
+    secrets:
+      SECRET_AUTH:
+        required: true
+
+jobs:
+  status:
+    name: Lift build status
+    runs-on: ubuntu-latest
+    permissions:
+      checks: read
+      contents: read
+      pull-requests: read
+      statuses: read
+    steps:
+      - name: Collect check results
+        id: status
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.ref_name }}
+          DEPENDENCY_NAME: ${{ inputs.dependency-name }}
+          # In a called workflow, github.workflow is the name of the caller.
+          WORKFLOW: ${{ github.workflow }}
+          SELF: Lift build status
+        run: |
+          # ce-dependency-lift names the branch chore/update-<name>-version-<X-Y-Z>.
+          version="${BRANCH##*-version-}"
+          version="${version//-/.}"
+          prefix="${DEPENDENCY_NAME} version ${version} is available"
+
+          # A newer lift closes this pull request; a build that finishes after that posts nothing.
+          pr="$(gh pr view "$BRANCH" --repo "$GITHUB_REPOSITORY" --json number,state,url)"
+          if [ "$(jq -r .state <<< "$pr")" != OPEN ]; then
+            echo "The lift pull request is $(jq -r .state <<< "$pr"), nothing to post."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          number="$(jq -r .number <<< "$pr")"
+          url="$(jq -r .url <<< "$pr")"
+
+          # Other workflows on the pull request are normally done by now; wait up to 2 minutes for any
+          # that are not. This job's own check is left out, as it is still running.
+          checks=''
+          for _ in $(seq 1 12); do
+            if checks="$(gh pr checks "$number" --repo "$GITHUB_REPOSITORY" --json name,workflow,bucket \
+              --jq '[.[] | select(.workflow == env.WORKFLOW and (.name == env.SELF or (.name | endswith(" / " + env.SELF)))
+                | not)]')"; then
+              [ "$(jq '[.[] | select(.bucket == "pending")] | length' <<< "$checks")" = 0 ] && break
+            else
+              checks=''
+            fi
+            sleep 10
+          done
+
+          list() {
+            jq -r --arg buckets "$1" '[.[] | select(.bucket as $b | $buckets | split(",") | index($b))
+              | "\(.workflow) / \(.name)"] | unique | join(", ")' <<< "$checks"
+          }
+          if [ -z "$checks" ] || [ "$(jq length <<< "$checks")" = 0 ]; then
+            text="🔴 ${prefix}, but the build status could not be read, check the pull request: ${url}"
+          else
+            failed="$(list fail,cancel)"
+            pending="$(list pending)"
+            if [ -n "$failed" ]; then
+              text="🔴 ${prefix}, build failed, needs attention: ${url} (failed: ${failed}${pending:+; still running: ${pending}})"
+            elif [ -n "$pending" ]; then
+              text="🔴 ${prefix}, build not finished, needs attention: ${url} (still running: ${pending})"
+            else
+              text="🟢 ${prefix}, build passed, ready to merge: ${url}"
+            fi
+          fi
+          echo "text=${text}" >> "$GITHUB_OUTPUT"
+
+      - name: Notify Slack
+        if: steps.status.outputs.skip != 'true'
+        uses: extenda/actions/slack-notify@v0
+        with:
+          text: ${{ steps.status.outputs.text }}
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+          channel: ${{ inputs.slack-channel }}

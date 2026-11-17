@@ -12,6 +12,9 @@ The workflow:
 4. Closes every other open pull request with the same label, and deletes their branches.
 5. Optionally posts the pull request link to a Slack channel.
 
+To post the build result of the lift pull request instead, green or red, use
+[`ce-lift-status.yml`](ce-lift-status.md) and leave `slack-channel` empty.
+
 The pull request is created with the org token (Secret Manager key `github-token`), not `GITHUB_TOKEN`.
 GitHub doesn't start `push` or `pull_request` workflows for events caused by `GITHUB_TOKEN`, so with
 the org token the repository's CI and required checks run on the lift pull request.
