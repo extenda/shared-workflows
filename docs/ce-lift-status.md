@@ -37,11 +37,6 @@ jobs:
   lift-status:
     if: ${{ !cancelled() && startsWith(github.ref_name, 'chore/update-ce-version-') }}
     needs: [lint, test]
-    permissions:
-      checks: read
-      contents: read
-      pull-requests: read
-      statuses: read
     uses: extenda/shared-workflows/.github/workflows/ce-lift-status.yml@v0
     with:
       slack-channel: my-builds-channel
@@ -51,8 +46,9 @@ jobs:
 The `if` keeps the job to lift branches; on other branches it is skipped and no runner starts.
 
 > [!IMPORTANT]
-> The calling job must grant the `permissions` shown. Without them, GitHub rejects the whole build
-> workflow when it starts, on every branch, not just this job.
+> The job needs `contents: read` and `id-token: write`, which most build workflows grant at the top. Don't
+> give the calling job a `permissions` block without them: GitHub then rejects the whole build workflow
+> when it starts, on every branch, not just this job.
 
 For a plugin lift with its own `dependency-name`, match its branch and pass the same name:
 
