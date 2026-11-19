@@ -5,7 +5,7 @@ request from [`ce-dependency-lift.yml`](ce-dependency-lift.md) to Slack, once al
 request have finished:
 
 - 🟢 `CE version 51.18.3 is available, build passed, ready to merge: <pull request>`
-- 🔴 `CE version 51.18.3 is available, build failed, needs attention: <pull request> (failed: Commit / test)`
+- 🔴 `CE version 51.18.3 is available, build failed, needs attention: <pull request>`
 
 Call it as the last job of the workflow that builds the lift branch, with `needs` on the build jobs and
 `if: ${{ !cancelled() }}`, so it runs whether the build passes or fails. It reads every check on the pull
@@ -14,7 +14,7 @@ takes a few seconds. If other checks are still running, it waits for them for up
 
 The message is red, and says so, in these cases too:
 
-- A check is still running after two minutes (`build not finished`, with the checks still running).
+- A check is still running after two minutes (`build not finished`).
 - The checks can't be read (`the build status could not be read`).
 
 Nothing is posted when the pull request is no longer open, for example when a newer lift closed it.
