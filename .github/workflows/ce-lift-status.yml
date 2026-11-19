@@ -34,8 +34,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           BRANCH: ${{ github.ref_name }}
           DEPENDENCY_NAME: ${{ inputs.dependency-name }}
-          # In a called workflow, github.workflow is the name of the caller.
-          WORKFLOW: ${{ github.workflow }}
           SELF: Lift build status
         run: |
           # ce-dependency-lift names the branch chore/update-<name>-version-<X-Y-Z>.
@@ -54,35 +52,28 @@ jobs:
           url="$(jq -r .url <<< "$pr")"
 
           # Other workflows on the pull request are normally done by now; wait up to 2 minutes for any
-          # that are not. This job's own check is left out, as it is still running.
-          checks=''
+          # that are not. This job's own check is left out, as it is still running. Only the check names
+          # are read: the workflow of a check needs `actions: read`, which callers don't grant.
+          buckets=''
           for _ in $(seq 1 12); do
-            if checks="$(gh pr checks "$number" --repo "$GITHUB_REPOSITORY" --json name,workflow,bucket \
-              --jq '[.[] | select(.workflow == env.WORKFLOW and (.name == env.SELF or (.name | endswith(" / " + env.SELF)))
-                | not)]')"; then
-              [ "$(jq '[.[] | select(.bucket == "pending")] | length' <<< "$checks")" = 0 ] && break
+            if buckets="$(gh pr checks "$number" --repo "$GITHUB_REPOSITORY" --json name,bucket \
+              --jq '[.[] | select(.name == env.SELF or (.name | endswith(" / " + env.SELF)) | not) | .bucket]')"; then
+              [ "$(jq '[.[] | select(. == "pending")] | length' <<< "$buckets")" = 0 ] && break
             else
-              checks=''
+              buckets=''
             fi
             sleep 10
           done
 
-          list() {
-            jq -r --arg buckets "$1" '[.[] | select(.bucket as $b | $buckets | split(",") | index($b))
-              | "\(.workflow) / \(.name)"] | unique | join(", ")' <<< "$checks"
-          }
-          if [ -z "$checks" ] || [ "$(jq length <<< "$checks")" = 0 ]; then
+          count() { jq --arg buckets "$1" '[.[] | select(. as $b | $buckets | split(",") | index($b))] | length' <<< "$buckets"; }
+          if [ -z "$buckets" ] || [ "$(jq length <<< "$buckets")" = 0 ]; then
             text="🔴 ${prefix}, but the build status could not be read, check the pull request: ${url}"
+          elif [ "$(count fail,cancel)" != 0 ]; then
+            text="🔴 ${prefix}, build failed, needs attention: ${url}"
+          elif [ "$(count pending)" != 0 ]; then
+            text="🔴 ${prefix}, build not finished, needs attention: ${url}"
           else
-            failed="$(list fail,cancel)"
-            pending="$(list pending)"
-            if [ -n "$failed" ]; then
-              text="🔴 ${prefix}, build failed, needs attention: ${url} (failed: ${failed}${pending:+; still running: ${pending}})"
-            elif [ -n "$pending" ]; then
-              text="🔴 ${prefix}, build not finished, needs attention: ${url} (still running: ${pending})"
-            else
-              text="🟢 ${prefix}, build passed, ready to merge: ${url}"
-            fi
+            text="🟢 ${prefix}, build passed, ready to merge: ${url}"
           fi
           echo "text=${text}" >> "$GITHUB_OUTPUT"
 
