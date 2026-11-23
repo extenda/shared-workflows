@@ -257,20 +257,27 @@ function flatten(path, text, both) {
   return null;
 }
 
+// A Dockerfile's instructions, one per line, with continued lines joined and comments left out.
+function dockerfileLines(text) {
+  return (text ?? '').replace(/\\\r?\n/g, ' ').split(/\r?\n/).map((line) => line.trim()).filter((line) => line && !line.startsWith('#'));
+}
+
+// The key and value pairs of an ENV instruction's arguments, in both KEY=value and KEY value form.
+function envPairs(env) {
+  return /^[\w.]+=/.test(env)
+    ? [...env.matchAll(/([\w.]+)=("[^"]*"|'[^']*'|\S*)/g)].map(([, key, value]) => [key, value])
+    : [[env.split(/\s+/)[0], env.replace(/^\S+\s*/, '')]];
+}
+
 // The checkout-engine images it's built FROM, its ENV values and its other instructions by name, e.g. COPY.
 function readDockerfile(text) {
   const dockerfile = { images: [], env: new Map(), other: new Map() };
-  for (const raw of (text ?? '').replace(/\\\r?\n/g, ' ').split(/\r?\n/)) {
-    const line = raw.trim();
-    if (!line || line.startsWith('#')) continue;
+  for (const line of dockerfileLines(text)) {
     const image = /^FROM\s+(?:--\S+\s+)*(\S*checkout-engine:\S*)/i.exec(line)?.[1];
     const env = /^ENV\s+(.+)$/i.exec(line)?.[1];
     if (image) dockerfile.images.push(image);
     else if (env) {
-      const pairs = /^[\w.]+=/.test(env)
-        ? [...env.matchAll(/([\w.]+)=("[^"]*"|\S*)/g)].map(([, key, value]) => [key, value])
-        : [[env.split(/\s+/)[0], env.replace(/^\S+\s*/, '')]];
-      for (const [key, value] of pairs) dockerfile.env.set(key, { value, sig: value });
+      for (const [key, value] of envPairs(env)) dockerfile.env.set(key, { value, sig: value });
     } else {
       const instruction = line.split(/\s+/)[0].toUpperCase();
       const value = [dockerfile.other.get(instruction)?.value, line.replace(/^\S+\s*/, '')].filter(Boolean).join('\n');
@@ -278,6 +285,18 @@ function readDockerfile(text) {
     }
   }
   return dockerfile;
+}
+
+// The ENV values the container runs with: those of the final stage, after the last FROM. A final stage built
+// FROM an earlier stage inherits that stage's ENV, which this leaves out, so such a value counts as missing.
+function runtimeEnv(text) {
+  const env = new Map();
+  for (const line of dockerfileLines(text)) {
+    if (/^FROM\s/i.test(line)) env.clear();
+    const args = /^ENV\s+(.+)$/i.exec(line)?.[1];
+    if (args) for (const [key, value] of envPairs(args)) env.set(key, value.replace(/^(["'])(.*)\1$/, '$2'));
+  }
+  return env;
 }
 
 // Java without its comments. Strings, characters and text blocks are kept as they are, so "http://x" isn't
@@ -483,11 +502,9 @@ function readItems(base, rules) {
   // A deploy setting removed while the image sets the same value isn't a change: without the setting the
   // engine runs with the image's ENV. Moving a setting into the image also reaches the runtimes that don't
   // read the deploy files, e.g. edge, and that shows as the Dockerfile's ENV change.
-  const imageEnv = readDockerfile(contentAt(opts.head, 'Dockerfile')).env;
-  const unquote = (value) => value?.replace(/^"(.*)"$/, '$1');
+  const imageEnv = runtimeEnv(contentAt(opts.head, 'Dockerfile'));
   const movedToImage = (item) =>
-    matches(rules.deploy, item.path) && item.to === null && item.from !== null &&
-    unquote(imageEnv.get(item.key)?.value) === item.from;
+    matches(rules.deploy, item.path) && item.to === null && item.from !== null && imageEnv.get(item.key) === item.from;
   return { items: [...items.values()].filter((item) => !movedToImage(item)), changedTests, upgrades };
 }
 
