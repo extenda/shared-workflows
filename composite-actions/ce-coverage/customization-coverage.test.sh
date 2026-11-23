@@ -158,6 +158,51 @@ write_files nodes/checkout-api/cloud-deploy.yaml "${DEPLOY/COUNTRY_MODULE: SE/CO
 commit
 assert_report "deploy country module is behaviour" 'Test this change' '`COUNTRY_MODULE` in `nodes/checkout-api/cloud-deploy.yaml`: `SE` → `NO`'
 
+# A setting moved from the deploy files into the image keeps its value
+new_repo
+write_files Dockerfile 'FROM eu.gcr.io/extenda/checkout-engine:v2.0.0'
+git -C "$REPO" add -A && git -C "$REPO" commit -q -m docker && BASE=$(git -C "$REPO" rev-parse HEAD)
+write_files Dockerfile 'FROM eu.gcr.io/extenda/checkout-engine:v2.0.0
+ENV COUNTRY_MODULE=SE' nodes/checkout-api/cloud-deploy.yaml "${DEPLOY/      COUNTRY_MODULE: SE$'\n'/}"
+commit
+assert_report "deploy setting moved into the image with the same value" \
+  '`COUNTRY_MODULE` in `Dockerfile`' '!`COUNTRY_MODULE` in `nodes/checkout-api/cloud-deploy.yaml`'
+
+new_repo
+write_files Dockerfile 'FROM eu.gcr.io/extenda/checkout-engine:v2.0.0'
+git -C "$REPO" add -A && git -C "$REPO" commit -q -m docker && BASE=$(git -C "$REPO" rev-parse HEAD)
+write_files Dockerfile 'FROM eu.gcr.io/extenda/checkout-engine:v2.0.0
+ENV COUNTRY_MODULE="NO"' nodes/checkout-api/cloud-deploy.yaml "${DEPLOY/      COUNTRY_MODULE: SE$'\n'/}"
+commit
+assert_report "deploy setting moved into the image with another value" \
+  '`COUNTRY_MODULE` in `nodes/checkout-api/cloud-deploy.yaml`, removed (was `SE`)' '`COUNTRY_MODULE` in `Dockerfile`'
+
+new_repo
+write_files Dockerfile 'FROM eu.gcr.io/extenda/checkout-engine:v2.0.0'
+git -C "$REPO" add -A && git -C "$REPO" commit -q -m docker && BASE=$(git -C "$REPO" rev-parse HEAD)
+write_files Dockerfile "FROM eu.gcr.io/extenda/checkout-engine:v2.0.0
+ENV COUNTRY_MODULE='SE'" nodes/checkout-api/cloud-deploy.yaml "${DEPLOY/      COUNTRY_MODULE: SE$'\n'/}"
+commit
+assert_report "deploy setting moved into the image as a single-quoted value" \
+  '`COUNTRY_MODULE` in `Dockerfile`' '!`COUNTRY_MODULE` in `nodes/checkout-api/cloud-deploy.yaml`'
+
+# Only the final stage's ENV reaches the container
+new_repo
+write_files Dockerfile 'FROM eu.gcr.io/extenda/checkout-engine:v2.0.0'
+git -C "$REPO" add -A && git -C "$REPO" commit -q -m docker && BASE=$(git -C "$REPO" rev-parse HEAD)
+write_files Dockerfile 'FROM maven:3 AS build
+ENV COUNTRY_MODULE=SE
+FROM eu.gcr.io/extenda/checkout-engine:v2.0.0' nodes/checkout-api/cloud-deploy.yaml "${DEPLOY/      COUNTRY_MODULE: SE$'\n'/}"
+commit
+assert_report "deploy setting removed while only a build stage sets it" \
+  '`COUNTRY_MODULE` in `nodes/checkout-api/cloud-deploy.yaml`, removed (was `SE`)'
+
+new_repo
+write_files nodes/checkout-api/cloud-deploy.yaml "${DEPLOY/      COUNTRY_MODULE: SE$'\n'/}"
+commit
+assert_report "deploy setting removed without an image value" \
+  '`COUNTRY_MODULE` in `nodes/checkout-api/cloud-deploy.yaml`, removed (was `SE`)'
+
 # --- Texts ------------------------------------------------------------------------------
 
 new_repo
