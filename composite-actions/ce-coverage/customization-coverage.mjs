@@ -480,7 +480,15 @@ function readItems(base, rules) {
       }
     }
   }
-  return { items: [...items.values()], changedTests, upgrades };
+  // A deploy setting removed while the image sets the same value isn't a change: without the setting the
+  // engine runs with the image's ENV. Moving a setting into the image also reaches the runtimes that don't
+  // read the deploy files, e.g. edge, and that shows as the Dockerfile's ENV change.
+  const imageEnv = readDockerfile(contentAt(opts.head, 'Dockerfile')).env;
+  const unquote = (value) => value?.replace(/^"(.*)"$/, '$1');
+  const movedToImage = (item) =>
+    matches(rules.deploy, item.path) && item.to === null && item.from !== null &&
+    unquote(imageEnv.get(item.key)?.value) === item.from;
+  return { items: [...items.values()].filter((item) => !movedToImage(item)), changedTests, upgrades };
 }
 
 // The customizations the behaviour changes belong to, each with its changes, and the changes no
