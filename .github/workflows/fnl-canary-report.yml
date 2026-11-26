@@ -10,6 +10,7 @@ name: Canary report to Jira
 #       SECRET_AUTH: ${{ secrets.SECRET_AUTH }}
 #       GCLOUD_AUTH_PROD: ${{ secrets.GCLOUD_AUTH_PROD }}
 #
+# The caller must grant id-token: write (GCLOUD_AUTH_PROD uses workload identity federation).
 # It waits for the platform's automatic canary of the revision that the prod deploy created
 # and writes the result to the Jira issue of the deployed commit: a comment, plus AgentLive
 # (completed) or AgentStuck (rolled back, cancelled, superseded, not registered, timed out).
@@ -46,6 +47,7 @@ jobs:
     continue-on-error: true
     permissions:
       contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v4
 
