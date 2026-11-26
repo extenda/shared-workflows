@@ -154,20 +154,25 @@ jira_labels() {
 }
 
 # Prints an ID token for platform-api, minted fresh for every read (tokens live 1 h).
+# Like extenda/actions setup-gcloud getIdToken: the exported access token is dropped, and
+# workload identity credentials need impersonation of the service account.
 platform_token() {
-  if gcloud auth print-identity-token --audiences=platform 2>/dev/null; then
+  if env -u CLOUDSDK_AUTH_ACCESS_TOKEN gcloud auth print-identity-token --audiences=platform 2>/dev/null; then
     return
   fi
-  local account
-  account=$(gcloud auth list --filter=status:ACTIVE --format='value(account)' | head -n 1)
-  gcloud auth print-identity-token --audiences=platform \
+  local account="${CLOUDSDK_CORE_ACCOUNT:-}"
+  [ -n "$account" ] || account=$(env -u CLOUDSDK_AUTH_ACCESS_TOKEN gcloud config get account 2>/dev/null)
+  env -u CLOUDSDK_AUTH_ACCESS_TOKEN gcloud auth print-identity-token --audiences=platform \
     --impersonate-service-account="$account" --include-email
 }
 
 # Prints "<http status>\n<body>" for GET /canary/automatic/{service}.
 platform_get_canary() {
   local token response
-  token=$(platform_token)
+  if ! token=$(platform_token) || [ -z "$token" ]; then
+    log "::error::Could not mint an ID token with audience platform for the active gcloud account"
+    token=''
+  fi
   response=$(curl -sS --max-time 30 -w '\n%{http_code}' \
     -K <(printf 'header = "Authorization: Bearer %s"\n' "$token") \
     "${PLATFORM_API_URL}/canary/automatic/${SERVICE}?project=${PROJECT}&region=${REGION}" || printf '\n000')

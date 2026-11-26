@@ -4,7 +4,7 @@
 #
 # Usage: composite-actions/financial-and-logistics/canary-jira-report/canary-jira-report.test.sh
 # Assertions are eval'd strings and each case runs in its own subshell on purpose.
-# shellcheck source-path=SCRIPTDIR disable=SC2016,SC2030,SC2031
+# shellcheck source-path=SCRIPTDIR disable=SC2016,SC2030,SC2031,SC2034
 set -uo pipefail
 
 SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/canary-jira-report.sh"
@@ -275,6 +275,32 @@ OUTPUT="$DRY_OUTPUT" CALLS='' EXIT_CODE=0 SLEEPS=0 PLATFORM_CALLS=0
 check 'dry run: no curl' '! grep -q "curl called" <<< "$OUTPUT"'
 check 'dry run: prints the comment' 'grep -qF "DRY RUN: POST /rest/api/2/issue/HII-1/comment" <<< "$OUTPUT"'
 check 'dry run: prints the label update' 'grep -qF "\"labels\":[{\"add\":\"AgentLive\"}]" <<< "$(tr -d " \n" <<< "$OUTPUT")"'
+
+# --- platform ID token ---
+
+STUB_DIR="$WORK_DIR/stub-bin"
+mkdir -p "$STUB_DIR"
+cat > "$STUB_DIR/gcloud" <<'STUB'
+#!/usr/bin/env bash
+echo "token-env=${CLOUDSDK_AUTH_ACCESS_TOKEN:-unset} args=$*" >> "$GCLOUD_LOG"
+case "$*" in
+  *--impersonate-service-account=ci-cd@p.iam.gserviceaccount.com*) echo minted-token ;;
+  *) echo "ERROR: Invalid account type for --audiences" >&2; exit 1 ;;
+esac
+STUB
+chmod +x "$STUB_DIR/gcloud"
+GCLOUD_LOG="$WORK_DIR/gcloud.log"
+: > "$GCLOUD_LOG"
+TOKEN=$(
+  export PATH="$STUB_DIR:$PATH" GCLOUD_LOG CLOUDSDK_AUTH_ACCESS_TOKEN=exported CLOUDSDK_CORE_ACCOUNT=ci-cd@p.iam.gserviceaccount.com
+  # shellcheck source=canary-jira-report.sh
+  source "$SCRIPT"
+  platform_token
+)
+OUTPUT="$(cat "$GCLOUD_LOG")" CALLS='' EXIT_CODE=0 SLEEPS=0 PLATFORM_CALLS=0
+check 'id token: impersonates under workload identity' '[ "$TOKEN" = minted-token ]'
+check 'id token: never passes the exported access token' '! grep -q "token-env=exported" <<< "$OUTPUT"'
+check 'id token: impersonates the active account' 'grep -qF -- "--impersonate-service-account=ci-cd@p.iam.gserviceaccount.com --include-email" <<< "$OUTPUT"'
 
 # --- comment text ---
 
