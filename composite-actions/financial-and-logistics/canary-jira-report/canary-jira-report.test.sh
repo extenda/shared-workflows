@@ -4,7 +4,7 @@
 #
 # Usage: composite-actions/financial-and-logistics/canary-jira-report/canary-jira-report.test.sh
 # Assertions are eval'd strings and each case runs in its own subshell on purpose.
-# shellcheck disable=SC2016,SC2030,SC2031
+# shellcheck source-path=SCRIPTDIR disable=SC2016,SC2030,SC2031
 set -uo pipefail
 
 SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/canary-jira-report.sh"
