@@ -251,8 +251,8 @@ headline() {
     rolled_back) echo "Canary rolled back: the platform found an ERROR log line on ${REVISION} and moved traffic back to the previous revision. A human decides whether the change is at fault (sidecar noise also triggers it)." ;;
     cancelled) echo "Canary cancelled: a manual traffic change or a newer deploy ended the canary of ${REVISION}. The change is not confirmed live." ;;
     superseded) echo "Canary superseded: a newer revision replaced the canary of ${REVISION} before it reached 100%. The change is not confirmed live." ;;
-    not_registered) echo "No canary was registered for ${REVISION} within ${REGISTER_GRACE_MINUTES} minutes (first deploy, or the registration failed). The change is not confirmed live." ;;
-    timeout) echo "No canary result for ${REVISION} after ${TIMEOUT_MINUTES} minutes. The change is not confirmed live." ;;
+    not_registered) echo "No canary was registered for ${REVISION} within ${REGISTER_GRACE_MINUTES} min (first deploy, or the registration failed). The change is not confirmed live." ;;
+    timeout) echo "No canary result for ${REVISION} after ${TIMEOUT_MINUTES} min. The change is not confirmed live." ;;
     unreadable) echo "The deploy job could not read the canary state of ${REVISION} from platform-api. The change is not confirmed live." ;;
   esac
 }
