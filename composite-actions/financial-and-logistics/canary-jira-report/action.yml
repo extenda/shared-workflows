@@ -1,0 +1,110 @@
+name: 'Canary Jira report'
+description: |
+  Waits for the platform's automatic canary of a deployed Cloud Run revision to end
+  (completed, rolled back, cancelled, superseded or timed out) and writes the result to the
+  Jira issue named by the deployed commit: a comment, plus AgentLive or AgentStuck.
+  Only issues that carry the agent label are touched.
+  Must run after actions/checkout and after gcloud is authenticated as the prod deploy
+  service account (its ID token with audience "platform" reads platform-api).
+
+inputs:
+  service:
+    description: Cloud Run service name
+    required: true
+  project:
+    description: GCP project ID of the service
+    required: true
+  region:
+    description: Cloud Run region
+    required: false
+    default: europe-west1
+  revision:
+    description: The revision this deploy created
+    required: true
+  canary-configured:
+    description: "'true' when cloud-deploy.yaml enables cloud-run.traffic.canary"
+    required: false
+    default: 'true'
+  deployed-at:
+    description: Epoch seconds at or after the deploy; a canary row of another revision that started later belongs to a newer deploy
+    required: false
+    default: '0'
+  release-tag:
+    description: Release tag of the deploy, for the comment
+    required: false
+    default: ''
+  issue-key:
+    description: Jira issue key; found from the PR branch, PR title or commit message when empty
+    required: false
+    default: ''
+  jira-project-key:
+    description: Jira project key the issue key must belong to
+    required: false
+    default: HII
+  agent-label:
+    description: Only issues with this label are reported on. Empty reports on every issue.
+    required: false
+    default: agent-smoke
+  timeout-minutes:
+    description: Minutes to wait for a terminal canary state
+    required: false
+    default: '240'
+  poll-seconds:
+    description: Seconds between canary reads
+    required: false
+    default: '120'
+  register-grace-minutes:
+    description: Minutes to wait for the canary of this revision to appear
+    required: false
+    default: '10'
+  dry-run:
+    description: "'true' logs the Jira writes instead of sending them"
+    required: false
+    default: 'false'
+  jira-username:
+    description: Jira user for basic auth
+    required: true
+  jira-password:
+    description: Jira API token for basic auth
+    required: true
+  github-token:
+    description: Token to read the PR of the commit; the commit message is the fallback
+    required: false
+    default: ${{ github.token }}
+
+outputs:
+  outcome:
+    description: "live, live_no_canary, rolled_back, cancelled, superseded, not_registered, timeout, unreadable or skipped"
+    value: ${{ steps.report.outputs.outcome }}
+  issue-key:
+    description: The Jira issue key that was resolved, or empty
+    value: ${{ steps.report.outputs.issue-key }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Canary Jira report
+      id: report
+      shell: bash
+      env:
+        SERVICE: ${{ inputs.service }}
+        PROJECT: ${{ inputs.project }}
+        REGION: ${{ inputs.region }}
+        REVISION: ${{ inputs.revision }}
+        CANARY_CONFIGURED: ${{ inputs.canary-configured }}
+        DEPLOYED_AT: ${{ inputs.deployed-at }}
+        RELEASE_TAG: ${{ inputs.release-tag }}
+        ISSUE_KEY: ${{ inputs.issue-key }}
+        JIRA_PROJECT_KEY: ${{ inputs.jira-project-key }}
+        AGENT_LABEL: ${{ inputs.agent-label }}
+        TIMEOUT_MINUTES: ${{ inputs.timeout-minutes }}
+        POLL_SECONDS: ${{ inputs.poll-seconds }}
+        REGISTER_GRACE_MINUTES: ${{ inputs.register-grace-minutes }}
+        DRY_RUN: ${{ inputs.dry-run }}
+        JIRA_USERNAME: ${{ inputs.jira-username }}
+        JIRA_PASSWORD: ${{ inputs.jira-password }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        COMMIT_SHA: ${{ github.sha }}
+        REPOSITORY: ${{ github.repository }}
+        RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      run: '"$GITHUB_ACTION_PATH/canary-jira-report.sh"'

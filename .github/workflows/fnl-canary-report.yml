@@ -1,0 +1,103 @@
+name: Canary report to Jira
+
+# Call from commit.yml as a job that needs the prod deploy:
+#
+#   canary-report:
+#     if: github.ref == 'refs/heads/master'
+#     needs: prod
+#     uses: extenda/shared-workflows/.github/workflows/fnl-canary-report.yml@master
+#     secrets:
+#       SECRET_AUTH: ${{ secrets.SECRET_AUTH }}
+#       GCLOUD_AUTH_PROD: ${{ secrets.GCLOUD_AUTH_PROD }}
+#
+# It waits for the platform's automatic canary of the revision that the prod deploy created
+# and writes the result to the Jira issue of the deployed commit: a comment, plus AgentLive
+# (completed) or AgentStuck (rolled back, cancelled, superseded, not registered, timed out).
+# Only issues with the agent label are touched. It never fails the calling workflow.
+
+on:
+  workflow_call:
+    secrets:
+      GCLOUD_AUTH_PROD:
+        required: true
+      SECRET_AUTH:
+        required: true
+    inputs:
+      jira-agent-label:
+        description: Label that marks agent-pipeline issues. Empty reports on every issue.
+        type: string
+        required: false
+        default: agent-smoke
+      timeout-minutes:
+        description: Minutes to wait for a terminal canary state (at most 280; the job stops at 300)
+        type: number
+        required: false
+        default: 240
+      dry-run:
+        description: Log the Jira writes instead of sending them
+        type: boolean
+        required: false
+        default: false
+
+jobs:
+  canary-report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    continue-on-error: true
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: extenda/actions/setup-gcloud@v0
+        id: gcloud
+        with:
+          service-account-key: ${{ secrets.GCLOUD_AUTH_PROD }}
+
+      - name: Read the deployed revision
+        id: deployed
+        shell: bash
+        run: |
+          SERVICE=$(yq '.cloud-run.service // ""' cloud-deploy.yaml)
+          if [ -z "$SERVICE" ]; then
+            echo "No Cloud Run service in cloud-deploy.yaml, no canary report"
+            exit 0
+          fi
+          # Same rule as extenda/actions cloud-deploy: canary is on when traffic.canary is true,
+          # or a map without enabled: false.
+          CANARY=$(yq '(.cloud-run.traffic.canary == true) or (((.cloud-run.traffic.canary | tag) == "!!map") and (.cloud-run.traffic.canary.enabled != false))' cloud-deploy.yaml)
+          REVISION=$(gcloud run services describe "$SERVICE" --project "$PROJECT" --region europe-west1 \
+            --format='value(status.latestCreatedRevisionName)')
+          echo "$SERVICE latest revision $REVISION (canary: $CANARY)"
+          {
+            echo "service=$SERVICE"
+            echo "revision=$REVISION"
+            echo "canary=$CANARY"
+            echo "read-at=$(date +%s)"
+          } >> "$GITHUB_OUTPUT"
+        env:
+          PROJECT: ${{ steps.gcloud.outputs.project-id }}
+
+      - name: Fetch Jira credentials
+        if: ${{ steps.deployed.outputs.revision != '' }}
+        uses: extenda/actions/gcp-secret-manager@v0
+        with:
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+          secrets: |
+            JIRA_USERNAME: jira-username
+            JIRA_PASSWORD: jira-password
+
+      - name: Report the canary result to Jira
+        if: ${{ steps.deployed.outputs.revision != '' }}
+        uses: extenda/shared-workflows/composite-actions/financial-and-logistics/canary-jira-report@master
+        with:
+          service: ${{ steps.deployed.outputs.service }}
+          project: ${{ steps.gcloud.outputs.project-id }}
+          revision: ${{ steps.deployed.outputs.revision }}
+          canary-configured: ${{ steps.deployed.outputs.canary }}
+          deployed-at: ${{ steps.deployed.outputs.read-at }}
+          agent-label: ${{ inputs.jira-agent-label }}
+          timeout-minutes: ${{ inputs.timeout-minutes }}
+          dry-run: ${{ inputs.dry-run }}
+          jira-username: ${{ env.JIRA_USERNAME }}
+          jira-password: ${{ env.JIRA_PASSWORD }}

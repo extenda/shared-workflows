@@ -1,0 +1,19 @@
+name: Canary Jira report tests
+
+on:
+  pull_request:
+    paths:
+      - 'composite-actions/financial-and-logistics/canary-jira-report/**'
+      - '.github/workflows/canary-jira-report-tests.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: ShellCheck
+        run: shellcheck -x composite-actions/financial-and-logistics/canary-jira-report/*.sh
+
+      - name: Run tests
+        run: composite-actions/financial-and-logistics/canary-jira-report/canary-jira-report.test.sh
