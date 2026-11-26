@@ -271,7 +271,7 @@ comment_text() {
     fi
   fi
   [ -n "${RUN_URL:-}" ] && text+="Deploy run: ${RUN_URL}"$'\n'
-  text+="Outcome: ${outcome} (written by the fnl-deploy-to-prod canary report)"
+  text+="Outcome: ${outcome} (written by the canary-jira-report job)"
   printf '%s' "$text"
 }
 
